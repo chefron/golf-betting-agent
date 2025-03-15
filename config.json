@@ -1,0 +1,31 @@
+{
+    "data_golf_api_key": "6e301f31eb610c59de6fa2e57009",
+    "betting": {
+      "initial_bankroll": 1000,
+      "kelly_fraction": 0.25,
+      "min_ev_percentage": 5.0,
+      "max_bets_per_week": 10,
+      "max_stake_per_bet": 50,
+      "default_stake": 10,
+      "target_tours": ["pga"],
+      "bet_types": ["outright"],
+      "outright_markets": ["win", "top_5", "top_10", "top_20"]
+    },
+    "twitter": {
+      "enabled": true,
+      "api_key": "YOUR_TWITTER_API_KEY",
+      "api_secret": "YOUR_TWITTER_API_SECRET",
+      "access_token": "YOUR_TWITTER_ACCESS_TOKEN",
+      "access_secret": "YOUR_TWITTER_ACCESS_SECRET",
+      "post_schedule": {
+        "tournament_preview": true,
+        "daily_picks": true,
+        "weekly_recap": true
+      }
+    },
+    "schedule": {
+      "update_frequency_hours": 12,
+      "bet_placement_day": "Tuesday",
+      "performance_update_day": "Monday"
+    }
+  }
