@@ -8,7 +8,6 @@ import schedule
 import time
 import logging
 from betting_tracker import GolfBettingTracker
-from twitter_automation import GolfBettingTwitterBot
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +67,7 @@ class GolfBettingAgent:
                     "target_tours": ["pga", "euro"],
                     "bet_types": ["outright", "matchup"],
                     "outright_markets": ["win", "top_5", "top_10", "top_20"],
+                    "matchup_markets": ["tournament_matchups", "round_matchups", "3_balls"],
                     "available_sportsbooks": ["draftkings", "fanduel", "betmgm", "caesars", "pointsbet"]
                 },
                 "twitter": {
@@ -132,7 +132,7 @@ class GolfBettingAgent:
             self._find_matchup_bets(tour)
 
     def _find_outright_bets(self, tour):
-        """Find value in outright betting markets"""
+        """Find value in outright betting markets using DataGolf's model odds from the betting endpoint"""
         logger.info(f"Finding outright bets for {tour} tour")
 
         # First, get current events to identify the event ID
@@ -157,33 +157,37 @@ class GolfBettingAgent:
         event_id = current_event['event_id']
         event_name = current_event['event_name']
 
-        # Get model predictions
-        model_preds = self.tracker.fetch_model_predictions(tour=tour)
-
-        if not model_preds or 'baseline_history_fit' not in model_preds:
-            logger.error(f"Failed to fetch model predictions for {tour}")
-            return
-        
-        # Get predictions from the baseline_history_fit model (which includes course history)
-        model_data = {player['player_name']: player for player in model_preds['baseline_history_fit']}
-
         # For each market we're interested in (win, top 5, etc.)
         for market in self.config['betting']['outright_markets']:
-            # Fetch current odds
+            # Fetch current odds (which includes the DataGolf model predictions)
             odds_data = self.tracker.fetch_betting_odds(tour=tour, market=market)
 
             if not odds_data or 'odds' not in odds_data:
                 logger.error(f"Failed to fetch odds for {tour} {market}")
                 continue
 
+            logger.info(f"Processing {market} market for {odds_data.get('event_name', event_name)}")
+
             # For each player in the odds
             for player_odds in odds_data['odds']:
                 player_name = player_odds['player_name']
                 player_id = player_odds['dg_id']
                 
-                # Skip players not in our model data
-                if player_name not in model_data:
+                # Get model odds directly from this response
+                if 'datagolf' not in player_odds or not player_odds['datagolf']:
                     continue
+                
+                # Prefer baseline_history_fit model if available
+                if player_odds['datagolf']['baseline_history_fit'] is not None:
+                    model_odds = player_odds['datagolf']['baseline_history_fit']
+                elif player_odds['datagolf']['baseline'] is not None:
+                    model_odds = player_odds['datagolf']['baseline']
+                else:
+                    # Skip if no model odds available
+                    continue
+                
+                # Convert decimal odds to probability
+                model_prob = 1 / model_odds
                 
                 # Find the best available odds across books the user has access to
                 best_odds = 0
@@ -200,52 +204,57 @@ class GolfBettingAgent:
                 if not best_book:
                     continue
 
-                # Get model probability for this market
-                model_prob = model_data[player_name].get(market, 0)
-                if not model_prob:
-                    continue
-
-                # Convert decimal probability to percentage
-                model_prob_pct = model_prob * 100
-                
                 # Calculate implied probability from odds
-                implied_prob = (1 / best_odds) * 100
+                implied_prob = 1 / best_odds
                 
                 # Calculate EV (Expected Value)
                 win_amount = best_odds - 1
-                ev_percentage = ((model_prob_pct/100 * win_amount) - ((1 - model_prob_pct/100) * 1)) * 100
+                ev_percentage = ((model_prob * win_amount) - ((1 - model_prob) * 1)) * 100
 
+                # Log high EV values for inspection
+                if ev_percentage > 50:
+                    logger.info(f"High EV detected for {player_name} {market}: {ev_percentage:.2f}%. Model prob: {model_prob:.4f} ({model_odds}), Book odds: {best_odds}")
+                    
                 # If EV exceeds our minimum threshold
                 min_ev = self.config['betting']['min_ev_percentage']
                 if ev_percentage > min_ev:
                     # Calculate Kelly stake
                     raw_kelly = self.tracker.calculate_kelly_criterion(
-                        model_prob_pct / 100, 
+                        model_prob,
                         best_odds,
                         self.config['betting']['kelly_fraction']
                     )
 
-                    # Calculate the actual stake amount based on Kelly, capped by maximum stake
-                    raw_kelly_amount = raw_kelly * self.bankroll
-                    stake = min(raw_kelly_amount, self.config['betting']['max_stake_per_bet'])
+                    # Calculate the stake in units, capped by maximum stake per bet
+                    raw_kelly_amount = raw_kelly * self.bankroll  # This is in dollars
+                    kelly_units = raw_kelly_amount / self.config['betting']['unit_size']  # Convert to units
+                    max_units = self.config['betting']['max_stake_per_bet'] / self.config['betting']['unit_size']
+                    units = min(kelly_units, max_units)  # Cap in units
+
+                    # Convert units back to dollars for weekly limit check and database
+                    stake = units * self.config['betting']['unit_size']
+
+                    # Skip bets that are too small (less than 0.1 units)
+                    if units < 0.1:
+                        continue
+
+                    logger.info(f"Kelly calculation for {player_name} {market}: raw_kelly={raw_kelly:.4f}, " +
+                    f"kelly_amount=${raw_kelly_amount:.2f}, kelly_units={kelly_units:.2f}")
 
                     # Add a check to ensure we don't exceed weekly wagering limit
                     if self.current_week_wagered + stake > self.config['betting']['max_weekly_wagering_amount']:
                         remaining = self.config['betting']['max_weekly_wagering_amount'] - self.current_week_wagered
-                        if remaining < 1.0:
+                        if remaining < self.config['betting']['unit_size'] * 0.1:  # Less than 0.1 units
                             logger.info("Weekly wagering limit reached, skipping bet")
                             continue
                         logger.info(f"Adjusting stake from ${stake:.2f} to ${remaining:.2f} to stay within weekly limit")
                         stake = remaining
+                        units = stake / self.config['betting']['unit_size']
 
-                    # Skip bets that are too small (less than $1)
-                    if stake < 1.0:
-                        continue
+                    logger.info(f"Final stake for {player_name} {market}: units={units:.2f}, stake=${stake:.2f}, " +
+                    f"max_units={max_units:.2f}, max_stake=${self.config['betting']['max_stake_per_bet']:.2f}")
 
-                    # Calculate wager in units for reporting purposes
-                    units = stake / self.config['betting']['unit_size']
-
-                    # Place the bet
+                    # Place the bet with units calculation already done
                     bet_id = self.tracker.record_bet(
                         event_id=event_id,
                         event_name=event_name,
@@ -254,12 +263,12 @@ class GolfBettingAgent:
                         player_id=player_id,
                         player_name=player_name,
                         odds=best_odds,
-                        stake=stake,
-                        model_probability=model_prob_pct / 100,
-                        notes=f"Book: {best_book}, Units: {units:.2f}, Kelly: {raw_kelly:.4f}"
+                        stake=stake,  # This is in dollars
+                        model_probability=model_prob,
+                        notes=f"Book: {best_book}, Units: {units:.2f}, Kelly: {raw_kelly:.4f}, Model odds: {model_odds}"
                     )
 
-                    logger.info(f"Placed {stake:.2f} unit bet on {player_name} to {market} at {best_odds} odds (EV: {ev_percentage:.2f}%)")
+                    logger.info(f"Placed {units:.2f} unit bet on {player_name} to {market} at {best_odds} odds (EV: {ev_percentage:.2f}%) with {best_book}")
 
                     # Post to Twitter if enabled
                     if self.twitter_bot and self.config['twitter']['enabled'] and self.config['twitter']['post_schedule']['daily_picks']:
@@ -269,7 +278,7 @@ class GolfBettingAgent:
                             'bet_type': 'outright',
                             'bet_market': market,
                             'odds': best_odds,
-                            'probability': model_prob_pct,
+                            'probability': model_prob * 100,  # Convert to percentage for display
                             'stake': stake
                         }
                         
@@ -314,216 +323,222 @@ class GolfBettingAgent:
         event_id = current_event['event_id']
         event_name = current_event['event_name']
         
-        # Fetch matchup odds
-        matchup_odds = self.tracker.fetch_matchup_odds(tour=tour, market="tournament_matchups")
+        # Define the matchup markets to check
+        matchup_markets = self.config['betting'].get('matchup_markets', ['tournament_matchups', 'round_matchups', '3_balls'])
         
-        if not matchup_odds or 'match_list' not in matchup_odds:
-            logger.error(f"Failed to fetch matchup odds for {tour}")
-            return
-        
-        # For each matchup
-        for matchup in matchup_odds['match_list']:
-            # Extract player info
-            p1_name = matchup['p1_player_name']
-            p1_id = matchup['p1_dg_id']
-            p2_name = matchup['p2_player_name']
-            p2_id = matchup['p2_dg_id']
+        # For each matchup market type
+        for market_type in matchup_markets:
+            logger.info(f"Checking {market_type} for {tour} tour")
             
-            # Get Data Golf's model probability
-            if 'datagolf' in matchup['odds']:
-                dg_p1_odds = matchup['odds']['datagolf'].get('p1', 0)
-                if dg_p1_odds > 0:
-                    dg_p1_prob = 1 / dg_p1_odds
-                else:
-                    continue
-            else:
+            # Fetch matchup odds for this market type
+            matchup_odds = self.tracker.fetch_matchup_odds(tour=tour, market=market_type)
+            
+            if not matchup_odds:
+                logger.error(f"Failed to fetch {market_type} odds for {tour}")
                 continue
             
-            # Find best odds for player 1 from sportsbooks the user has access to
-            best_p1_odds = 0
-            best_p1_book = None
+            # Check if there's a match_list in the response
+            if 'match_list' not in matchup_odds:
+                logger.error(f"No match_list in {market_type} response. Keys: {list(matchup_odds.keys())}")
+                continue
             
-            for book in matchup['odds']:
-                if (book != 'datagolf' and 
-                    book in self.config['betting']['available_sportsbooks'] and
-                    'p1' in matchup['odds'][book] and 
-                    matchup['odds'][book]['p1'] is not None and 
-                    matchup['odds'][book]['p1'] > 0):
-                    
-                    if matchup['odds'][book]['p1'] > best_p1_odds:
-                        best_p1_odds = matchup['odds'][book]['p1']
-                        best_p1_book = book
+            # Check if match_list is a string (message) rather than a list of matchups
+            if isinstance(matchup_odds['match_list'], str):
+                logger.info(f"No {market_type} available: {matchup_odds['match_list']}")
+                continue
             
-            # Calculate EV for player 1
-            if best_p1_book:
-                p1_implied_prob = 1 / best_p1_odds
-                
-                # Calculate EV for player 1
-                p1_win_amount = best_p1_odds - 1
-                p1_ev_percentage = ((dg_p1_prob * p1_win_amount) - ((1 - dg_p1_prob) * 1)) * 100
-                
-                min_ev = self.config['betting']['min_ev_percentage']
-                if p1_ev_percentage > min_ev:
-                    # Calculate Kelly stake
-                    raw_kelly = self.tracker.calculate_kelly_criterion(
-                        dg_p1_prob, 
-                        best_p1_odds,
-                        self.config['betting']['kelly_fraction']
-                    )
+            # If we have actual matchups, proceed with processing them
+            # Get any additional info from the response
+            round_num = matchup_odds.get('round_num', None)
+            
+            # For each matchup
+            for matchup in matchup_odds['match_list']:
+                try:
+                    # Check if this is a 3-ball or a 2-player matchup
+                    is_3ball = market_type == '3_balls' or 'p3_player_name' in matchup
                     
-                    # Calculate the actual stake amount based on Kelly, capped by maximum stake
-                    raw_kelly_amount = raw_kelly * self.bankroll
-                    stake = min(raw_kelly_amount, self.config['betting']['max_stake_per_bet'])
-
-                    # Add a check to ensure we don't exceed weekly wagering limit
-                    if self.current_week_wagered + stake > self.config['betting']['max_weekly_wagering_amount']:
-                        remaining = self.config['betting']['max_weekly_wagering_amount'] - self.current_week_wagered
-                        if remaining < 1.0:
-                            logger.info("Weekly wagering limit reached, skipping bet")
+                    # Extract player info
+                    p1_name = matchup['p1_player_name']
+                    p1_id = matchup['p1_dg_id']
+                    p2_name = matchup['p2_player_name']
+                    p2_id = matchup['p2_dg_id']
+                    
+                    # For 3-balls, also get player 3 info
+                    p3_name = matchup.get('p3_player_name', None) if is_3ball else None
+                    p3_id = matchup.get('p3_dg_id', None) if is_3ball else None
+                    
+                    # Get Data Golf's model odds
+                    if 'odds' in matchup and 'datagolf' in matchup['odds']:
+                        dg_odds = matchup['odds']['datagolf']
+                        dg_p1_odds = dg_odds.get('p1')
+                        
+                        # Skip if no model odds available
+                        if not dg_p1_odds or dg_p1_odds <= 0:
                             continue
-                        logger.info(f"Adjusting stake from ${stake:.2f} to ${remaining:.2f} to stay within weekly limit")
-                        stake = remaining
-                    
-                    # Skip bets that are too small (less than $1)
-                    if stake < 1.0:
+                        
+                        # Convert odds to probability
+                        dg_p1_prob = 1 / dg_p1_odds
+                        
+                        # For 3-balls, calculate probabilities differently
+                        if is_3ball:
+                            dg_p2_odds = dg_odds.get('p2')
+                            dg_p3_odds = dg_odds.get('p3')
+                            
+                            # Skip if missing odds for any player
+                            if not dg_p2_odds or not dg_p3_odds or dg_p2_odds <= 0 or dg_p3_odds <= 0:
+                                continue
+                                
+                            # Convert to probabilities
+                            dg_p2_prob = 1 / dg_p2_odds
+                            dg_p3_prob = 1 / dg_p3_odds
+                            
+                            # Normalize probabilities to sum to 1
+                            total_prob = dg_p1_prob + dg_p2_prob + dg_p3_prob
+                            dg_p1_prob = dg_p1_prob / total_prob
+                            dg_p2_prob = dg_p2_prob / total_prob
+                            dg_p3_prob = dg_p3_prob / total_prob
+                        else:
+                            # For 2-player matchups
+                            dg_p2_prob = 1 - dg_p1_prob
+                    else:
                         continue
                     
-                    # Calculate units for reporting
-                    units = stake / self.config['betting']['unit_size']
+                    # Process each player in the matchup
+                    players_info = [
+                        {'id': p1_id, 'name': p1_name, 'prob': dg_p1_prob, 'opponent_id': p2_id, 'opponent_name': p2_name},
+                        {'id': p2_id, 'name': p2_name, 'prob': dg_p2_prob, 'opponent_id': p1_id, 'opponent_name': p1_name}
+                    ]
                     
-                    # Place the bet
-                    bet_id = self.tracker.record_bet(
-                        event_id=event_id,
-                        event_name=event_name,
-                        bet_type='matchup',
-                        bet_market='tournament_matchups',  # Plural to match the API
-                        player_id=p1_id,
-                        player_name=p1_name,
-                        opponent_id=p2_id,
-                        opponent_name=p2_name,
-                        odds=best_p1_odds,
-                        stake=stake,
-                        model_probability=dg_p1_prob,
-                        notes=f"Book: {best_p1_book}, Kelly: {raw_kelly:.4f}, Units: {units:.2f}"
-                    )
+                    # Add player 3 for 3-balls
+                    if is_3ball and p3_name and p3_id:
+                        players_info.append({'id': p3_id, 'name': p3_name, 'prob': dg_p3_prob, 'opponent_id': None, 'opponent_name': f"{p1_name} & {p2_name}"})
                     
-                    logger.info(f"Placed {stake:.2f} unit bet on {p1_name} over {p2_name} at {best_p1_odds} odds (EV: {p1_ev_percentage:.2f}%)")
-                    
-                    # Post to Twitter if enabled
-                    if self.twitter_bot and self.config['twitter']['enabled'] and self.config['twitter']['post_schedule']['daily_picks']:
-                        bet_data = {
-                            'event_name': event_name,
-                            'player_name': p1_name,
-                            'opponent_name': p2_name,
-                            'bet_type': 'matchup',
-                            'odds': best_p1_odds,
-                            'probability': dg_p1_prob * 100,
-                            'stake': stake
-                        }
+                    # Process each player in the matchup
+                    for player in players_info:
+                        # Find best odds for this player from available sportsbooks
+                        best_odds = 0
+                        best_book = None
                         
-                        try:
-                            tweet_text = self.twitter_bot.post_matchup_bet(bet_data)
-                            self.tracker.mark_bet_as_posted(bet_id)
-                            logger.info(f"Posted matchup bet {bet_id} to Twitter")
-                        except Exception as e:
-                            logger.error(f"Failed to post to Twitter: {e}")
-                    
-                    # After placing the bet, increment the wager amount
-                    self.current_week_wagered += stake
-                    
-                    # Check if we've hit our weekly limit
-                    if self.current_week_wagered >= self.config['betting']['max_weekly_wagering_amount']:
-                        logger.info(f"Weekly wagering limit of ${self.config['betting']['max_weekly_wagering_amount']:.2f} reached")
-                        return
-            
-            # Find best odds for player 2 from sportsbooks the user has access to
-            best_p2_odds = 0
-            best_p2_book = None
-            
-            for book in matchup['odds']:
-                if (book != 'datagolf' and 
-                    book in self.config['betting']['available_sportsbooks'] and
-                    'p2' in matchup['odds'][book] and 
-                    matchup['odds'][book]['p2'] is not None and 
-                    matchup['odds'][book]['p2'] > 0):
-                    
-                    if matchup['odds'][book]['p2'] > best_p2_odds:
-                        best_p2_odds = matchup['odds'][book]['p2']
-                        best_p2_book = book
-            
-            # Calculate EV for player 2
-            if best_p2_book:
-                dg_p2_prob = 1 - dg_p1_prob  # Probability for player 2
-                p2_implied_prob = 1 / best_p2_odds
-                
-                # Calculate EV for player 2
-                p2_win_amount = best_p2_odds - 1
-                p2_ev_percentage = ((dg_p2_prob * p2_win_amount) - ((1 - dg_p2_prob) * 1)) * 100
-                
-                min_ev = self.config['betting']['min_ev_percentage']
-                if p2_ev_percentage > min_ev:
-                    # Calculate Kelly stake
-                    raw_kelly = self.tracker.calculate_kelly_criterion(
-                        dg_p2_prob, 
-                        best_p2_odds,
-                        self.config['betting']['kelly_fraction']
-                    )
-                    
-                    # Calculate the actual stake amount based on Kelly, capped by maximum stake
-                    raw_kelly_amount = raw_kelly * self.bankroll
-                    stake = min(raw_kelly_amount, self.config['betting']['max_stake_per_bet'])
-                    
-                    # Skip bets that are too small (less than $1)
-                    if stake < 1.0:
-                        continue
-                    
-                    # Calculate units for reporting
-                    units = stake / self.config['betting']['unit_size']
-                    
-                    # Place the bet
-                    bet_id = self.tracker.record_bet(
-                        event_id=event_id,
-                        event_name=event_name,
-                        bet_type='matchup',
-                        bet_market='tournament_matchups',  # Plural to match the API
-                        player_id=p2_id,
-                        player_name=p2_name,
-                        opponent_id=p1_id,
-                        opponent_name=p1_name,
-                        odds=best_p2_odds,
-                        stake=stake,
-                        model_probability=dg_p2_prob,
-                        notes=f"Book: {best_p2_book}, Kelly: {raw_kelly:.4f}, Units: {units:.2f}"
-                    )
-                    
-                    logger.info(f"Placed {stake:.2f} unit bet on {p2_name} over {p1_name} at {best_p2_odds} odds (EV: {p2_ev_percentage:.2f}%)")
-                    
-                    # Post to Twitter if enabled
-                    if self.twitter_bot and self.config['twitter']['enabled'] and self.config['twitter']['post_schedule']['daily_picks']:
-                        bet_data = {
-                            'event_name': event_name,
-                            'player_name': p2_name,
-                            'opponent_name': p1_name,
-                            'bet_type': 'matchup',
-                            'odds': best_p2_odds,
-                            'probability': dg_p2_prob * 100,
-                            'stake': stake
-                        }
+                        # Player index (p1, p2, p3)
+                        player_idx = f"p{players_info.index(player) + 1}"
                         
-                        try:
-                            tweet_text = self.twitter_bot.post_matchup_bet(bet_data)
-                            self.tracker.mark_bet_as_posted(bet_id)
-                            logger.info(f"Posted matchup bet {bet_id} to Twitter")
-                        except Exception as e:
-                            logger.error(f"Failed to post to Twitter: {e}")
-                    
-                    # After placing the bet, increment the wager amount
-                    self.current_week_wagered += stake
-                    
-                    # Check if we've hit our weekly limit
-                    if self.current_week_wagered >= self.config['betting']['max_weekly_wagering_amount']:
-                        logger.info("Weekly bet limit reached")
-                        return
+                        for book in matchup['odds']:
+                            if (book != 'datagolf' and 
+                                book in self.config['betting']['available_sportsbooks'] and
+                                player_idx in matchup['odds'][book] and 
+                                matchup['odds'][book][player_idx] is not None and 
+                                matchup['odds'][book][player_idx] > 0):
+                                
+                                if matchup['odds'][book][player_idx] > best_odds:
+                                    best_odds = matchup['odds'][book][player_idx]
+                                    best_book = book
+                        
+                        # Calculate EV if we found odds
+                        if best_book and best_odds > 0:
+                            implied_prob = 1 / best_odds
+                            
+                            # Calculate EV
+                            win_amount = best_odds - 1
+                            ev_percentage = ((player['prob'] * win_amount) - ((1 - player['prob']) * 1)) * 100
+                            
+                            # Check if EV exceeds our threshold
+                            min_ev = self.config['betting']['min_ev_percentage']
+                            if ev_percentage > min_ev:
+                                # Calculate Kelly stake
+                                raw_kelly = self.tracker.calculate_kelly_criterion(
+                                    player['prob'], 
+                                    best_odds,
+                                    self.config['betting']['kelly_fraction']
+                                )
+                                
+                                # Calculate the stake in units, capped by maximum stake per bet
+                                raw_kelly_amount = raw_kelly * self.bankroll  # This is in dollars
+                                kelly_units = raw_kelly_amount / self.config['betting']['unit_size']  # Convert to units
+                                max_units = self.config['betting']['max_stake_per_bet'] / self.config['betting']['unit_size']
+                                units = min(kelly_units, max_units)  # Cap in units
+
+                                # Convert units back to dollars for weekly limit check and database
+                                stake = units * self.config['betting']['unit_size']
+
+                                # Log Kelly calculation details
+                                logger.info(f"Kelly calculation for {player['name']} in {market_type}: raw_kelly={raw_kelly:.4f}, kelly_amount=${raw_kelly_amount:.2f}, kelly_units={kelly_units:.2f}")
+                                logger.info(f"Final stake for {player['name']} in {market_type}: units={units:.2f}, stake=${stake:.2f}, max_units={max_units:.2f}, max_stake=${self.config['betting']['max_stake_per_bet']:.2f}")
+
+                                # Skip bets that are too small (less than 0.1 units)
+                                if units < 0.1:
+                                    continue
+                                
+                                # Add a check to ensure we don't exceed weekly wagering limit
+                                if self.current_week_wagered + stake > self.config['betting']['max_weekly_wagering_amount']:
+                                    remaining = self.config['betting']['max_weekly_wagering_amount'] - self.current_week_wagered
+                                    if remaining < self.config['betting']['unit_size'] * 0.1:  # Less than 0.1 units
+                                        logger.info("Weekly wagering limit reached, skipping bet")
+                                        continue
+                                    logger.info(f"Adjusting stake from ${stake:.2f} to ${remaining:.2f} to stay within weekly limit")
+                                    stake = remaining
+                                    units = stake / self.config['betting']['unit_size']
+                                
+                                # Format bet details for logging and notes
+                                if is_3ball:
+                                    bet_desc = f"{player['name']} to win 3-ball"
+                                    if round_num:
+                                        bet_desc += f" (Round {round_num})"
+                                else:
+                                    bet_desc = f"{player['name']} over {player['opponent_name']}"
+                                    if market_type == 'round_matchups' and round_num:
+                                        bet_desc += f" (Round {round_num})"
+                                
+                                # Place the bet
+                                bet_id = self.tracker.record_bet(
+                                    event_id=event_id,
+                                    event_name=event_name,
+                                    bet_type='matchup' if not is_3ball else '3ball',
+                                    bet_market=market_type,
+                                    player_id=player['id'],
+                                    player_name=player['name'],
+                                    opponent_id=player['opponent_id'],
+                                    opponent_name=player['opponent_name'],
+                                    odds=best_odds,
+                                    stake=stake,
+                                    model_probability=player['prob'],
+                                    notes=f"Book: {best_book}, Units: {units:.2f}, Kelly: {raw_kelly:.4f}, Market: {market_type}"
+                                )
+                                
+                                logger.info(f"Placed {units:.2f} unit bet on {bet_desc} at {best_odds} odds (EV: {ev_percentage:.2f}%) with {best_book}")
+                                
+                                # Post to Twitter if enabled
+                                if self.twitter_bot and self.config['twitter']['enabled'] and self.config['twitter']['post_schedule']['daily_picks']:
+                                    bet_data = {
+                                        'event_name': event_name,
+                                        'player_name': player['name'],
+                                        'opponent_name': player['opponent_name'],
+                                        'bet_type': 'matchup' if not is_3ball else '3ball',
+                                        'market_type': market_type,
+                                        'round': round_num,
+                                        'odds': best_odds,
+                                        'probability': player['prob'] * 100,  # Convert to percentage for display
+                                        'stake': stake
+                                    }
+                                    
+                                    try:
+                                        tweet_text = self.twitter_bot.post_matchup_bet(bet_data)
+                                        self.tracker.mark_bet_as_posted(bet_id)
+                                        logger.info(f"Posted matchup bet {bet_id} to Twitter")
+                                    except Exception as e:
+                                        logger.error(f"Failed to post to Twitter: {e}")
+                                
+                                # Update wagered amount
+                                self.current_week_wagered += stake
+                                
+                                # Check weekly limit
+                                if self.current_week_wagered >= self.config['betting']['max_weekly_wagering_amount']:
+                                    logger.info(f"Weekly wagering limit of ${self.config['betting']['max_weekly_wagering_amount']:.2f} reached")
+                                    return
+                        
+                except Exception as e:
+                    logger.error(f"Error processing matchup in {market_type}: {e}")
+                    logger.debug(f"Problematic matchup data: {matchup}")
+                    continue
 
     def _post_performance_update(self):
         """Post performance update to Twitter"""
