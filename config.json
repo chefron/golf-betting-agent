@@ -3,13 +3,14 @@
     "betting": {
       "initial_bankroll": 1000,
       "kelly_fraction": 0.25,
-      "min_ev_percentage": 5.0,
-      "max_bets_per_week": 10,
+      "min_ev_percentage": 7.0,
+      "max_weekly_wagering_amount": 250,
       "max_stake_per_bet": 50,
-      "default_stake": 10,
+      "unit_size": 10,
       "target_tours": ["pga"],
       "bet_types": ["outright"],
-      "outright_markets": ["win", "top_5", "top_10", "top_20"]
+      "outright_markets": ["win", "top_5", "top_10", "top_20"],
+      "available_sportsbooks": ["draftkings", "fanduel", "betmgm", "caesars", "pointsbet"]
     },
     "twitter": {
       "enabled": true,
@@ -24,8 +25,7 @@
       }
     },
     "schedule": {
-      "update_frequency_hours": 12,
-      "bet_placement_day": "Tuesday",
+      "update_frequency_hours": 1,
       "performance_update_day": "Monday"
     }
   }
