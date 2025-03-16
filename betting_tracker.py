@@ -39,6 +39,7 @@ class GolfBettingTracker:
             model_probability REAL,  -- Our model's probability
             book_implied_probability REAL,  -- Book's implied probability
             expected_value REAL,  -- EV of the bet (in percentage)
+            round_num INTEGER,  -- Round number for round-specific bets
             notes TEXT,
             posted_to_twitter INTEGER DEFAULT 0  -- 0=no, 1=yes
         )
@@ -115,7 +116,7 @@ class GolfBettingTracker:
             return None
     
     def fetch_model_predictions(self, tour="pga", odds_format="decimal"):
-        """Fetch Data Golf's pre-tournament model predictions.
+        """Fetch Data Golf's pre-tournament model predictions -- not currently in use but keeping for future development.
         
         Retrieves probabilistic forecasts for the upcoming tournament from Data Golf's
         statistical models. These are the core predictions that are compared against
@@ -158,8 +159,8 @@ class GolfBettingTracker:
         return kelly * fraction
     
     def record_bet(self, event_id, event_name, bet_type, bet_market, player_id, 
-                 player_name, odds, stake, model_probability, opponent_id=None, 
-                 opponent_name=None, notes=None):
+                player_name, odds, stake, model_probability, opponent_id=None, 
+                opponent_name=None, round_num=None, notes=None):
         """Record a new bet in the database"""
         potential_return = stake * odds
         
@@ -176,13 +177,13 @@ class GolfBettingTracker:
             event_id, event_name, bet_type, bet_market, player_id, player_name,
             opponent_id, opponent_name, odds, stake, potential_return, 
             placed_date, outcome, model_probability, 
-            book_implied_probability, expected_value, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            book_implied_probability, expected_value, round_num, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             event_id, event_name, bet_type, bet_market, player_id, player_name,
             opponent_id, opponent_name, odds, stake, potential_return,
             datetime.now(), 'pending', model_probability,
-            book_implied_probability, expected_value, notes
+            book_implied_probability, expected_value, round_num, notes
         ))
         
         self.db_conn.commit()
@@ -236,6 +237,57 @@ class GolfBettingTracker:
         cursor = self.db_conn.cursor()
         cursor.execute("SELECT * FROM bets WHERE outcome = 'pending'")
         return cursor.fetchall()
+    
+    def has_existing_bet(self, event_id, bet_type, bet_market, player_id, opponent_id=None, round_num=None, odds_threshold=0.1):
+        """
+        Check if a similar bet already exists and is still pending
+        
+        Args:
+            event_id: The event ID
+            bet_type: Type of bet (outright, matchup, 3ball)
+            bet_market: Market (win, top_5, tournament_matchups, etc.)
+            player_id: ID of the player
+            opponent_id: ID of the opponent (for matchups)
+            round_num: Round number for round-specific bets
+            odds_threshold: How close the odds need to be to consider it a duplicate (default 10%)
+            
+        Returns:
+            Tuple (exists, existing_bet) where exists is a boolean and existing_bet is the bet data if found
+        """
+        cursor = self.db_conn.cursor()
+        
+        # Base query
+        query = '''
+        SELECT * FROM bets 
+        WHERE event_id = ? 
+        AND bet_type = ? 
+        AND bet_market = ? 
+        AND player_id = ?
+        AND outcome = 'pending'
+        '''
+        params = [event_id, bet_type, bet_market, player_id]
+        
+        # For matchups, also check the opponent
+        if bet_type in ['matchup', '3ball'] and opponent_id is not None:
+            query += ' AND opponent_id = ?'
+            params.append(opponent_id)
+        
+        # For round-specific bets, check the round number in notes
+        if round_num is not None:
+            query += " AND round_num = ?"
+            params.append(round_num)
+        
+        # Execute the query
+        cursor.execute(query, tuple(params))
+        
+        existing_bets = cursor.fetchall()
+        
+        # If no existing bets found, return False
+        if not existing_bets:
+            return False, None
+        
+        # Return the first matching bet
+        return True, existing_bets[0]
     
     def update_performance_metrics(self, current_bankroll):
         """Update performance metrics table with current stats"""

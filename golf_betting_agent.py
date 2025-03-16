@@ -251,6 +251,19 @@ class GolfBettingAgent:
                         stake = remaining
                         units = stake / self.config['betting']['unit_size']
 
+                    # Check if a similar bet already exists
+                    exists, existing_bet = self.tracker.has_existing_bet(
+                        event_id=event_id,
+                        bet_type='outright',
+                        bet_market=market,
+                        player_id=player_id,
+                        round_num=None  # No round for outright bets
+                    )
+                    
+                    if exists:
+                        logger.info(f"Similar bet already exists for {player_name} to {market} - skipping")
+                        continue
+
                     logger.info(f"Final stake for {player_name} {market}: units={units:.2f}, stake=${stake:.2f}, " +
                     f"max_units={max_units:.2f}, max_stake=${self.config['betting']['max_stake_per_bet']:.2f}")
 
@@ -265,6 +278,7 @@ class GolfBettingAgent:
                         odds=best_odds,
                         stake=stake,  # This is in dollars
                         model_probability=model_prob,
+                        round_num=None,
                         notes=f"Book: {best_book}, Units: {units:.2f}, Kelly: {raw_kelly:.4f}, Model odds: {model_odds}"
                     )
 
@@ -477,6 +491,20 @@ class GolfBettingAgent:
                                     logger.info(f"Adjusting stake from ${stake:.2f} to ${remaining:.2f} to stay within weekly limit")
                                     stake = remaining
                                     units = stake / self.config['betting']['unit_size']
+
+                                # Check if a similar bet already exists
+                                exists, existing_bet = self.tracker.has_existing_bet(
+                                    event_id=event_id,
+                                    bet_type='matchup' if not is_3ball else '3ball',
+                                    bet_market=market_type,
+                                    player_id=player['id'],
+                                    opponent_id=player['opponent_id'],
+                                    round_num=round_num
+                                )
+                                
+                                if exists:
+                                    logger.info(f"Similar bet already exists for {player['name']} vs {player['opponent_name']} - skipping")
+                                    continue
                                 
                                 # Format bet details for logging and notes
                                 if is_3ball:
@@ -501,6 +529,7 @@ class GolfBettingAgent:
                                     odds=best_odds,
                                     stake=stake,
                                     model_probability=player['prob'],
+                                    round_num=round_num,
                                     notes=f"Book: {best_book}, Units: {units:.2f}, Kelly: {raw_kelly:.4f}, Market: {market_type}"
                                 )
                                 
