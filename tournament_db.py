@@ -84,12 +84,12 @@ def format_player_to_text(player_data, markets=["win", "top_5", "top_10", "top_2
             
             text += f"  - {' | '.join(books_text)}\n"
     
-    # Add insights ONLY if they exist and aren't empty
-    insights = player_data.get('insights', '')
-    if insights and insights.strip():  # Check if insights is not empty or just whitespace
-        text += f"- **Insights**: {insights}\n"
+    # Add insights and unescape any escaped quote characters
+    insights_text = player_data.get('insights', '[None recorded yet]')
+    # Unescape escaped characters
+    insights_text = insights_text.replace('\\"', '"').replace("\\'", "'")
     
-    text += "\n"  # Add blank line at the end regardless
+    text += f"- **Insights**: {insights_text}\n\n"
     
     return text
 
