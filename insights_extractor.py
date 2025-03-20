@@ -104,7 +104,6 @@ def parse_claude_response(response):
 def match_player_name(input_name, database_players):
     """
     Match player names from Claude's response to database names.
-    Uses a conservative approach to avoid false positives.
     
     Args:
         input_name: The player name from Claude's insights (e.g., "TOMMY FLEETWOOD")
@@ -144,17 +143,13 @@ def match_player_name(input_name, database_players):
     # Handle common variations and abbreviations with high confidence
     special_cases = {
         "JT POSTON": "Poston, J.T.",
-        "J.T. POSTON": "Poston, J.T.",
         "NICOLAI HØJGAARD": "Hojgaard, Nicolai",
-        "NICOLAI HOJGAARD": "Hojgaard, Nicolai",
         "NIKOLAI HØJGAARD": "Hojgaard, Nicolai",
         "NIKOLAI HOJGAARD": "Hojgaard, Nicolai",
         "RASMUS HØJGAARD": "Hojgaard, Rasmus",
-        "RASMUS HOJGAARD": "Hojgaard, Rasmus",
         "AILANO GRILLO": "Grillo, Emiliano",
         "AILANO GRIO": "Grillo, Emiliano",
         "EMILIANO GRIO": "Grillo, Emiliano",
-        "EMILIANO GRILLO": "Grillo, Emiliano",
         "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
     }
     

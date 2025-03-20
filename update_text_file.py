@@ -1,11 +1,9 @@
-import os
 import json
 import argparse
-from tournament_db import format_player_to_text
 
 def update_text_from_json(json_file, insights_only=True):
     """
-    Create/update text file based on JSON data, using the function from tournament_db.py
+    Create/update text file based on lightweight JSON database
     
     Args:
         json_file (str): Path to the JSON file
@@ -20,29 +18,29 @@ def update_text_from_json(json_file, insights_only=True):
     db_text += f"LAST UPDATED: {data['tournament']['last_updated']}\n\n"
     db_text += "PLAYERS:\n\n"
     
-    # Sort players by win probability
-    sorted_players = []
+    # Collect players, filtering for those with insights if requested
+    players_to_include = []
     for pid, player_data in data["players"].items():
         # Skip players without insights if insights_only is True
         if insights_only and (not player_data.get("insights") or player_data.get("insights").strip() == ""):
             continue
-            
-        win_prob = 0
-        if "win" in player_data["markets"]:
-            win_prob = player_data["markets"]["win"]["dg_probability"]
-        sorted_players.append((pid, player_data, win_prob))
+        
+        players_to_include.append((pid, player_data))
     
     # If we're filtering for insights only, mention how many players were included vs total
     if insights_only:
         total_players = len(data["players"])
-        insights_players = len(sorted_players)
+        insights_players = len(players_to_include)
         db_text += f"[Showing {insights_players} players with insights out of {total_players} total players]\n\n"
     
-    sorted_players.sort(key=lambda x: x[2], reverse=True)
-    
-    # Add player data using the formatting function
-    for pid, player_data, _ in sorted_players:
-        db_text += format_player_to_text(player_data)
+    # Add each player's information
+    for pid, player_data in players_to_include:
+        # Add player name
+        db_text += f"**{player_data['name']}**\n"
+        
+        # Add insights
+        insights_text = player_data.get('insights', '[None recorded yet]')
+        db_text += f"- **Insights**: {insights_text}\n\n"
     
     # Save to text file
     text_file = json_file.replace('.json', '.txt')
@@ -57,7 +55,7 @@ def update_text_from_json(json_file, insights_only=True):
     return text_file
 
 def main():
-    parser = argparse.ArgumentParser(description="Update text file from JSON database")
+    parser = argparse.ArgumentParser(description="Update text file from lightweight JSON database")
     parser.add_argument("--json_file", required=True, help="Path to tournament JSON file")
     parser.add_argument("--all_players", action="store_true", help="Include all players, not just those with insights")
     
