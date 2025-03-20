@@ -151,9 +151,11 @@ def match_player_name(input_name, database_players):
         "NIKOLAI HOJGAARD": "Hojgaard, Nicolai",
         "RASMUS HØJGAARD": "Hojgaard, Rasmus",
         "RASMUS HOJGAARD": "Hojgaard, Rasmus",
-        "ALEX NOREN": "Noren, Alex",
         "AILANO GRILLO": "Grillo, Emiliano",
+        "AILANO GRIO": "Grillo, Emiliano",
+        "EMILIANO GRIO": "Grillo, Emiliano",
         "EMILIANO GRILLO": "Grillo, Emiliano",
+        "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
     }
     
     if clean_name.upper() in special_cases:
@@ -167,15 +169,50 @@ def match_player_name(input_name, database_players):
     print(f"No match found for: '{clean_name}'")
     return None
 
+def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
+    """
+    Save unmatched player insights to a separate file in the 'insights' directory,
+    using the transcript filename to make the output filename unique.
+    """
+    if not unmatched_insights:
+        return None
+    
+    # Create insights directory if it doesn't exist
+    os.makedirs("insights", exist_ok=True)
+    
+    # Get the transcript filename without path and extension
+    transcript_filename = os.path.splitext(os.path.basename(transcript_path))[0]
+    
+    # Create a clean event name (lowercase, underscores)
+    clean_event_name = event_name.lower().replace(' ', '_').replace("'", "").replace('"', '')
+    
+    # Create filename with event name, transcript filename, and date
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"insights/unmatched_{clean_event_name}_{transcript_filename}_{date_str}.json"
+    
+    # Prepare output data structure with metadata
+    output_data = {
+        "event_name": event_name,
+        "transcript_file": transcript_path,
+        "date_processed": date_str,
+        "unmatched_insights": unmatched_insights
+    }
+    
+    # Save insights to JSON file
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2)
+    
+    return filename
+
 def update_json_with_insights(insights, json_file):
     """Update the tournament JSON file with player insights using enhanced name matching"""
     # Load existing JSON data
     with open(json_file, 'r', encoding='utf-8') as f:
         tournament_data = json.load(f)
     
-    # Track which players were updated
+    # Track which players were updated and which weren't found
     updated_players = []
-    not_found_players = []
+    unmatched_insights = []
     
     # For each insight, find the matching player and update
     for insight_item in insights:
@@ -198,7 +235,11 @@ def update_json_with_insights(insights, json_file):
             
             updated_players.append(player_data["name"])
         else:
-            not_found_players.append(player_name)
+            # Add to unmatched insights
+            unmatched_insights.append({
+                "player_name": player_name,
+                "insight": insight_text
+            })
     
     # Save updated JSON
     with open(json_file, 'w', encoding='utf-8') as f:
@@ -206,7 +247,7 @@ def update_json_with_insights(insights, json_file):
     
     return {
         "updated": updated_players,
-        "not_found": not_found_players
+        "unmatched_insights": unmatched_insights
     }
 
 def main():
@@ -237,13 +278,21 @@ def main():
     
     # Save raw response if requested
     if args.output:
-        with open(args.output, 'w', encoding='utf-8') as f:
+        # Create insights directory if it doesn't exist
+        os.makedirs("insights", exist_ok=True)
+        
+        # If args.output doesn't include a directory path, save it to the insights directory
+        output_path = args.output
+        if not os.path.dirname(output_path):
+            output_path = os.path.join("insights", output_path)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
             # Ensure we're writing a string, not a list or other object
             if isinstance(claude_response, list):
                 f.write("\n".join([str(item) for item in claude_response]))
             else:
                 f.write(str(claude_response))
-        print(f"Raw Claude response saved to {args.output}")
+        print(f"Raw Claude response saved to {output_path}")
     
     # Parse response
     insights = parse_claude_response(claude_response)
@@ -261,8 +310,15 @@ def main():
         results = update_json_with_insights(insights, args.json_file)
         print(f"Updated {len(results['updated'])} players in {args.json_file}")
         
-        if results['not_found']:
-            print(f"Warning: {len(results['not_found'])} players not found in database: {', '.join(results['not_found'])}")
+        # Save unmatched insights to a separate file
+        unmatched_insights = results.get("unmatched_insights", [])
+        if unmatched_insights:
+            unmatched_file = save_unmatched_insights(unmatched_insights, args.event_name, args.transcript)
+            print(f"Warning: {len(unmatched_insights)} players not found in database.")
+            print(f"Unmatched insights saved to: {unmatched_file}")
+            
+            # Print the list of unmatched player names
+            print("Unmatched players: " + ", ".join([item["player_name"] for item in unmatched_insights]))
             
         # Update the text file based on the updated JSON
         text_file = update_text_from_json(args.json_file)

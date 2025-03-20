@@ -11,3 +11,4 @@ __pycache__/
 .txt
 /data
 /transcripts
+.lock
