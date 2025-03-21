@@ -6,10 +6,15 @@ based on insights from the tournament data.
 """
 
 import os
+import sys  # Add this import if it's not already there
+
+# Add this line to append the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import json
 import random
 import logging
-from typing import List, Optional, Dict
+from typing import List, Dict
 import anthropic
 from dotenv import load_dotenv
 
@@ -29,27 +34,21 @@ load_dotenv()
 class TweetGenerator:
     """Generates tweets in the Fat Phil persona based on golf insights"""
     
-    def __init__(self, anthropic_api_key: Optional[str] = None, datagolf_api_key: Optional[str] = None, debug: bool = False):
+    def __init__(self):
         """
         Initialize the tweet generator.
-        
-        Args:
-            anthropic_api_key: Optional API key for Anthropic (defaults to env var)
-            datagolf_api_key: Optional API key for DataGolf (defaults to env var)
-            debug: If True, enable additional debugging output
         """
-        # Use provided API key or get from environment
-        self.api_key = anthropic_api_key or os.getenv('ANTHROPIC_API_KEY')
+        # Get API key from environment
+        self.api_key = os.getenv('ANTHROPIC_API_KEY')
         if not self.api_key:
-            raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or pass to constructor.")
+            raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable.")
         
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.persona = self._load_persona()
-        self.debug = debug
         
         # Initialize helper components
-        self.market_analyzer = MarketAnalyzer(anthropic_api_key=self.api_key, debug=debug)
-        self.odds_retriever = OddsRetriever(api_key=datagolf_api_key, debug=debug)
+        self.market_analyzer = MarketAnalyzer()
+        self.odds_retriever = OddsRetriever()
         
         logger.info("Initialized TweetGenerator")
     
@@ -59,17 +58,19 @@ class TweetGenerator:
         
         Returns:
             The persona text content
+        
+        Raises:
+            ValueError: If persona file cannot be loaded
         """
         try:
-            persona_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'persona.txt')
+            persona_path = os.path.join(os.path.dirname(__file__), '..', 'persona.txt')
             with open(persona_path, 'r', encoding='utf-8') as f:
                 persona = f.read().strip()
             logger.info("Loaded Fat Phil persona")
             return persona
         except Exception as e:
             logger.error(f"Error loading persona: {e}")
-            # Fallback minimal persona in case file is missing
-            return "You are Fat Phil, a flamboyant, straight-talking golf betting expert from Las Vegas."
+            raise ValueError(f"Failed to load persona file: {e}")
     
     def select_player(self, json_file: str) -> Dict:
         """
@@ -128,24 +129,43 @@ class TweetGenerator:
             # First, analyze the player's insight to identify relevant markets
             markets = self.market_analyzer.analyze_insight(player_info["name"], player_info["insights"])
             
+            print(f"DEBUG TweetGenerator: markets selected = {markets}")
+            
             # Next, fetch odds for those markets
-            odds = self.odds_retriever.fetch_relevant_odds(
-                player_info["id"], 
-                player_info["name"], 
-                markets
-            )
-            
-            # Add odds to player info
-            player_info["odds"] = odds
-            
-            markets_found = list(odds.keys())
-            logger.info(f"Enriched {player_info['name']}'s data with odds for these markets: {', '.join(markets_found)}")
+            try:
+                print(f"DEBUG TweetGenerator: About to call fetch_relevant_odds")
+                print(f"DEBUG TweetGenerator: player_id = {player_info['id']}")
+                print(f"DEBUG TweetGenerator: player_name = {player_info['name']}")
+                
+                odds = self.odds_retriever.fetch_relevant_odds(
+                    player_info["id"], 
+                    player_info["name"], 
+                    markets
+                )
+                
+                print(f"DEBUG TweetGenerator: odds returned = {type(odds)}")
+                if odds:
+                    print(f"DEBUG TweetGenerator: odds keys = {odds.keys()}")
+                
+                # Add odds to player info
+                player_info["odds"] = odds
+                
+                markets_found = list(odds.keys())
+                logger.info(f"Enriched {player_info['name']}'s data with odds for these markets: {', '.join(markets_found)}")
+                
+            except Exception as e:
+                print(f"DEBUG TweetGenerator: Error in fetch_relevant_odds: {e}")
+                print(f"DEBUG TweetGenerator: Error type: {type(e)}")
+                import traceback
+                traceback.print_exc()
+                player_info["odds"] = {}
             
             return player_info
-            
+                
         except Exception as e:
             logger.error(f"Error enriching player data: {e}")
             # Still return the basic player info even if we couldn't get odds
+            player_info["odds"] = {}
             return player_info
     
     def format_odds_for_prompt(self, odds_data: Dict) -> str:
@@ -167,23 +187,52 @@ class TweetGenerator:
             # Add market header
             odds_text += f"{market_data['display_name']}:\n"
             
-            # Add model odds
-            model_prob = market_data["model_probability"]
+            # Add model odds - now with "Fat Phil's Model" and no percentage
             model_decimal = market_data["model_decimal"]
-            odds_text += f"- Model: {model_decimal:.2f} ({model_prob:.1f}%)\n"
+            model_american = self.odds_retriever.decimal_to_american(model_decimal)
+            odds_text += f"- Fat Phil's Model: {model_american}\n"
             
             # Add top sportsbooks with best EV (limited to top 3)
             if market_data["sportsbooks"]:
                 books_text = []
                 for book in market_data["sportsbooks"][:3]:  # Top 3 by EV
-                    ev_sign = "+" if book["ev"] >= 0 else ""
-                    books_text.append(f"{book['display_name']}: {book['odds']:.2f} ({ev_sign}{book['ev']:.1f}%)")
+                    american_odds = self.odds_retriever.decimal_to_american(book["odds"])
+                    ev_sign = "+" if book["ev"] >= 0 else ""  # Sign already included in EV number
+                    books_text.append(f"{book['display_name']}: {american_odds} ({ev_sign}{book['ev']:.1f}% EV)")
                 
                 odds_text += f"- Best odds: {' | '.join(books_text)}\n"
             
             odds_text += "\n"
         
         return odds_text
+    
+    def _unescape_json_string(self, text: str) -> str:
+        """
+        Properly unescape JSON escaped strings.
+        
+        Args:
+            text: Text that may contain escaped characters
+            
+        Returns:
+            Unescaped text
+        """
+        if not text:
+            return ""
+        
+        # Replace common escaped characters
+        replacements = {
+            "\\'": "'",  # Escaped single quote
+            '\\"': '"',  # Escaped double quote
+            "\\n": "\n", # Escaped newline
+            "\\r": "\r", # Escaped carriage return
+            "\\t": "\t"  # Escaped tab
+        }
+        
+        result = text
+        for escaped, unescaped in replacements.items():
+            result = result.replace(escaped, unescaped)
+        
+        return result
     
     def generate_tweet(self, json_file: str, recent_tweets: List[str] = None) -> str:
         """
@@ -218,7 +267,7 @@ PLAYER: {enriched_player['name']}
 TOURNAMENT: {enriched_player['tournament_name']} ({enriched_player['tournament_date']})
 
 BETTING INSIGHTS:
-{enriched_player['insights']}
+{self._unescape_json_string(enriched_player['insights'])}
 
 RELEVANT ODDS:
 {odds_text}
@@ -226,25 +275,24 @@ RELEVANT ODDS:
 Create ONE concise tweet (max 280 characters) in Fat Phil's voice. Make it direct, colorful, and valuable to bettors. Focus on the specific betting angle with the best value, not just general information. Just write the tweet text itself with no additional explanation.
 """
 
-            # Add recent tweets to avoid repetition
+            # Add recent tweets to avoid repetition, but with more flexibility
             if recent_tweets and len(recent_tweets) > 0:
-                tweet_prompt += "\n\nDO NOT repeat ideas from these recent tweets:\n"
-                for tweet in recent_tweets[:5]:  # Only use last 5 tweets
+                tweet_prompt += "\n\nAvoid repeating the same betting tips for the same players that appeared in your recent tweets. It's okay to recommend similar betting angles for different players if the value is there. Just don't be repetitive.\n\nRecent tweets:\n"
+                for tweet in recent_tweets[:10]:  # Only use last 10 tweets
                     tweet_prompt += f"- {tweet}\n"
             
             # Generate tweet using Claude
             logger.info(f"Generating tweet about {enriched_player['name']}")
 
-            if self.debug:
-                # Log the complete prompt (both system and user messages)
-                logger.debug("---- COMPLETE PROMPT START ----")
-                logger.debug(f"SYSTEM PROMPT:\n{self.persona}")
-                logger.debug(f"USER PROMPT:\n{tweet_prompt}")
-                logger.debug("---- COMPLETE PROMPT END ----")
+            # Log the complete prompt (both system and user messages)
+            logger.info("---- COMPLETE PROMPT START ----")
+            logger.info(f"SYSTEM PROMPT:\n{self.persona}")
+            logger.info(f"USER PROMPT:\n{tweet_prompt}")
+            logger.info("---- COMPLETE PROMPT END ----")
             
             response = self.client.messages.create(
                 model="claude-3-7-sonnet-20250219",
-                max_tokens=1000,
+                max_tokens=4000,
                 temperature=0.7,  # Slightly higher temperature for creativity
                 system=self.persona,
                 messages=[

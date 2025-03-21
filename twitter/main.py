@@ -2,12 +2,15 @@
 """
 Main script to generate and post tweets for Fat Phil.
 
+This script uses a dynamic approach to find the most relevant betting markets
+based on player insights, fetches targeted odds data, and generates
+specialized tweets focused on the most valuable betting angles.
+
 Usage:
-  python main.py --insights=path/to/insights_file.txt [--debug] [--dry-run]
+  python main.py --database=path/to/tournament_database.json [--dry-run]
 
 Options:
-  --insights    Path to the insights text file
-  --debug       Enable debug mode (detailed logging)
+  --database    Path to the tournament database JSON file
   --dry-run     Generate but don't post the tweet
 """
 
@@ -33,15 +36,10 @@ def main():
     """Run the tweet generation and posting process."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Generate and post tweets for Fat Phil')
-    parser.add_argument('--insights', required=True, help='Path to insights text file')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    parser.add_argument('--database', required=True, help='Path to tournament database JSON file')
     parser.add_argument('--dry-run', action='store_true', help='Generate but don\'t post the tweet')
     
     args = parser.parse_args()
-    
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logger.debug("Debug mode enabled")
     
     try:
         # Create tweet history file path
@@ -56,11 +54,11 @@ def main():
         # Get recent tweets to avoid repetition
         recent_tweets = twitter.get_recent_tweets(5)
         
-        # Initialize tweet generator (with debug mode if specified)
-        generator = TweetGenerator(debug=args.debug)
+        # Initialize tweet generator
+        generator = TweetGenerator()
         
-        # Generate a tweet based on insights
-        tweet_text = generator.generate_tweet(args.insights, recent_tweets)
+        # Generate a tweet based on database insights with dynamic market analysis
+        tweet_text = generator.generate_tweet(args.database, recent_tweets)
         
         # Display generated tweet
         print("\n" + "="*60)
