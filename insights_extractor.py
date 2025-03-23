@@ -1,11 +1,13 @@
+"""
+Extract player insights from transcripts using Claude API and store them in the database.
+"""
+
 import os
-import json
 import argparse
 import anthropic
-from datetime import datetime
+import datetime
+import sqlite3
 from dotenv import load_dotenv
-
-from update_text_file import update_text_from_json  # Import the function to update the text file
 
 load_dotenv()
 
@@ -17,34 +19,37 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are tasked with analyzing a podcast transcript from professional golf insiders and media members to extract valuable player-specific betting insights for an upcoming golf event. Your goal is to identify and summarize key information that could be useful for making informed betting decisions.
+You are tasked with analyzing a podcast transcript from professional golf insiders and media members to extract valuable QUALITATIVE insights about players. Your goal is to identify information that statistical models like Data Golf CANNOT measure, especially when it comes to the mental game.
 
-The golf event you should focus on is:
-<event>
-{event_name}
-</event>
+While this transcript may discuss the {event_name}, extract ALL qualitative insights about players, whether they relate specifically to this event or not. Prioritize insights that appear to be recent developments over long-standing characteristics that would likely already be factored into performance statistics. Negative insights are just as valuable as positive ones.
 
-Please follow these steps to analyze the transcript and extract betting insights:
-1. Carefully read through the entire transcript, paying special attention to any mentions of the participating players.
-2. Identify key pieces of information that could be relevant for betting purposes, such as:
-   - Player form and recent performance
-   - Course-specific advantages or disadvantages for certain players
-   - Insider knowledge about a player's injuries, equipment changes, or mental state
-   - The potential impact of weather conditions on certain players' tee times
-3. For each relevant insight you identify, format your response as follows:
+Focus on extracting the following types of qualitative factors:
+- Mental state and confidence level
+- Personal life factors (positive or negative)
+- Recent swing changes or technical adjustments
+- New coaching relationships
+- Equipment changes and their effects
+- Physical health details (injuries, fitness improvements)
+- Practice habits and preparation methods
+- Reported motivation or determination
+
+IGNORE anything that would already be captured in statistics:
+- Strokes gained metrics
+- Course fit
+- Historical performance data
+- Statistical trends
+- Rankings
+
+For each qualitative insight you identify, format your response as follows:
 
 <player>
 [PLAYER NAME]
 </player>
 <insight>
-[DETAILED INSIGHT ABOUT THE PLAYER]
+[DETAILED QUALITATIVE INSIGHT ABOUT THE PLAYER]
 </insight>
 
-Important guidelines:
-- Present the insights as objective information without attributing them to specific hosts or analysts.
-- Avoid phrases like "one host said," "the analysts believe," or "according to the podcast."
-- Avoid direct quotes from the hosts. That said, direct quotes from golfers is acceptable and encouraged.
-- Do not include external knowledge or make assumptions beyond what is stated or directly implied in the transcript.
+Extract ALL relevant qualitative insights about any players mentioned in the transcript. That said, be selective and only include legitimate qualitative information - if a transcript contains few genuine qualitative insights, that's fine.
 
 Here is the transcript:
 {transcript}
@@ -66,31 +71,24 @@ def query_claude(prompt, api_key):
     )
     
     # Return the text content from the message
-    return message.content
+    return message.content[0].text
 
 def parse_claude_response(response):
     """Parse Claude's response to extract player insights"""
     insights = []
     
-    # Convert response to string if it's a list
-    if isinstance(response, list):
-        response_text = " ".join([str(item) for item in response])
-    else:
-        response_text = str(response)
-    
     # Find all player/insight pairs using simple string parsing
-    player_segments = response_text.split("<player>")
+    player_segments = response.split("<player>")
     
     for segment in player_segments[1:]:  # Skip the first split which is before any <player> tag
         try:
             # Extract player name and clean it
             player_name_raw = segment.split("</player>")[0]
-            # Remove the literal '\n' characters
-            player_name = player_name_raw.replace('\\n', '').strip()
+            player_name = player_name_raw.strip()
             
             # Extract insight and clean it as well
             insight_text_raw = segment.split("<insight>")[1].split("</insight>")[0]
-            insight_text = insight_text_raw.replace('\\n', ' ').strip()
+            insight_text = insight_text_raw.strip()
             
             insights.append({
                 "player_name": player_name,
@@ -101,46 +99,53 @@ def parse_claude_response(response):
     
     return insights
 
-def match_player_name(input_name, database_players):
+def get_player_by_name(conn, name, fuzzy=True):
     """
-    Match player names from Claude's response to database names.
+    Get player by name from the database.
     
     Args:
-        input_name: The player name from Claude's insights (e.g., "TOMMY FLEETWOOD")
-        database_players: Dictionary of player data from the JSON file
+        conn: SQLite connection
+        name: Player name to search for
+        fuzzy: If True, use partial matching
         
     Returns:
-        player_id if found with high confidence, None otherwise
+        Player record or None if not found
     """
-    # Remove literal '\n' characters and strip whitespace
-    clean_name = input_name.replace('\\n', '').strip()
+    cursor = conn.cursor()
     
-    print(f"Trying to match player: '{clean_name}'")
-    
-    # Direct lookup (case insensitive)
-    for player_id, player_data in database_players.items():
-        db_name = player_data["name"].lower()
-        if clean_name.lower() == db_name:
-            print(f"Found exact match: '{clean_name}' with '{player_data['name']}'")
-            return player_id
-    
-    # Direct "FIRST LAST" to "Last, First" conversion
-    name_parts = clean_name.split()
-    if len(name_parts) >= 2:
-        # Get the last word as the last name
-        last_name = name_parts[-1]
-        # Get all words except the last as the first name
-        first_name = ' '.join(name_parts[:-1])
-        # Create the "Last, First" format
-        reversed_name = f"{last_name}, {first_name}"
+    if fuzzy:
+        # Try last name matching first (assuming "Last, First" format in DB)
+        # And handling "First Last" format in input
+        name_parts = name.split()
+        if len(name_parts) > 1:
+            last_name = name_parts[-1].lower()
+            cursor.execute('''
+            SELECT * FROM players 
+            WHERE LOWER(name) LIKE ?
+            ''', (f'%{last_name},%',))
+            players = cursor.fetchall()
+            if players:
+                return players[0]
         
-        # Try matching with this reversed name (case insensitive)
-        for player_id, player_data in database_players.items():
-            if reversed_name.lower() == player_data["name"].lower():
-                print(f"Found match with reversed name: '{clean_name}' → '{reversed_name}' with '{player_data['name']}'")
-                return player_id
+        # If no match by last name, try partial match on full name
+        cursor.execute('''
+        SELECT * FROM players 
+        WHERE LOWER(name) LIKE ?
+        ''', (f'%{name.lower()}%',))
+    else:
+        # Exact match
+        cursor.execute('''
+        SELECT * FROM players 
+        WHERE LOWER(name) = ?
+        ''', (name.lower(),))
     
-    # Handle common variations and abbreviations with high confidence
+    players = cursor.fetchall()
+    
+    # If we found any players, return the first one
+    if players:
+        return players[0]
+    
+    # Special cases for challenging names
     special_cases = {
         "JT POSTON": "Poston, J.T.",
         "NICOLAI HØJGAARD": "Hojgaard, Nicolai",
@@ -153,21 +158,59 @@ def match_player_name(input_name, database_players):
         "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
     }
     
-    if clean_name.upper() in special_cases:
-        special_case_name = special_cases[clean_name.upper()]
-        for player_id, player_data in database_players.items():
-            if special_case_name.lower() == player_data["name"].lower():
-                print(f"Found special case match: '{clean_name}' → '{special_case_name}' with '{player_data['name']}'")
-                return player_id
+    if name.upper() in special_cases:
+        special_case_name = special_cases[name.upper()]
+        cursor.execute('''
+        SELECT * FROM players 
+        WHERE LOWER(name) = ?
+        ''', (special_case_name.lower(),))
+        players = cursor.fetchall()
+        if players:
+            return players[0]
     
-    # No match found with high confidence
-    print(f"No match found for: '{clean_name}'")
     return None
+
+def add_insight(conn, player_id, insight_text, source, event_name):
+    """
+    Add a new insight for a player.
+    
+    Args:
+        conn: SQLite connection
+        player_id: ID of the player in the database
+        insight_text: The insight text
+        source: Source of the insight (podcast name, etc.)
+        event_name: Name of the tournament
+        
+    Returns:
+        ID of the new insight
+    """
+    cursor = conn.cursor()
+    
+    # Get current date
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # Insert the insight
+    cursor.execute('''
+    INSERT INTO insights 
+    (player_id, text, source, source_type, content_title, date)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', (player_id, insight_text, source, "podcast", event_name, current_date))
+    
+    # Get the ID of the new insight
+    insight_id = cursor.lastrowid
+    
+    # Set sentiment last_updated to NULL to trigger recalculation
+    cursor.execute('''
+    UPDATE sentiment
+    SET last_updated = NULL
+    WHERE player_id = ?
+    ''', (player_id,))
+    
+    return insight_id
 
 def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
     """
-    Save unmatched player insights to a separate file in the 'insights' directory,
-    using the transcript filename to make the output filename unique.
+    Save unmatched player insights to a separate file in the 'insights' directory.
     """
     if not unmatched_insights:
         return None
@@ -182,75 +225,28 @@ def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
     clean_event_name = event_name.lower().replace(' ', '_').replace("'", "").replace('"', '')
     
     # Create filename with event name, transcript filename, and date
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"insights/unmatched_{clean_event_name}_{transcript_filename}_{date_str}.json"
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    filename = f"insights/unmatched_{clean_event_name}_{transcript_filename}_{date_str}.txt"
     
-    # Prepare output data structure with metadata
-    output_data = {
-        "event_name": event_name,
-        "transcript_file": transcript_path,
-        "date_processed": date_str,
-        "unmatched_insights": unmatched_insights
-    }
-    
-    # Save insights to JSON file
+    # Write unmatched insights to file
     with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(output_data, f, indent=2)
+        f.write(f"Unmatched insights for {event_name}\n")
+        f.write(f"Transcript: {transcript_path}\n")
+        f.write(f"Date: {date_str}\n\n")
+        
+        for insight in unmatched_insights:
+            f.write(f"Player: {insight['player_name']}\n")
+            f.write(f"Insight: {insight['insight']}\n\n")
     
     return filename
-
-def update_json_with_insights(insights, json_file):
-    """Update the tournament JSON file with player insights using enhanced name matching"""
-    # Load existing JSON data
-    with open(json_file, 'r', encoding='utf-8') as f:
-        tournament_data = json.load(f)
-    
-    # Track which players were updated and which weren't found
-    updated_players = []
-    unmatched_insights = []
-    
-    # For each insight, find the matching player and update
-    for insight_item in insights:
-        player_name = insight_item["player_name"]
-        insight_text = insight_item["insight"]
-        
-        # Try to find the player in the database
-        player_id = match_player_name(player_name, tournament_data["players"])
-        
-        if player_id:
-            # Update insights (append if already exists)
-            player_data = tournament_data["players"][player_id]
-            existing_insight = player_data.get("insights", "").strip()
-            
-            if existing_insight:
-                # If there's already an insight, add to it
-                player_data["insights"] = f"{existing_insight}\n\n{insight_text}"
-            else:
-                player_data["insights"] = insight_text
-            
-            updated_players.append(player_data["name"])
-        else:
-            # Add to unmatched insights
-            unmatched_insights.append({
-                "player_name": player_name,
-                "insight": insight_text
-            })
-    
-    # Save updated JSON
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(tournament_data, f, indent=2)
-    
-    return {
-        "updated": updated_players,
-        "unmatched_insights": unmatched_insights
-    }
 
 def main():
     parser = argparse.ArgumentParser(description="Extract player insights from transcripts using Claude API")
     parser.add_argument("--transcript", required=True, help="Path to transcript file")
-    parser.add_argument("--json_file", required=True, help="Path to tournament JSON file")
     parser.add_argument("--event_name", required=True, help="Name of the golf event")
+    parser.add_argument("--source", required=True, help="Source of the insights (e.g., podcast name)")
     parser.add_argument("--api_key", help="Claude API key (or set ANTHROPIC_API_KEY env variable)")
+    parser.add_argument("--db_path", default="data/db/sentiment.db", help="Path to SQLite database")
     parser.add_argument("--output", help="Output file for Claude's raw response")
     
     args = parser.parse_args()
@@ -282,44 +278,62 @@ def main():
             output_path = os.path.join("insights", output_path)
         
         with open(output_path, 'w', encoding='utf-8') as f:
-            # Ensure we're writing a string, not a list or other object
-            if isinstance(claude_response, list):
-                f.write("\n".join([str(item) for item in claude_response]))
-            else:
-                f.write(str(claude_response))
+            f.write(claude_response)
         print(f"Raw Claude response saved to {output_path}")
     
     # Parse response
     insights = parse_claude_response(claude_response)
     print(f"Extracted {len(insights)} player insights")
     
-    # Print the extracted insights for testing/review
-    print("\n=== EXTRACTED INSIGHTS ===")
-    for i, insight_item in enumerate(insights, 1):
-        print(f"\n{i}. Player: {insight_item['player_name']}")
-        print(f"   Insight: {insight_item['insight'][:100]}..." if len(insight_item['insight']) > 100 else f"   Insight: {insight_item['insight']}")
-    print("========================\n")
+    # Connect to database
+    conn = sqlite3.connect(args.db_path)
+    conn.row_factory = sqlite3.Row
     
-    # Update JSON file
-    if insights:
-        results = update_json_with_insights(insights, args.json_file)
-        print(f"Updated {len(results['updated'])} players in {args.json_file}")
+    # Track which players were updated and which weren't found
+    updated_players = []
+    unmatched_insights = []
+    
+    # For each insight, find the matching player and update
+    for insight_item in insights:
+        player_name = insight_item["player_name"]
+        insight_text = insight_item["insight"]
         
-        # Save unmatched insights to a separate file
-        unmatched_insights = results.get("unmatched_insights", [])
-        if unmatched_insights:
-            unmatched_file = save_unmatched_insights(unmatched_insights, args.event_name, args.transcript)
-            print(f"Warning: {len(unmatched_insights)} players not found in database.")
-            print(f"Unmatched insights saved to: {unmatched_file}")
-            
-            # Print the list of unmatched player names
-            print("Unmatched players: " + ", ".join([item["player_name"] for item in unmatched_insights]))
-            
-        # Update the text file based on the updated JSON
-        text_file = update_text_from_json(args.json_file)
-        print(f"Updated text file: {text_file}")
-    else:
-        print("No insights were extracted. Check Claude's response.")
+        # Try to find the player in the database
+        player = get_player_by_name(conn, player_name)
+        
+        if player:
+            # Add insight
+            player_id = player["id"]
+            add_insight(conn, player_id, insight_text, args.source, args.event_name)
+            updated_players.append(player["name"])
+            print(f"Added insight for {player['name']}")
+        else:
+            # Add to unmatched insights
+            unmatched_insights.append({
+                "player_name": player_name,
+                "insight": insight_text
+            })
+            print(f"Could not find player: {player_name}")
+    
+    # Commit changes
+    conn.commit()
+    conn.close()
+    
+    # Print summary
+    print(f"\nAdded {len(updated_players)} insights to database")
+    if updated_players:
+        print("Updated players:")
+        for name in updated_players:
+            print(f"- {name}")
+    
+    # Save unmatched insights if any
+    if unmatched_insights:
+        unmatched_file = save_unmatched_insights(unmatched_insights, args.event_name, args.transcript)
+        print(f"\nWarning: {len(unmatched_insights)} players not found in database")
+        print(f"Unmatched insights saved to: {unmatched_file}")
+        print("Unmatched players:")
+        for item in unmatched_insights:
+            print(f"- {item['player_name']}")
 
 if __name__ == "__main__":
     main()
