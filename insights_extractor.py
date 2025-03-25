@@ -9,6 +9,8 @@ import datetime
 import sqlite3
 from dotenv import load_dotenv
 
+from db_utils import add_insight
+
 load_dotenv()
 
 def read_transcript(file_path):
@@ -19,7 +21,7 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights from professional golf podcast transcripts. Your mission is to identify intangible factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.
+You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from podcast transcripts. Your mission is to identify intangible factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.
 
 EXTRACTION GUIDELINES:
 
@@ -176,45 +178,6 @@ def get_player_by_name(conn, name, fuzzy=True):
     
     return None
 
-
-def add_insight(conn, player_id, insight_text, source, event_name):
-    """
-    Add a new insight for a player.
-    
-    Args:
-        conn: SQLite connection
-        player_id: ID of the player in the database
-        insight_text: The insight text
-        source: Source of the insight (podcast name, etc.)
-        event_name: Name of the tournament
-        
-    Returns:
-        ID of the new insight
-    """
-    cursor = conn.cursor()
-    
-    # Get current date
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    
-    # Insert the insight
-    cursor.execute('''
-    INSERT INTO insights 
-    (player_id, text, source, source_type, content_title, date)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ''', (player_id, insight_text, source, "podcast", event_name, current_date))
-    
-    # Get the ID of the new insight
-    insight_id = cursor.lastrowid
-    
-    # Set sentiment last_updated to NULL to trigger recalculation
-    cursor.execute('''
-    UPDATE sentiment
-    SET last_updated = NULL
-    WHERE player_id = ?
-    ''', (player_id,))
-    
-    return insight_id
-
 def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
     """
     Save unmatched player insights to a separate file in the 'insights' directory.
@@ -250,10 +213,11 @@ def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
 def main():
     parser = argparse.ArgumentParser(description="Extract player insights from transcripts using Claude API")
     parser.add_argument("--transcript", required=True, help="Path to transcript file")
-    parser.add_argument("--event_name", required=True, help="Name of the golf event")
-    parser.add_argument("--source", required=True, help="Source of the insights (e.g., podcast name)")
-    parser.add_argument("--api_key", help="Claude API key (or set ANTHROPIC_API_KEY env variable)")
-    parser.add_argument("--db_path", default="data/db/sentiment.db", help="Path to SQLite database")
+    parser.add_argument("--event_name", required=True, help="Name of the golf event/tournament being discussed")
+    parser.add_argument("--source", required=True, help="Source name (e.g., podcast name, publication)")
+    parser.add_argument("--episode_title", help="Title of the specific episode or content piece")
+    parser.add_argument("--content_url", help="URL to the source content (e.g., podcast episode URL)")
+    parser.add_argument("--db_path", default="data/db/mental_form.db", help="Path to SQLite database")
     parser.add_argument("--output", help="Output file for Claude's raw response")
     
     args = parser.parse_args()
@@ -311,7 +275,15 @@ def main():
         if player:
             # Add insight
             player_id = player["id"]
-            add_insight(conn, player_id, insight_text, args.source, args.event_name)
+            add_insight(
+                player_id=player_id,
+                text=insight_text,
+                source=args.source,
+                source_type="podcast",
+                content_title=args.episode_title or "",
+                content_url=args.content_url or "",
+                date=datetime.datetime.now().strftime("%Y-%m-%d")
+            )
             updated_players.append(player["name"])
             print(f"Added insight for {player['name']}")
         else:

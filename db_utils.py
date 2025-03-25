@@ -1,8 +1,8 @@
 """
-Database utility functions for the golf sentiment analysis system.
+Database utility functions for the golf mental form analysis system.
 
-This module provides functions for working with the sentiment database,
-including adding insights, calculating sentiment scores, and querying data.
+This module provides functions for working with the mental form database,
+including adding insights, calculating  scores, and querying data.
 """
 
 import sqlite3
@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_db_connection(db_path="data/db/sentiment.db"):
+def get_db_connection(db_path="data/db/mental_form.db"):
     """Get a connection to the database."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row  # This enables column access by name
@@ -61,16 +61,16 @@ def add_insight(player_id, text, source, source_type, content_title="", content_
     
     return insight_id
 
-def calculate_sentiment(player_id, max_insights=20):
+def calculate_mental_form(player_id, max_insights=20):
     """
-    Calculate sentiment score for a player based on their insights.
+    Calculate mental form score for a player based on their insights.
     
     Args:
         player_id: ID of the player in the database
         max_insights: Maximum number of insights to use (most recent)
         
     Returns:
-        Calculated sentiment score
+        Calculated mental form score
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -97,9 +97,9 @@ def calculate_sentiment(player_id, max_insights=20):
     
     if not insights:
         conn.close()
-        return 0  # Neutral sentiment if no insights
+        return 0, "No insights available for assessment."  # Neutral mental form if no insights
     
-    # Use anthropic to calculate sentiment
+    # Use anthropic to calculate mental form
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("Anthropic API key is required but not found in environment variables")
@@ -159,68 +159,90 @@ def calculate_sentiment(player_id, max_insights=20):
     Here are the insights:
     {insights_text}
 
-    Based solely on these insights and the framework above, provide your mental form score as a single number between -1 and 1, with no additional text.
+    Based solely on these insights and the framework above:
+    1. Provide a current mental form score between -1 and 1
+    2. Explain your reasoning in 3-5 sentences, highlighting the most influential factors. Note any clear trends in the player's mental state based on the timeline of insights 
+
+    Format your response as:
+    SCORE: [number between -1 and 1]
+    JUSTIFICATION: [your explanation and trend analysis]
     """
     
-    # Call Claude to analyze sentiment
+    # Call Claude to analyze mental form
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
         max_tokens=500,
         temperature=0,
-        system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict. When asked to provide a sentiment score, you will respond with ONLY a single number on the specified scale, with no explanation or additional text.",
+        system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
         messages=[{"role": "user", "content": prompt}]
     )
     
-    # Extract sentiment score from response
+    # Extract mental form score and justification from response
     full_response = response.content[0].text.strip()
     
     # Always print the full response
-    print(f"Sentiment analysis for {player_name}:")
+    print(f"Mental form analysis for {player_name}:")
     print(f"Full response: '{full_response}'")
     
+    # Try to parse score and justification
     try:
-        # Try to parse as a float
-        sentiment_score = float(full_response)
+        # Extract score
+        score_line = [line for line in full_response.split('\n') if line.startswith('SCORE:')]
+        if score_line:
+            score_text = score_line[0].replace('SCORE:', '').strip()
+            mental_form_score = float(score_text)
+            # Ensure score is in valid range
+            mental_form_score = max(-1, min(1, mental_form_score))
+        else:
+            raise ValueError("Score not found in response")
+            
+        # Extract justification
+        justification_line = [line for line in full_response.split('\n') if line.startswith('JUSTIFICATION:')]
+        if justification_line:
+            # Get the justification text, which might span multiple lines
+            justification_start_idx = full_response.find('JUSTIFICATION:')
+            justification_text = full_response[justification_start_idx:].replace('JUSTIFICATION:', '').strip()
+        else:
+            justification_text = "No justification provided."
         
-        # Ensure score is in valid range
-        sentiment_score = max(-1, min(1, sentiment_score))
-        
-        print(f"Parsed sentiment score: {sentiment_score}")
-    except (ValueError, IndexError):
-        print(f"Error parsing sentiment score. Using default neutral value (0).")
-        sentiment_score = 0
+        print(f"Parsed mental form score: {mental_form_score}")
+        print(f"Justification: {justification_text}")
+    except (ValueError, IndexError) as e:
+        print(f"Error parsing mental form data: {e}. Using default neutral value (0).")
+        mental_form_score = 0
+        justification_text = "Error parsing response."
     
-    # Update sentiment in database
+    # Update mental_form in database
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Check if sentiment record exists
-    cursor.execute('SELECT id FROM sentiment WHERE player_id = ?', (player_id,))
-    sentiment_record = cursor.fetchone()
+    # Check if mental_form record exists
+    cursor.execute('SELECT id FROM mental_form WHERE player_id = ?', (player_id,))
+    record = cursor.fetchone()
     
-    if sentiment_record:
+    if record:
         # Update existing record
         cursor.execute('''
-        UPDATE sentiment
-        SET score = ?, last_updated = ?
+        UPDATE mental_form
+        SET score = ?, justification = ?, last_updated = ?
         WHERE player_id = ?
-        ''', (sentiment_score, now, player_id))
+        ''', (mental_form_score, justification_text, now, player_id))
     else:
         # Create new record
         cursor.execute('''
-        INSERT INTO sentiment (player_id, score, last_updated)
-        VALUES (?, ?, ?)
-        ''', (player_id, sentiment_score, now))
+        INSERT INTO mental_form (player_id, score, justification, last_updated)
+        VALUES (?, ?, ?, ?)
+        ''', (player_id, mental_form_score, justification_text, now))
     
-    # Add to sentiment history
+    # Add to mental_form_history
     cursor.execute('''
-    INSERT INTO sentiment_history (player_id, score, date, insights_count)
+    INSERT INTO mental_form_history (player_id, score, date, insights_count)
     VALUES (?, ?, ?, ?)
-    ''', (player_id, sentiment_score, now, len(insights)))
+    ''', (player_id, mental_form_score, now, len(insights)))
     
     conn.commit()
     conn.close()
     
-    return sentiment_score
+    return mental_form_score, justification_text
 
 def get_player_by_name(name, fuzzy=True):
     """
@@ -254,30 +276,75 @@ def get_player_by_name(name, fuzzy=True):
     
     return players
 
-def get_players_by_sentiment(min_score=0.3, max_players=20):
+def search_players(filters=None, order_by=None, limit=None):
     """
-    Get players with high sentiment scores.
+    Flexible search function for players with optional filtering.
     
     Args:
-        min_score: Minimum sentiment score
-        max_players: Maximum number of players to return
+        filters: Dictionary of field:value pairs to filter on
+                (e.g., {'mental_form.score__gte': 0.3} for score >= 0.3)
+        order_by: Field to order by, with optional '-' prefix for descending
+                 (e.g., '-mental_form.score' for highest scores first)
+        limit: Maximum number of results to return
         
     Returns:
-        List of players with high sentiment
+        List of matching player records
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-    SELECT p.id, p.name, p.dg_id, p.manual_adjustment, s.score, s.last_updated
+    # Start with base query joining players and mental_form tables
+    query = """
+    SELECT p.id, p.name, p.dg_id, p.amateur, p.country, p.manual_adjustment, 
+           p.manual_adjustment_rationale, m.score, m.justification, m.last_updated
     FROM players p
-    JOIN sentiment s ON p.id = s.player_id
-    WHERE s.score >= ?
-    ORDER BY s.score DESC
-    LIMIT ?
-    ''', (min_score, max_players))
+    LEFT JOIN mental_form m ON p.id = m.player_id
+    """
     
-    players = cursor.fetchall()
+    # Add WHERE clauses for filters
+    where_clauses = []
+    params = []
+    
+    if filters:
+        for key, value in filters.items():
+            # Handle operators in field names (e.g., mental_form.score__gte)
+            if '__' in key:
+                field, operator = key.split('__')
+                if operator == 'gt':
+                    where_clauses.append(f"{field} > ?")
+                elif operator == 'gte':
+                    where_clauses.append(f"{field} >= ?")
+                elif operator == 'lt':
+                    where_clauses.append(f"{field} < ?")
+                elif operator == 'lte':
+                    where_clauses.append(f"{field} <= ?")
+                elif operator == 'like':
+                    where_clauses.append(f"{field} LIKE ?")
+                    value = f"%{value}%"  # Add wildcards for LIKE
+                else:
+                    where_clauses.append(f"{field} = ?")
+            else:
+                where_clauses.append(f"{key} = ?")
+            
+            params.append(value)
+    
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+    
+    # Add ORDER BY
+    if order_by:
+        if order_by.startswith('-'):
+            query += f" ORDER BY {order_by[1:]} DESC"
+        else:
+            query += f" ORDER BY {order_by} ASC"
+    
+    # Add LIMIT
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+    
+    cursor.execute(query, params)
+    results = cursor.fetchall()
     conn.close()
     
-    return players
+    return results
