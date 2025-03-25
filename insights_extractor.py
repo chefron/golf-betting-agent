@@ -118,44 +118,53 @@ def get_player_by_name(conn, name, fuzzy=True):
     cursor = conn.cursor()
     
     if fuzzy:
-        # Extract last name for searching
-        name_parts = name.split()
+        # Convert input name to lowercase for comparison
+        name_lower = name.lower()
+        name_parts = name_lower.split()
+        
         if len(name_parts) > 1:
-            last_name = name_parts[-1].lower()
-            cursor.execute('''
-            SELECT * FROM players 
-            WHERE LOWER(name) LIKE ?
-            ''', (f'%{last_name},%',))
+            # First try an exact match with reversed name (last, first)
+            last_name = name_parts[-1]
+            first_name = ' '.join(name_parts[:-1])
+            reversed_name = f"{last_name}, {first_name}"
+            
+            cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (reversed_name,))
             players = cursor.fetchall()
-
-            # If multiple players match, try filtering by full name
-            if len(players) > 1:
-                players = [p for p in players if name.lower() in p[1].lower()]  # Assuming name is in index 1
-                
             if players:
-                return players[0]  # Return best match
-    
-        # If no match by last name, try full name partial match
-        cursor.execute('''
-        SELECT * FROM players 
-        WHERE LOWER(name) LIKE ?
-        ''', (f'%{name.lower()}%',))
+                return players[0]
+            
+            # If that fails, try to find players with matching last name
+            cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{last_name},%",))
+            players = cursor.fetchall()
+            
+            # For common last names, we need to check if the first name also matches
+            if players:
+                # Check if any of these players have a matching first name
+                for player in players:
+                    player_name_parts = player['name'].lower().split(', ')
+                    if len(player_name_parts) > 1:
+                        player_first = player_name_parts[1]
+                        # Check if input first name is in player's first name
+                        if first_name in player_first or player_first in first_name:
+                            return player
+            
+        # Try a simple contains match as fallback
+        cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{name_lower}%",))
+        players = cursor.fetchall()
+        if players:
+            return players[0]
     
     else:
-        # Exact match
-        cursor.execute('''
-        SELECT * FROM players 
-        WHERE LOWER(name) = ?
-        ''', (name.lower(),))
-    
-    players = cursor.fetchall()
-    
-    if players:
-        return players[0]  # Still returns first match, but filtering is improved
+        # Exact match - unchanged
+        cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (name.lower(),))
+        players = cursor.fetchall()
+        if players:
+            return players[0]
     
     # Handle special cases
     special_cases = {
         "JT POSTON": "Poston, J.T.",
+        "VICTOR HOVLAND": "Hovland, Viktor",
         "NICOLAI HØJGAARD": "Hojgaard, Nicolai",
         "NIKOLAI HØJGAARD": "Hojgaard, Nicolai",
         "NIKOLAI HOJGAARD": "Hojgaard, Nicolai",
@@ -168,19 +177,17 @@ def get_player_by_name(conn, name, fuzzy=True):
     
     if name.upper() in special_cases:
         special_case_name = special_cases[name.upper()]
-        cursor.execute('''
-        SELECT * FROM players 
-        WHERE LOWER(name) = ?
-        ''', (special_case_name.lower(),))
+        cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (special_case_name.lower(),))
         players = cursor.fetchall()
         if players:
             return players[0]
     
     return None
 
-def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
+def save_unmatched_insights(unmatched_insights, event_name, transcript_path, source, episode_title, content_url):
     """
     Save unmatched player insights to a separate file in the 'insights' directory.
+    Includes all metadata needed to easily add these insights later.
     """
     if not unmatched_insights:
         return None
@@ -191,22 +198,34 @@ def save_unmatched_insights(unmatched_insights, event_name, transcript_path):
     # Get the transcript filename without path and extension
     transcript_filename = os.path.splitext(os.path.basename(transcript_path))[0]
     
-    # Create a clean event name (lowercase, underscores)
-    clean_event_name = event_name.lower().replace(' ', '_').replace("'", "").replace('"', '')
-    
-    # Create filename with event name, transcript filename, and date
+    # Create filename with source, transcript filename, and date
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
-    filename = f"insights/unmatched_{clean_event_name}_{transcript_filename}_{date_str}.txt"
+    source_slug = source.lower().replace(' ', '_').replace("'", "").replace('"', '')
+    filename = f"insights/unmatched_{source_slug}_{transcript_filename}_{date_str}.txt"
     
     # Write unmatched insights to file
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(f"Unmatched insights for {event_name}\n")
         f.write(f"Transcript: {transcript_path}\n")
+        f.write(f"Source: {source}\n")
+        f.write(f"Episode Title: {episode_title or 'N/A'}\n")
+        f.write(f"Content URL: {content_url or 'N/A'}\n")
         f.write(f"Date: {date_str}\n\n")
         
         for insight in unmatched_insights:
             f.write(f"Player: {insight['player_name']}\n")
-            f.write(f"Insight: {insight['insight']}\n\n")
+            f.write(f"Insight: {insight['insight']}\n")
+            # Add a way to easily copy-paste this insight with the correct player ID
+            f.write("-- To add this insight, use: --\n")
+            f.write("add_insight(\n")
+            f.write("    player_id=PLAYER_ID_HERE,\n")
+            f.write(f"    text=\"{insight['insight'].replace('"', '\\"')}\",\n")
+            f.write(f"    source=\"{source}\",\n")
+            f.write(f"    source_type=\"podcast\",\n")
+            f.write(f"    content_title=\"{episode_title or ''}\",\n")
+            f.write(f"    content_url=\"{content_url or ''}\",\n")
+            f.write(f"    date=\"{date_str}\"\n")
+            f.write(")\n\n")
     
     return filename
 
@@ -223,7 +242,7 @@ def main():
     args = parser.parse_args()
     
     # Get API key from args or environment
-    api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         print("Error: No Claude API key provided. Set ANTHROPIC_API_KEY env variable or use --api_key")
         return
@@ -307,7 +326,14 @@ def main():
     
     # Save unmatched insights if any
     if unmatched_insights:
-        unmatched_file = save_unmatched_insights(unmatched_insights, args.event_name, args.transcript)
+        unmatched_file = save_unmatched_insights(
+            unmatched_insights, 
+            args.event_name, 
+            args.transcript,
+            args.source,
+            args.episode_title,
+            args.content_url
+        )
         print(f"\nWarning: {len(unmatched_insights)} players not found in database")
         print(f"Unmatched insights saved to: {unmatched_file}")
         print("Unmatched players:")

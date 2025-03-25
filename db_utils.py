@@ -49,9 +49,9 @@ def add_insight(player_id, text, source, source_type, content_title="", content_
     
     insight_id = cursor.lastrowid
     
-    # Set sentiment last_updated to NULL to trigger recalculation
+    # Set mental_form last_updated to NULL to trigger recalculation
     cursor.execute('''
-    UPDATE sentiment
+    UPDATE mental_form
     SET last_updated = NULL
     WHERE player_id = ?
     ''', (player_id,))
@@ -295,8 +295,7 @@ def search_players(filters=None, order_by=None, limit=None):
     
     # Start with base query joining players and mental_form tables
     query = """
-    SELECT p.id, p.name, p.dg_id, p.amateur, p.country, p.manual_adjustment, 
-           p.manual_adjustment_rationale, m.score, m.justification, m.last_updated
+    SELECT p.id, p.name, p.dg_id, p.amateur, p.country, m.score, m.justification, m.last_updated
     FROM players p
     LEFT JOIN mental_form m ON p.id = m.player_id
     """

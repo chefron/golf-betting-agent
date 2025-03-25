@@ -1,5 +1,5 @@
 """
-Import players module for golf sentiment analysis.
+Import players module for golf mental form analysis.
 
 This script imports player data from the Data Golf API into the local SQLite database.
 """
@@ -12,13 +12,14 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-def import_players_from_datagolf(db_path="data/db/sentiment.db"):
+def import_players_from_datagolf(db_path="data/db/mental_form.db"):
     """Import all players from Data Golf API"""
     # Get API key from environment variable
     api_key = os.environ.get("DATAGOLF_API_KEY", "")
     if not api_key:
         print("Warning: No Data Golf API key found. Using default key.")
-        api_key = "6e301f31eb610c59de6fa2e57009"  # Default key
+        print("Please set the DATAGOLF_API_KEY environment variable.")
+        return 0
     
     # Fetch player list from Data Golf API
     url = f"https://feeds.datagolf.com/get-player-list?file_format=json&key={api_key}"

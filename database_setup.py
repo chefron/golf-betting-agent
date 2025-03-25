@@ -44,6 +44,11 @@ def create_database(db_path="data/db/mental_form.db"):
         FOREIGN KEY (player_id) REFERENCES players (id)
     )
     ''')
+
+    # Add index on player_id for better performance
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_insights_player_id ON insights(player_id)
+    ''')
     
     # Mental form table
     cursor.execute('''
