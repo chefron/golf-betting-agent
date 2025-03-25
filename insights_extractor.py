@@ -19,37 +19,50 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are tasked with analyzing a podcast transcript from professional golf insiders and media members to extract valuable QUALITATIVE insights about players. Your goal is to identify information that statistical models like Data Golf CANNOT measure, especially when it comes to the mental game.
+You are a specialized analyzer extracting QUALITATIVE insights from professional golf podcast transcripts. Your mission is to identify intangible factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.
 
-While this transcript may discuss the {event_name}, extract ALL qualitative insights about players, whether they relate specifically to this event or not. Prioritize insights that appear to be recent developments over long-standing characteristics that would likely already be factored into performance statistics. Negative insights are just as valuable as positive ones.
+EXTRACTION GUIDELINES:
 
-Focus on extracting the following types of qualitative factors:
-- Mental state and confidence level
-- Personal life factors (positive or negative)
-- Recent swing changes or technical adjustments
-- New coaching relationships
-- Equipment changes and their effects
-- Physical health details (injuries, fitness improvements)
-- Practice habits and preparation methods
-- Reported motivation or determination
+1. TARGET THESE HIGH-VALUE QUALITATIVE FACTORS:
 
-IGNORE anything that would already be captured in statistics:
-- Strokes gained metrics
-- Course fit
-- Historical performance data
-- Statistical trends
-- Rankings
+   MENTAL & EMOTIONAL STATE:
+   - Confidence level and changes (lost/gained confidence)
+   - Emotional regulation on course (calmness or frustration)
+   - Pressure handling (clutch performance or collapse patterns)
+   - Focus and concentration (distraction or enhanced presence)
+   - On-course emotional outbursts (club throwing, visible anger)
+   - Body language observations from commentators
 
-For each qualitative insight you identify, format your response as follows:
+   PERSONAL & PROFESSIONAL ENVIRONMENT:
+   - Life events (family changes, relocations, personal challenges)
+   - Team dynamics (caddie relationships, coach changes)
+   - Equipment changes and their specific effects
+   - Physical condition (injuries, fitness improvements, fatigue)
+   - Work ethic and practice quality (not just quantity)
+   - Strategic approach changes (course management, risk assessment)
+
+2. STRICTLY EXCLUDE STATISTICAL INFORMATION:
+   - Strokes gained metrics and other performance statistics
+   - Historical tournament results
+   - Course fit based on statistical patterns
+   - Rankings or world position discussions
+   - General strategy discussions without player-specific insights
+
+3. EXTRACTION QUALITY CONTROLS:
+   - Maintain context that explains WHY the insight matters
+   - Only extract genuine insights - quality over quantity
+   - Specify the source if mentioned (player, coach, analyst)
+
+For each legitimate qualitative insight, format your response exactly as follows:
 
 <player>
 [PLAYER NAME]
 </player>
 <insight>
-[DETAILED QUALITATIVE INSIGHT ABOUT THE PLAYER]
+[DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-Extract ALL relevant qualitative insights about any players mentioned in the transcript. That said, be selective and only include legitimate qualitative information - if a transcript contains few genuine qualitative insights, that's fine.
+While this transcript may discuss the {event_name}, extract ALL player insights regardless of whether they relate to this specific event. If a player is mentioned but no meaningful qualitative insights are provided, do not include them.
 
 Here is the transcript:
 {transcript}
@@ -100,22 +113,10 @@ def parse_claude_response(response):
     return insights
 
 def get_player_by_name(conn, name, fuzzy=True):
-    """
-    Get player by name from the database.
-    
-    Args:
-        conn: SQLite connection
-        name: Player name to search for
-        fuzzy: If True, use partial matching
-        
-    Returns:
-        Player record or None if not found
-    """
     cursor = conn.cursor()
     
     if fuzzy:
-        # Try last name matching first (assuming "Last, First" format in DB)
-        # And handling "First Last" format in input
+        # Extract last name for searching
         name_parts = name.split()
         if len(name_parts) > 1:
             last_name = name_parts[-1].lower()
@@ -124,14 +125,20 @@ def get_player_by_name(conn, name, fuzzy=True):
             WHERE LOWER(name) LIKE ?
             ''', (f'%{last_name},%',))
             players = cursor.fetchall()
+
+            # If multiple players match, try filtering by full name
+            if len(players) > 1:
+                players = [p for p in players if name.lower() in p[1].lower()]  # Assuming name is in index 1
+                
             if players:
-                return players[0]
-        
-        # If no match by last name, try partial match on full name
+                return players[0]  # Return best match
+    
+        # If no match by last name, try full name partial match
         cursor.execute('''
         SELECT * FROM players 
         WHERE LOWER(name) LIKE ?
         ''', (f'%{name.lower()}%',))
+    
     else:
         # Exact match
         cursor.execute('''
@@ -141,11 +148,10 @@ def get_player_by_name(conn, name, fuzzy=True):
     
     players = cursor.fetchall()
     
-    # If we found any players, return the first one
     if players:
-        return players[0]
+        return players[0]  # Still returns first match, but filtering is improved
     
-    # Special cases for challenging names
+    # Handle special cases
     special_cases = {
         "JT POSTON": "Poston, J.T.",
         "NICOLAI HØJGAARD": "Hojgaard, Nicolai",
@@ -169,6 +175,7 @@ def get_player_by_name(conn, name, fuzzy=True):
             return players[0]
     
     return None
+
 
 def add_insight(conn, player_id, insight_text, source, event_name):
     """

@@ -111,41 +111,61 @@ def calculate_sentiment(player_id, max_insights=20):
     
     # Create the prompt
     prompt = f"""
-    Based on the following {len(insights)} insights about golfer {player_name}, assess the overall sentiment regarding factors that QUANTITATIVE MODELS LIKE DATA GOLF CANNOT MEASURE on a scale from -1 to 1.
+    Based on the following {len(insights)} insights about golfer {player_name}, assess their current MENTAL FORM on a scale from -1 to 1. This represents qualitative factors that traditional statistical models cannot capture.
 
-    -1 = Extremely negative non-statistical factors (serious issues outside the numbers)
-    0 = Neutral (non-statistical factors neither help nor hurt)
-    1 = Extremely positive non-statistical factors (significant advantages beyond what stats show)
+    -1 = Severely compromised mental state (likely to significantly underperform statistical expectations)
+    0 = Neutral mental state (performing in line with statistical expectations)
+    1 = Exceptional mental state (likely to significantly outperform statistical expectations)
 
-    FOCUS EXCLUSIVELY ON QUALITATIVE FACTORS such as:
-    - Mental state and confidence level
-    - Recent swing changes or technical adjustments
-    - New coaching relationships
-    - Equipment changes and their effects
-    - Physical health beyond just "in/out of lineup" (injuries, fitness improvements)
-    - Personal life factors (positive or negative)
-    - Practice habits and preparation methods
-    - Reported motivation or determination
+    MENTAL FORM ASSESSMENT FRAMEWORK:
 
-    IGNORE ANYTHING THAT WOULD BE CAPTURED IN STATISTICS:
-    - Recent scores or finishes
-    - Strokes gained metrics
-    - Historical performance data
-    - Statistical trends
-    - Rankings
+    1. Emotional Regulation
+    - NEGATIVE: On-course emotional outbursts (club throwing/breaking, visible anger), inability to move past mistakes
+    - POSITIVE: Demonstrated resilience after setbacks, calm demeanor under pressure
 
-    Your goal is to identify the "intangibles" that might cause {player_name} to perform better or worse than their statistics would predict.
+    2. Confidence Level
+    - NEGATIVE: Self-doubt in interviews, tentative decision-making, defensive language about game
+    - POSITIVE: Expressed belief in abilities, aggressive strategy choices, positive self-talk
 
-    INSIGHTS:
+    3. Focus & Concentration
+    - NEGATIVE: Distracted by external factors, inconsistent pre-shot routines, rushing shots
+    - POSITIVE: Enhanced visualization techniques, improved shot commitment, present-focused mindset
+
+    4. Life Stability
+    - NEGATIVE: Personal difficulties (family issues, controversies), major life adjustments (new child, moving locations)
+    - POSITIVE: Resolution of off-course distractions, improved work-life balance
+
+    5. Support System
+    - NEGATIVE: Caddie/coach conflicts, frequent team changes, isolation from support network
+    - POSITIVE: Strong team chemistry, productive coaching relationships, positive influence from mentors
+
+    6. Physical Readiness
+    - NEGATIVE: Unreported injuries, fatigue from scheduling, uncomfortable equipment changes
+    - POSITIVE: Enhanced fitness regimen, proper recovery protocols, optimal equipment setup
+
+    7. Course Management
+    - NEGATIVE: Poor decision-making patterns, failure to adapt to conditions
+    - POSITIVE: Strategic improvements, better risk assessment, course-specific preparation
+
+    8. Performance Trends
+    - NEGATIVE: Pattern of late-round collapses, difficulty closing tournaments
+    - POSITIVE: Clutch performances, improvement in pressure situations, momentum from recent success
+
+    WEIGHTING INSTRUCTIONS:
+    - Recent insights (within past 2 weeks) should carry more weight than older ones
+    - Observable behaviors should outweigh speculative commentary
+    - Do not double-count redundant insights
+
+    Here are the insights:
     {insights_text}
 
-    Analyze these insights thoroughly, then provide your sentiment score as a single number between -1 and 1, with no additional text.
+    Based solely on these insights and the framework above, provide your mental form score as a single number between -1 and 1, with no additional text.
     """
     
     # Call Claude to analyze sentiment
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
-        max_tokens=300,
+        max_tokens=500,
         temperature=0,
         system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict. When asked to provide a sentiment score, you will respond with ONLY a single number on the specified scale, with no explanation or additional text.",
         messages=[{"role": "user", "content": prompt}]
