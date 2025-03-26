@@ -25,48 +25,53 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_for_testing")
 # Default database path - resolves to the correct location from the web directory
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/db/mental_form.db")
 
+# Add the current date to all templates
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now()}
+
 # Helper functions
 def get_dashboard_stats():
     """Get basic statistics for dashboard"""
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
-
-     # Get players with mental form scores
+    
+    # Get players with mental form scores
     cursor.execute("SELECT COUNT(*) FROM mental_form")
     mental_form_count = cursor.fetchone()[0]
-
+    
     # Get top 5 players by mental form score
     cursor.execute("""
-    SELECT p.name, m.score 
+    SELECT p.id, p.name, m.score 
     FROM mental_form m
     JOIN players p ON m.player_id = p.id
     ORDER BY m.score DESC
     LIMIT 5
     """)
     top_players = cursor.fetchall()
-
+    
     # Get bottom 5 players by mental form score
     cursor.execute("""
-    SELECT p.name, m.score 
+    SELECT p.id, p.name, m.score 
     FROM mental_form m
     JOIN players p ON m.player_id = p.id
     ORDER BY m.score ASC
     LIMIT 5
     """)
     bottom_players = cursor.fetchall()
-
+    
     # Get recently updated players
     cursor.execute("""
-    SELECT p.name, m.score, m.last_updated
+    SELECT p.id, p.name, m.score, m.last_updated
     FROM mental_form m
     JOIN players p ON m.player_id = p.id
     ORDER BY m.last_updated DESC
     LIMIT 5
     """)
     recent_updates = cursor.fetchall()
-
+    
     conn.close()
-
+    
     return {
         "mental_form_count": mental_form_count,
         "top_players": top_players,
@@ -79,7 +84,7 @@ def get_dashboard_stats():
 def index():
     """Dashboard page"""
     stats = get_dashboard_stats()
-    return render_template('index.html', stats=stats)
+    return render_template('index.html', stats=stats, now=datetime.now())
 
 @app.route('/players')
 def players():
@@ -88,10 +93,10 @@ def players():
     search_name = request.args.get('name', '')
     sort_by = request.args.get('sort', 'name')
     order = request.args.get('order', 'asc')
-
+    
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
-
+    
     # Base query
     query = """
     SELECT p.id, p.name, p.country, p.amateur, m.score, 
@@ -100,14 +105,14 @@ def players():
     FROM players p
     LEFT JOIN mental_form m ON p.id = m.player_id
     """
-
+    
     params = []
-
+    
     # Add search filter if provided
     if search_name:
         query += " WHERE LOWER(p.name) LIKE LOWER(?)"
         params.append(f"%{search_name}%")
-
+    
     # Add sorting
     if sort_by == 'mental_form':
         sort_column = 'm.score'
@@ -120,10 +125,10 @@ def players():
     
     if order.lower() == 'desc':
         query += " DESC"
-
+    
     # Add limit to avoid loading too many players at once
-    query += " LIMIT 200"
-
+    query += " LIMIT 100"
+    
     cursor.execute(query, params)
     player_list = cursor.fetchall()
     
@@ -137,7 +142,7 @@ def player_detail(player_id):
     """Show details for a specific player"""
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
-
+    
     # Get player info
     cursor.execute("""
     SELECT p.*, m.score, m.justification, m.last_updated
@@ -159,7 +164,7 @@ def player_detail(player_id):
     ORDER BY date DESC
     """, (player_id,))
     insights = cursor.fetchall()
-
+    
     # Get mental form history
     cursor.execute("""
     SELECT * FROM mental_form_history
@@ -169,7 +174,7 @@ def player_detail(player_id):
     history = cursor.fetchall()
     
     conn.close()
-
+    
     return render_template('player_detail.html', player=player, 
                           insights=insights, history=history)
 
@@ -189,11 +194,11 @@ def insights():
     """Manage insights"""
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
-
+    
     # Get query parameters for filtering
     player_name = request.args.get('player', '')
     source = request.args.get('source', '')
-
+    
     # Base query
     query = """
     SELECT i.*, p.name as player_name
@@ -203,28 +208,28 @@ def insights():
     """
     
     params = []
-
+    
     # Add filters if provided
     if player_name:
         query += " AND LOWER(p.name) LIKE LOWER(?)"
         params.append(f"%{player_name}%")
-
+    
     if source:
         query += " AND LOWER(i.source) LIKE LOWER(?)"
         params.append(f"%{source}%")
-
+    
     # Add sorting
     query += " ORDER BY i.date DESC LIMIT 100"
-
+    
     cursor.execute(query, params)
     insight_list = cursor.fetchall()
-
+    
     # Get unique sources for filter dropdown
     cursor.execute("SELECT DISTINCT source FROM insights ORDER BY source")
     sources = [row[0] for row in cursor.fetchall()]
-
+    
     conn.close()
-
+    
     return render_template('insights.html', insights=insight_list, 
                           sources=sources, player_filter=player_name, source_filter=source)
 
@@ -239,18 +244,18 @@ def add_new_insight():
         content_title = request.form.get('content_title', '')
         content_url = request.form.get('content_url', '')
         date = request.form.get('date') or datetime.now().strftime("%Y-%m-%d")
-
+        
         # Find player
         conn = get_db_connection(DB_PATH)
         players = get_player_by_name(player_name)
         conn.close()
-
+        
         if not players:
             flash(f'Player not found: {player_name}', 'error')
             return redirect(url_for('add_new_insight'))
         
         player_id = players[0]['id']
-
+        
         # Add the insight
         try:
             insight_id = add_insight(
@@ -267,15 +272,15 @@ def add_new_insight():
         except Exception as e:
             flash(f'Error adding insight: {str(e)}', 'error')
             return redirect(url_for('add_new_insight'))
-        
+    
     # GET request - show form
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
-
+    
     # Get sources for dropdown
     cursor.execute("SELECT DISTINCT source FROM insights ORDER BY source")
     sources = [row[0] for row in cursor.fetchall()]
-
+    
     # Get source types for dropdown
     cursor.execute("SELECT DISTINCT source_type FROM insights ORDER BY source_type")
     source_types = [row[0] for row in cursor.fetchall()]
@@ -346,7 +351,7 @@ def edit_insight(insight_id):
     source_types = [row[0] for row in cursor.fetchall()]
     
     conn.close()
-
+    
     return render_template('edit_insight.html', insight=insight, 
                           sources=sources, source_types=source_types)
 

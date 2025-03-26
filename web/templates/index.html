@@ -1,0 +1,126 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Dashboard</h1>
+    
+    <!-- Stats Card -->
+    <div class="row mb-4">
+        <div class="col-md-6 mx-auto">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Mental Form Scores</h5>
+                    <p class="card-text display-4">{{ stats.mental_form_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Top Players -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Top Mental Form</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for player in stats.top_players %}
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                {{ player.name }}
+                                <span class="badge bg-success rounded-pill">{{ "%.2f"|format(player.score) }}</span>
+                            </a>
+                        {% else %}
+                            <p class="text-muted">No mental form scores available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Players -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Bottom Mental Form</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for player in stats.bottom_players %}
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                {{ player.name }}
+                                <span class="badge bg-danger rounded-pill">{{ "%.2f"|format(player.score) }}</span>
+                            </a>
+                        {% else %}
+                            <p class="text-muted">No mental form scores available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Updates -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Recently Updated Mental Form</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for player in stats.recent_updates %}
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ player.name }}</h5>
+                                    <small>{{ player.last_updated }}</small>
+                                </div>
+                                <p class="mb-1">
+                                    Mental Form: 
+                                    <span class="{% if player.score > 0.2 %}score-positive{% elif player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
+                                        {{ "%.2f"|format(player.score) }}
+                                    </span>
+                                </p>
+                            </a>
+                        {% else %}
+                            <p class="text-muted">No recent updates</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Links -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('process_transcript') }}" class="btn btn-primary w-100">
+                                <i class="fas fa-file-alt me-2"></i> Process New Transcript
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('add_new_insight') }}" class="btn btn-success w-100">
+                                <i class="fas fa-plus me-2"></i> Add Insight Manually
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <a href="{{ url_for('players') }}" class="btn btn-info w-100">
+                                <i class="fas fa-search me-2"></i> Search Players
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
