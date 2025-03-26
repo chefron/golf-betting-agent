@@ -70,7 +70,7 @@ def calculate_mental_form(player_id, max_insights=20):
         max_insights: Maximum number of insights to use (most recent)
         
     Returns:
-        Calculated mental form score
+        Calculated mental form score, justification text
     """
     conn = get_db_connection()
     cursor = conn.cursor()
