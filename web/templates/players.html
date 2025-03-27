@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block title %}Players - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Players</h1>
+    
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('players') }}" class="row g-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Search by Name</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ search_name }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="sort" class="form-label">Sort By</label>
+                    <select class="form-select" id="sort" name="sort">
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                        <option value="country" {% if sort_by == 'country' %}selected{% endif %}>Country</option>
+                        <option value="mental_form" {% if sort_by == 'mental_form' %}selected{% endif %}>Mental Form</option>
+                        <option value="insights" {% if sort_by == 'insights' %}selected{% endif %}>Insights Count</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="order" class="form-label">Order</label>
+                    <select class="form-select" id="order" name="order">
+                        <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascending</option>
+                        <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descending</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Players Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Country</th>
+                            <th>Mental Form</th>
+                            <th>Insights</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in players %}
+                        <tr>
+                            <td>
+                                {% if player.amateur %}
+                                    <span class="badge bg-secondary me-1">AM</span>
+                                {% endif %}
+                                {{ player.name }}
+                            </td>
+                            <td>{{ player.country or "" }}</td>
+                            <td>
+                                {% if player.score is not none %}
+                                    <span class="{% if player.score > 0.2 %}score-positive{% elif player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
+                                        {{ "%.2f"|format(player.score) }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">Not calculated</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ player.insight_count or 0 }}</td>
+                            <td>
+                                {% if player.last_updated %}
+                                    {{ player.last_updated }}
+                                {% else %}
+                                    <span class="text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('player_detail', player_id=player.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-user"></i> View
+                                </a>
+                                {% if player.insight_count > 0 and not player.score %}
+                                <form method="POST" action="{{ url_for('recalculate_mental_form', player_id=player.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-calculator"></i> Calculate
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">No players found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "layout.html" %}
+
+{% block title %}Insights - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Insights</h1>
+        <a href="{{ url_for('add_new_insight') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Add New Insight
+        </a>
+    </div>
+    
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('insights') }}" class="row g-3">
+                <div class="col-md-5">
+                    <label for="player" class="form-label">Player</label>
+                    <input type="text" class="form-control" id="player" name="player" value="{{ player_filter }}">
+                </div>
+                <div class="col-md-5">
+                    <label for="source" class="form-label">Source</label>
+                    <select class="form-select" id="source" name="source">
+                        <option value="">All Sources</option>
+                        {% for source_name in sources %}
+                            <option value="{{ source_name }}" {% if source_filter == source_name %}selected{% endif %}>
+                                {{ source_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Insights List -->
+    <div class="card">
+        <div class="card-body">
+            {% if insights %}
+                {% for insight in insights %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h5 class="card-title">
+                                <a href="{{ url_for('player_detail', player_id=insight.player_id) }}">
+                                    {{ insight.player_name }}
+                                </a>
+                            </h5>
+                            <span class="text-muted">{{ insight.date }}</span>
+                        </div>
+                        <p class="card-text">{{ insight.text }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-secondary">{{ insight.source }}</span>
+                                {% if insight.source_type %}
+                                    <span class="badge bg-secondary">{{ insight.source_type }}</span>
+                                {% endif %}
+                                {% if insight.content_title %}
+                                    <span class="badge bg-light text-dark">{{ insight.content_title }}</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <a href="{{ url_for('edit_insight', insight_id=insight.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal{{ insight.id }}">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                
+                                <!-- Delete Confirmation Modal -->
+                                <div class="modal fade" id="deleteModal{{ insight.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Are you sure you want to delete this insight for {{ insight.player_name }}?
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form method="POST" action="{{ url_for('delete_insight', insight_id=insight.id) }}">
+                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    No insights found with the current filters.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

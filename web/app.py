@@ -182,10 +182,17 @@ def player_detail(player_id):
 def recalculate_mental_form(player_id):
     """Recalculate mental form for a player"""
     try:
+        print(f"Database path: {DB_PATH}")
+        print(f"Database exists: {os.path.exists(DB_PATH)}")
+        print(f"Current working directory: {os.getcwd()}")
+
         score, justification = calculate_mental_form(player_id)
+
         flash(f'Mental form recalculated: {score}', 'success')
     except Exception as e:
         flash(f'Error calculating mental form: {str(e)}', 'error')
+        import traceback
+        print(traceback.format_exc())  # Print full stack trace
     
     return redirect(url_for('player_detail', player_id=player_id))
 

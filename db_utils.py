@@ -15,7 +15,14 @@ load_dotenv()
 
 def get_db_connection(db_path="data/db/mental_form.db"):
     """Get a connection to the database."""
-    conn = sqlite3.connect(db_path)
+    # Always use absolute path for consistency
+    abs_path = "/home/chefron/CAPTCHA/golf-betting-agent/data/db/mental_form.db"
+    
+    print(f"Connecting to database at: {abs_path}")
+    print(f"File exists: {os.path.exists(abs_path)}")
+    print(f"Current directory: {os.getcwd()}")
+    
+    conn = sqlite3.connect(abs_path)
     conn.row_factory = sqlite3.Row  # This enables column access by name
     return conn
 

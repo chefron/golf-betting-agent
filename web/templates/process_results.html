@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block title %}Transcript Processing Results - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Processing Results</h1>
+            <p class="text-muted">Event: {{ event_name }} | Source: {{ source }}</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('process_transcript') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Process
+            </a>
+        </div>
+    </div>
+    
+    <div class="alert alert-info">
+        <h4 class="alert-heading">Summary</h4>
+        <p>Extracted {{ insights|length }} insights from the transcript.</p>
+        <hr>
+        <p class="mb-0">
+            Successfully matched: {{ insights|selectattr('matched', 'eq', true)|list|length }} insights
+            <br>
+            Unmatched players: {{ insights|selectattr('matched', 'eq', false)|list|length }} insights
+        </p>
+    </div>
+    
+    <!-- Matched Insights -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Successfully Added Insights</h5>
+        </div>
+        <div class="card-body">
+            {% set matched_insights = insights|selectattr('matched', 'eq', true)|list %}
+            {% if matched_insights %}
+                <div class="list-group">
+                    {% for insight in matched_insights %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <h5 class="mb-1">
+                                    <a href="{{ url_for('player_detail', player_id=insight.player_id) }}">
+                                        {{ insight.player_name }}
+                                    </a>
+                                </h5>
+                            </div>
+                            <p class="mb-1">{{ insight.text }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-center text-muted">No player matches were found.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Unmatched Insights -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Unmatched Players</h5>
+        </div>
+        <div class="card-body">
+            {% set unmatched_insights = insights|selectattr('matched', 'eq', false)|list %}
+            {% if unmatched_insights %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    These insights couldn't be automatically matched to players in the database.
+                    You can add these insights manually.
+                </div>
+                
+                <div class="accordion" id="unmatchedAccordion">
+                    {% for insight in unmatched_insights %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}">
+                                    {{ insight.player_name }}
+                                </button>
+                            </h2>
+                            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" 
+                                 data-bs-parent="#unmatchedAccordion">
+                                <div class="accordion-body">
+                                    <p>{{ insight.text }}</p>
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('add_new_insight') }}?player_name={{ insight.player_name }}" 
+                                           class="btn btn-primary">
+                                            <i class="fas fa-plus"></i> Add Manually
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-center text-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    All insights were successfully matched to players!
+                </p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="text-center">
+        <a href="{{ url_for('insights') }}" class="btn btn-primary">
+            <i class="fas fa-list"></i> View All Insights
+        </a>
+        <a href="{{ url_for('process_transcript') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Process Another Transcript
+        </a>
+    </div>
+</div>
+{% endblock %}

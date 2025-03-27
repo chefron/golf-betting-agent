@@ -1,0 +1,219 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ player.name }} - Golf Mental Form{% endblock %}
+
+{% block head %}
+<style>
+    .insight-card {
+        margin-bottom: 15px;
+    }
+    
+    .mental-form-chart {
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ player.name }}</h1>
+            <p>
+                {% if player.amateur %}
+                <span class="badge bg-secondary me-2">Amateur</span>
+                {% endif %}
+                {% if player.country %}
+                <span class="badge bg-info me-2">{{ player.country }}</span>
+                {% endif %}
+                {% if player.dg_id %}
+                <span class="badge bg-dark">DG ID: {{ player.dg_id }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('players') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Players
+            </a>
+        </div>
+    </div>
+    
+    <!-- Mental Form Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between">
+            <h5 class="mb-0">Mental Form</h5>
+            <form method="POST" action="{{ url_for('recalculate_mental_form', player_id=player.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-sync-alt"></i> Recalculate
+                </button>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <h2 class="display-4 {% if player.score > 0.2 %}score-positive{% elif player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
+                        {% if player.score is not none %}
+                            {{ "%.2f"|format(player.score) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">
+                        {% if player.last_updated %}
+                            Last updated: {{ player.last_updated }}
+                        {% else %}
+                            Not calculated yet
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-8">
+                    {% if player.justification %}
+                        <h5>Justification:</h5>
+                        <p>{{ player.justification }}</p>
+                    {% elif not player.score %}
+                        <div class="alert alert-info">
+                            No mental form score has been calculated yet. 
+                            {% if insights %}
+                                Click "Recalculate" to analyze insights and generate a score.
+                            {% else %}
+                                Add insights for this player to enable mental form calculation.
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if history %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5>Mental Form History</h5>
+                    <div class="mental-form-chart">
+                        <canvas id="mentalFormChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Insights Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between">
+            <h5 class="mb-0">Insights ({{ insights|length }})</h5>
+            <a href="{{ url_for('add_new_insight') }}?player_name={{ player.name }}" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-plus"></i> Add Insight
+            </a>
+        </div>
+        <div class="card-body">
+            {% if insights %}
+                {% for insight in insights %}
+                <div class="card insight-card">
+                    <div class="card-body">
+                        <p class="card-text">{{ insight.text }}</p>
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <span class="badge bg-secondary">{{ insight.source }}</span>
+                                {% if insight.source_type %}
+                                <span class="badge bg-secondary">{{ insight.source_type }}</span>
+                                {% endif %}
+                                <span class="badge bg-light text-dark">{{ insight.date }}</span>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('edit_insight', insight_id=insight.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ insight.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                
+                                <!-- Delete Confirmation Modal -->
+                                <div class="modal fade" id="deleteModal{{ insight.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Are you sure you want to delete this insight?
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form method="POST" action="{{ url_for('delete_insight', insight_id=insight.id) }}">
+                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    No insights available for this player.
+                    <a href="{{ url_for('add_new_insight') }}?player_name={{ player.name }}" class="alert-link">Add an insight</a>.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Player Notes Section (if we decide to add this) -->
+    {% if player.notes %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Notes</h5>
+        </div>
+        <div class="card-body">
+            <p>{{ player.notes }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if history %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Prepare data for the chart
+        const dates = [{% for item in history %}'{{ item.date }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+        const scores = [{% for item in history %}{{ item.score }}{% if not loop.last %}, {% endif %}{% endfor %}];
+        
+        // Create chart
+        const ctx = document.getElementById('mentalFormChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Mental Form Score',
+                    data: scores,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: -1,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(1);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

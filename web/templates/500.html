@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block title %}Server Error - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container text-center py-5">
+    <h1 class="display-1 text-danger">500</h1>
+    <h2 class="mb-4">Server Error</h2>
+    <p class="lead">Something went wrong on our end. Please try again later.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary mt-3">
+        <i class="fas fa-home me-2"></i> Go to Dashboard
+    </a>
+</div>
+{% endblock %}

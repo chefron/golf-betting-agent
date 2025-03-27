@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+
+{% block title %}Process Transcript - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Process Transcript</h1>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('process_transcript') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="event_name" class="form-label">Event Name</label>
+                        <input type="text" class="form-control" id="event_name" name="event_name" required>
+                        <div class="form-text">The name of the tournament or event being discussed</div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="source" class="form-label">Source</label>
+                        <input type="text" class="form-control" id="source" name="source" list="sourceList" required>
+                        <datalist id="sourceList">
+                            {% for source in sources %}
+                                <option value="{{ source }}">
+                            {% endfor %}
+                        </datalist>
+                        <div class="form-text">The podcast or source of the transcript</div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="episode_title" class="form-label">Episode Title (Optional)</label>
+                        <input type="text" class="form-control" id="episode_title" name="episode_title">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="content_url" class="form-label">Content URL (Optional)</label>
+                        <input type="url" class="form-control" id="content_url" name="content_url">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="transcript" class="form-label">Transcript Text</label>
+                    <textarea class="form-control" id="transcript" name="transcript" rows="15" required></textarea>
+                    <div class="form-text">Paste the full transcript text here</div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> 
+                    Processing may take up to a minute as the system analyzes the transcript for player insights.
+                </div>
+                
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cogs"></i> Process Transcript
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Instructions</h5>
+        </div>
+        <div class="card-body">
+            <ol>
+                <li>Enter the tournament name and source of the transcript.</li>
+                <li>Paste the full transcript text into the textarea.</li>
+                <li>Click "Process Transcript" to analyze the text using Claude API.</li>
+                <li>The system will extract player insights and add them to the database.</li>
+                <li>If some players are not found, you'll have a chance to manually map them.</li>
+            </ol>
+            
+            <p>
+                <strong>Tip:</strong> You can use the <code>youtube_transcript.py</code> script to extract transcripts from YouTube videos
+                before pasting them here.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

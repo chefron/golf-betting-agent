@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+
+{% block title %}About - Golf Mental Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">About</h1>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3>Golf Mental Form Analysis System</h3>
+            <p>
+                This system analyzes the mental state of professional golfers by extracting qualitative insights
+                from podcasts, interviews, and other sources. It uses these insights to calculate a mental form
+                score that can help predict how a player might perform relative to their statistical expectations.
+            </p>
+            
+            <h4 class="mt-4">How It Works</h4>
+            <ol>
+                <li>Player data is imported from the Data Golf API</li>
+                <li>Transcripts are processed to extract qualitative insights about players</li>
+                <li>The Claude API analyzes these insights to calculate mental form scores</li>
+                <li>Scores are tracked over time to identify trends and patterns</li>
+            </ol>
+            
+            <h4 class="mt-4">Mental Form Score Scale</h4>
+            <ul>
+                <li><strong>-1.0 to -0.3:</strong> Severely compromised mental state</li>
+                <li><strong>-0.3 to 0.3:</strong> Neutral mental state</li>
+                <li><strong>0.3 to 1.0:</strong> Exceptional mental state</li>
+            </ul>
+            
+            <h4 class="mt-4">Components</h4>
+            <ul>
+                <li><strong>Database:</strong> SQLite database storing player information, insights, and mental form scores</li>
+                <li><strong>Claude API:</strong> Used for extracting insights and calculating mental form scores</li>
+                <li><strong>Data Golf API:</strong> Source of player data and statistics</li>
+                <li><strong>Flask Web Interface:</strong> This web application for managing the system</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">System Information</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <th>Database Path:</th>
+                        <td id="dbPath">data/db/mental_form.db</td>
+                    </tr>
+                    <tr>
+                        <th>Claude API:</th>
+                        <td id="claudeStatus">
+                            {% if config.get('ANTHROPIC_API_KEY') %}
+                                <span class="text-success">
+                                    <i class="fas fa-check-circle"></i> Configured
+                                </span>
+                            {% else %}
+                                <span class="text-danger">
+                                    <i class="fas fa-times-circle"></i> Not Configured
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Data Golf API:</th>
+                        <td id="dgStatus">
+                            {% if config.get('DATAGOLF_API_KEY') %}
+                                <span class="text-success">
+                                    <i class="fas fa-check-circle"></i> Configured
+                                </span>
+                            {% else %}
+                                <span class="text-danger">
+                                    <i class="fas fa-times-circle"></i> Not Configured
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
