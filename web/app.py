@@ -12,15 +12,17 @@ from db_utils import (
     get_db_connection, 
     add_insight, 
     calculate_mental_form, 
-    get_player_by_name,
     search_players
 )
 
 # Import insight extraction functionality
-from insights_extractor import create_claude_prompt, query_claude, parse_claude_response
+from insights_extractor import create_claude_prompt, query_claude, parse_claude_response, get_player_by_name
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_for_testing")
+
+app.config['ANTHROPIC_API_KEY'] = os.environ.get('ANTHROPIC_API_KEY')
+app.config['DATAGOLF_API_KEY'] = os.environ.get('DATAGOLF_API_KEY')
 
 # Default database path - resolves to the correct location from the web directory
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/db/mental_form.db")
@@ -434,20 +436,21 @@ def process_transcript():
             for insight_item in insights:
                 player_name = insight_item["player_name"]
                 insight_text = insight_item["insight"]
-                
-                # Try to find the player in the database
-                player = get_player_by_name(player_name)
-                
+
+                # Create the insight data structure
                 insight_data = {
                     'player_name': player_name,
                     'text': insight_text,
                     'matched': False,
                     'player_id': None
-                }
+    }
                 
+                # Try to find the player in the database
+                player = get_player_by_name(conn, player_name)
+
                 if player:
-                    # Add insight
-                    player_id = player[0]["id"]
+                    # Add insight to database
+                    player_id = player["id"]
                     add_insight(
                         player_id=player_id,
                         text=insight_text,

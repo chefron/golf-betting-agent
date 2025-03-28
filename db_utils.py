@@ -251,38 +251,6 @@ def calculate_mental_form(player_id, max_insights=20):
     
     return mental_form_score, justification_text
 
-def get_player_by_name(name, fuzzy=True):
-    """
-    Get player by name, with optional fuzzy matching.
-    
-    Args:
-        name: Player name to search for
-        fuzzy: If True, allow partial matches
-        
-    Returns:
-        Player record or None if not found
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    if fuzzy:
-        # Case-insensitive partial match
-        cursor.execute('''
-        SELECT * FROM players 
-        WHERE LOWER(name) LIKE LOWER(?)
-        ''', (f'%{name}%',))
-    else:
-        # Exact match
-        cursor.execute('''
-        SELECT * FROM players 
-        WHERE LOWER(name) = LOWER(?)
-        ''', (name,))
-    
-    players = cursor.fetchall()
-    conn.close()
-    
-    return players
-
 def search_players(filters=None, order_by=None, limit=None):
     """
     Flexible search function for players with optional filtering.
