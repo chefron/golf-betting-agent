@@ -256,14 +256,14 @@ def add_new_insight():
         
         # Find player
         conn = get_db_connection(DB_PATH)
-        players = get_player_by_name(player_name)
+        player = get_player_by_name(conn, player_name)
         conn.close()
         
-        if not players:
+        if not player:
             flash(f'Player not found: {player_name}', 'error')
             return redirect(url_for('add_new_insight'))
         
-        player_id = players[0]['id']
+        player_id = player['id']
         
         # Add the insight
         try:

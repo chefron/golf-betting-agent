@@ -51,7 +51,7 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-4 text-center">
-                    <h2 class="display-4 {% if player.score > 0.2 %}score-positive{% elif player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
+                    <h2 class="display-4 {% if player.score is not none and player.score > 0.2 %}score-positive{% elif player.score is not none and player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
                         {% if player.score is not none %}
                             {{ "%.2f"|format(player.score) }}
                         {% else %}

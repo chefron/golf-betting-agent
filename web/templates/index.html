@@ -79,7 +79,7 @@
                                 </div>
                                 <p class="mb-1">
                                     Mental Form: 
-                                    <span class="{% if player.score > 0.2 %}score-positive{% elif player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
+                                    <span class="{% if player.score is not none and player.score > 0.2 %}score-positive{% elif player.score is not none and player.score < -0.2 %}score-negative{% else %}score-neutral{% endif %}">
                                         {{ "%.2f"|format(player.score) }}
                                     </span>
                                 </p>
