@@ -162,13 +162,14 @@ def calculate_mental_form(player_id, max_insights=20):
     - Recent insights (within past 2 weeks) should carry more weight than older ones
     - Observable behaviors should outweigh speculative commentary
     - Do not double-count redundant insights
+    - When conflicting insights exist, give more weight to the most recent information
 
     Here are the insights:
     {insights_text}
 
     Based solely on these insights and the framework above:
     1. Provide a current mental form score between -1 and 1
-    2. Explain your reasoning in 3-5 sentences, highlighting the most influential factors. Note any clear trends in the player's mental state based on the timeline of insights 
+    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. You can include specific details and examples from the insights, but the explanation must be readable as a standalone assessment that someone could understand without seeing the original insights.
 
     Format your response as:
     SCORE: [number between -1 and 1]

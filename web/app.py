@@ -404,6 +404,7 @@ def process_transcript():
         transcript_text = request.form.get('transcript')
         event_name = request.form.get('event_name')
         source = request.form.get('source')
+        source_type = request.form.get('source_type', 'podcast')
         episode_title = request.form.get('episode_title', '')
         content_url = request.form.get('content_url', '')
         
@@ -455,7 +456,7 @@ def process_transcript():
                         player_id=player_id,
                         text=insight_text,
                         source=source,
-                        source_type="podcast",
+                        source_type=source_type,
                         content_title=episode_title,
                         content_url=content_url,
                         date=datetime.now().strftime("%Y-%m-%d")
