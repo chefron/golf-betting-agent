@@ -44,11 +44,10 @@ EXTRACTION GUIDELINES:
    - Strategic approach changes (course management, risk assessment)
 
 2. STRICTLY EXCLUDE STATISTICAL INFORMATION:
-   - Strokes gained metrics and other performance statistics
-   - Historical tournament results
-   - Course fit based on statistical patterns
-   - Rankings or world position discussions
-   - General strategy discussions without player-specific insights
+   - Exclude strokes gained metrics and other performance statistics
+   - Exclude course fit based on statistical patterns
+   - Exclude rankings or world position discussions
+   - Exclude general strategy discussions without player-specific insights
 
 3. EXTRACTION QUALITY CONTROLS:
    - Maintain context that explains WHY the insight matters
@@ -173,6 +172,7 @@ def get_player_by_name(conn, name, fuzzy=True):
         "AILANO GRIO": "Grillo, Emiliano",
         "EMILIANO GRIO": "Grillo, Emiliano",
         "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
+        "WINDHAM CLARK": "Clark, Wyndham",
     }
     
     if name.upper() in special_cases:

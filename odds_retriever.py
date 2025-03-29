@@ -200,9 +200,10 @@ class OddsRetriever:
             logger.error("Could not fetch event info from betting data")
             return result
         
+        self.current_batch_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         event_name = first_market_data["event_name"]
         result["event_name"] = event_name
-        result["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        result["last_updated"] = self.current_batch_timestamp  # Use the same timestamp in result too
         
         # Fetch all players from database with their mental scores
         conn = sqlite3.connect(self.db_path)
@@ -416,7 +417,7 @@ class OddsRetriever:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = self.current_batch_timestamp
             
             # First, store raw odds data
             cursor.execute('''

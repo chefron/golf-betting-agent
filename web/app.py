@@ -585,18 +585,20 @@ def betting_dashboard():
                              min_ev=min_ev, max_ev=max_ev,
                              sort_by=sort_by, sort_order=sort_order)
     
-    market_timestamp = latest_market_result['latest_market_timestamp']
-    print(f"Latest timestamp for {market} market: {market_timestamp}")
-    
     # Build query for filtered odds data
     query = """
-    SELECT r.*, p.name as player_name
+    SELECT r.*, p.name as player_name 
     FROM bet_recommendations r
+    JOIN (
+        SELECT player_id, market, MAX(timestamp) as max_time
+        FROM bet_recommendations
+        WHERE event_name = ? AND market = ?
+        GROUP BY player_id, market
+    ) latest ON r.player_id = latest.player_id AND r.market = latest.market AND r.timestamp = latest.max_time
     LEFT JOIN players p ON r.player_id = p.id
-    WHERE r.event_name = ? AND r.market = ? AND r.timestamp = ?
     """
-    
-    params = [event_name, market, market_timestamp]
+
+    params = [event_name, market]
     
     # Add sportsbook filter if specified
     if sportsbook and sportsbook in available_sportsbooks:
