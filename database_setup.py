@@ -16,7 +16,7 @@ def create_database(db_path="data/db/mental_form.db"):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Players table - removed manual adjustment fields
+    # Players table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY,
@@ -30,7 +30,7 @@ def create_database(db_path="data/db/mental_form.db"):
     )
     ''')
 
-    # Insights table - already has the flexible structure we need
+    # Insights table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS insights (
         id INTEGER PRIMARY KEY,
@@ -70,6 +70,41 @@ def create_database(db_path="data/db/mental_form.db"):
         score REAL,
         date TEXT,
         insights_count INTEGER,
+        FOREIGN KEY (player_id) REFERENCES players (id)
+    )
+    ''')
+
+    # Odds table - stores raw odds data
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS odds (
+        id INTEGER PRIMARY KEY,
+        player_id INTEGER,
+        dg_id INTEGER,
+        event_name TEXT,
+        market TEXT,
+        sportsbook TEXT,
+        decimal_odds REAL,
+        model_probability REAL,
+        model_used TEXT,
+        timestamp TEXT,
+        FOREIGN KEY (player_id) REFERENCES players (id)
+    )
+    ''')
+
+    # Betting recommendations table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS bet_recommendations (
+        id INTEGER PRIMARY KEY,
+        player_id INTEGER,
+        event_name TEXT,
+        market TEXT,
+        sportsbook TEXT,
+        decimal_odds REAL,
+        base_ev REAL,
+        mental_adjustment REAL,
+        adjusted_ev REAL,
+        mental_score REAL,
+        timestamp TEXT,
         FOREIGN KEY (player_id) REFERENCES players (id)
     )
     ''')

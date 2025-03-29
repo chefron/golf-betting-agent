@@ -1,0 +1,290 @@
+{% extends "layout.html" %}
+
+{% block title %}Betting Dashboard - Golf Mental Form{% endblock %}
+
+{% block head %}
+<style>
+    .score-positive {
+        color: green;
+        font-weight: bold;
+    }
+    
+    .score-negative {
+        color: red;
+        font-weight: bold;
+    }
+    
+    .ev-positive {
+        color: green;
+        font-weight: bold;
+    }
+    
+    .ev-negative {
+        color: red;
+        font-weight: bold;
+    }
+    
+    .sportsbook-item {
+        border-bottom: 1px dotted #eee;
+        padding: 5px 0;
+    }
+    
+    .sportsbook-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Betting Dashboard</h1>
+            {% if event_name %}
+                <p class="text-muted">Current Event: {{ event_name }}</p>
+            {% endif %}
+        </div>
+        <div class="col-auto">
+            <form method="POST" action="{{ url_for('update_betting_recommendations') }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sync-alt"></i> Update Odds Data
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    {% if not event_name %}
+        <div class="alert alert-info">
+            <h4 class="alert-heading">No Betting Data Available</h4>
+            <p>
+                There is currently no betting data available. Click the "Update Odds Data" button 
+                to fetch the latest odds from Data Golf.
+            </p>
+        </div>
+    {% else %}
+        <!-- Market Tabs -->
+        <ul class="nav nav-tabs mb-4">
+            {% for market_item in available_markets %}
+                <li class="nav-item">
+                    <a class="nav-link {% if market_item == market_data.name %}active{% endif %}" 
+                       href="{{ url_for('betting_dashboard', market=market_item, min_ev=min_ev, max_ev=max_ev, sort=sort_by, order=sort_order) }}">
+                        {{ market_item|replace('_', ' ')|title }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+        
+        <!-- Mental Score Info -->
+        <div class="alert alert-info mb-4">
+            <h5><i class="fas fa-info-circle"></i> How Mental Scores Affect This Market</h5>
+            <p>
+                {% if market_data.name == "mc" %}
+                <strong>Miss Cut Market:</strong> Negative mental scores <b>increase</b> the probability of missing the cut, while positive mental scores <b>decrease</b> it.
+                {% else %}
+                <strong>{{ market_data.display_name }}:</strong> Positive mental scores <b>increase</b> the probability, while negative mental scores <b>decrease</b> it.
+                {% endif %}
+                This adjustment can be up to 15% in either direction at maximum mental form scores (±1.0).
+            </p>
+        </div>
+            
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Filters for {{ market_data.display_name }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('betting_dashboard') }}" class="row g-3">
+                    <input type="hidden" name="market" value="{{ market_data.name }}">
+                    
+                    <div class="col-md-2">
+                        <label for="sportsbook" class="form-label">Sportsbook</label>
+                        <select class="form-select" id="sportsbook" name="sportsbook">
+                            <option value="">All Sportsbooks</option>
+                            {% for book in available_sportsbooks %}
+                                <option value="{{ book }}" {% if selected_sportsbook == book %}selected{% endif %}>
+                                    {{ book|upper }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="min_ev" class="form-label">Min Adjusted EV %</label>
+                        <input type="number" step="0.1" class="form-control" id="min_ev" name="min_ev" 
+                               value="{{ min_ev }}" placeholder="e.g. 5">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="max_ev" class="form-label">Max Adjusted EV %</label>
+                        <input type="number" step="0.1" class="form-control" id="max_ev" name="max_ev" 
+                               value="{{ max_ev }}" placeholder="e.g. 20">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="sort" class="form-label">Sort By</label>
+                        <select class="form-select" id="sort" name="sort">
+                            <option value="adjusted_ev" {% if sort_by == 'adjusted_ev' %}selected{% endif %}>Adjusted EV</option>
+                            <option value="decimal_odds" {% if sort_by == 'decimal_odds' %}selected{% endif %}>Best Odds</option>
+                            <option value="mental_score" {% if sort_by == 'mental_score' %}selected{% endif %}>Mental Score</option>
+                            <option value="player_name" {% if sort_by == 'player_name' %}selected{% endif %}>Player Name</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="order" class="form-label">Order</label>
+                        <select class="form-select" id="order" name="order">
+                            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Quick Filter Buttons -->
+        <div class="mb-4">
+            <a href="{{ url_for('betting_dashboard', market=market_data.name, min_ev='5', sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
+               class="btn btn-outline-success me-2">
+                <i class="fas fa-thumbs-up"></i> Show +EV (>5%)
+            </a>
+            <a href="{{ url_for('betting_dashboard', market=market_data.name, max_ev='-5', sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
+               class="btn btn-outline-danger me-2">
+                <i class="fas fa-thumbs-down"></i> Show Fade Opportunities (<-5%)
+            </a>
+            <a href="{{ url_for('betting_dashboard', market=market_data.name, sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
+               class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> Show All
+            </a>
+        </div>
+        
+        <!-- Betting Data Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    {{ market_data.display_name }} Betting Data
+                    {% if selected_sportsbook %}
+                        <span class="badge bg-primary">{{ selected_sportsbook|upper }}</span>
+                    {% endif %}
+                </h5>
+                <small class="text-muted">Last Updated: {{ last_updated }}</small>
+            </div>
+            <div class="card-body">
+                {% if market_data.players %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>Mental Score</th>
+                                    <th>Best Odds</th>
+                                    <th>Base EV</th>
+                                    <th>Mental Adj</th>
+                                    <th>Adjusted EV</th>
+                                    <th>Sportsbooks</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in market_data.players %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('player_detail', player_id=player.player_id) }}">
+                                                {{ player.player_name }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            {% if player.mental_score is not none %}
+                                                <span class="{% if player.mental_score > 0.2 %}score-positive{% elif player.mental_score < -0.2 %}score-negative{% endif %}">
+                                                    {{ "%.2f"|format(player.mental_score) }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.best_bet %}
+                                                <b>{{ player.best_bet.decimal_odds }}</b>
+                                                <small class="text-muted">
+                                                    ({% if player.best_bet.decimal_odds >= 2.0 %}
+                                                        +{{ "%.0f"|format((player.best_bet.decimal_odds - 1) * 100) }}
+                                                    {% else %}
+                                                        {{ "%.0f"|format(-100 / (player.best_bet.decimal_odds - 1)) }}
+                                                    {% endif %})
+                                                </small>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.best_bet %}
+                                                <span class="{% if player.best_bet.base_ev > 0 %}ev-positive{% elif player.best_bet.base_ev < 0 %}ev-negative{% endif %}">
+                                                    {{ "%.1f"|format(player.best_bet.base_ev) }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.best_bet %}
+                                                {% if player.best_bet.mental_adjustment > 0 %}
+                                                    <span class="ev-positive">+{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
+                                                {% elif player.best_bet.mental_adjustment < 0 %}
+                                                    <span class="ev-negative">{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.best_bet %}
+                                                <span class="{% if player.best_bet.adjusted_ev > 0 %}ev-positive{% elif player.best_bet.adjusted_ev < 0 %}ev-negative{% endif %}">
+                                                    {{ "%.1f"|format(player.best_bet.adjusted_ev) }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div style="max-height: 100px; overflow-y: auto;">
+                                                {% for bet in player.all_bets %}
+                                                    <div class="sportsbook-item">
+                                                        <small>
+                                                            <b>{{ bet.sportsbook|upper }}</b>: 
+                                                            {{ "%.2f"|format(bet.decimal_odds) }}
+                                                            <span class="{% if bet.adjusted_ev > 0 %}ev-positive{% elif bet.adjusted_ev < 0 %}ev-negative{% endif %}">
+                                                                ({{ "%.1f"|format(bet.adjusted_ev) }}%)
+                                                            </span>
+                                                        </small>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('player_betting_detail', player_id=player.player_id, market=market_data.name) }}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-search"></i> Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No betting data available for this market with the current filters.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

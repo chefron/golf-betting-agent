@@ -44,23 +44,27 @@
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('index') %}active{% endif %}" 
-                           href="{{ url_for('index') }}">Dashboard</a>
+                        href="{{ url_for('index') }}">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('players') %}active{% endif %}" 
-                           href="{{ url_for('players') }}">Players</a>
+                        href="{{ url_for('players') }}">Players</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('insights') %}active{% endif %}" 
-                           href="{{ url_for('insights') }}">Insights</a>
+                        href="{{ url_for('insights') }}">Insights</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path.startswith('/betting') %}active{% endif %}" 
+                        href="{{ url_for('betting_dashboard') }}">Betting</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('process_transcript') %}active{% endif %}" 
-                           href="{{ url_for('process_transcript') }}">Process</a>
+                        href="{{ url_for('process_transcript') }}">Process</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('about') %}active{% endif %}" 
-                           href="{{ url_for('about') }}">About</a>
+                        href="{{ url_for('about') }}">About</a>
                     </li>
                 </ul>
             </div>

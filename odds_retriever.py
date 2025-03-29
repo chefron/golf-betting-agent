@@ -1,10 +1,13 @@
 """
 This module retrieves odds from the DataGolf API for specific players and markets.
+It also integrates mental form scores to calculate adjusted EV for betting recommendations.
 """
 
 import logging
 import requests
 import os
+import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Configure logging
@@ -17,15 +20,19 @@ logger = logging.getLogger('golf.odds_retriever')
 load_dotenv()
 
 class OddsRetriever:
-    """Retrieves odds from DataGolf API for specific players and markets"""
+    """Retrieves odds from DataGolf API and calculates adjusted EV using mental form scores"""
     
-    def __init__(self):
+    def __init__(self, db_path="data/db/mental_form.db"):
         """
         Initialize the odds retriever.
+        
+        Args:
+            db_path: Path to SQLite database with mental form scores
         """
         # Get API key from environment
         self.api_key = os.getenv('DATAGOLF_API_KEY') or "6e301f31eb610c59de6fa2e57009"
         self.base_url = "https://feeds.datagolf.com"
+        self.db_path = db_path
         logger.info("Initialized OddsRetriever")
     
     def fetch_api_data(self, endpoint, params=None):
@@ -88,162 +95,356 @@ class OddsRetriever:
         
         return ev_pct
     
-    def fetch_relevant_odds(self, player_id, player_name, markets):
+    def get_player_mental_score(self, dg_id):
         """
-        Fetch odds for specific player and markets from DataGolf API.
+        Get the mental form score for a player from the database.
         
         Args:
-            player_id: DataGolf player ID
-            player_name: Player name for fallback matching
-            markets: List of market types to query
+            dg_id: DataGolf player ID
             
         Returns:
-            Dictionary of market data for the player
+            Mental form score (-1 to 1) or None if not found
         """
-        print("DEBUG: Using the updated OddsRetriever.fetch_relevant_odds method")
-        player_odds = {}
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT m.score
+            FROM mental_form m
+            JOIN players p ON m.player_id = p.id
+            WHERE p.dg_id = ?
+            ''', (dg_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                return result['score']
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error fetching mental score: {e}")
+            return None
+    
+    def calculate_adjusted_ev(self, model_probability, decimal_odds, mental_score, market=None):
+        """
+        Calculate Expected Value (EV) adjusted by mental score.
         
-        for market in markets:
-            try:
-                logger.info(f"Fetching {market} odds for {player_name}")
-                
-                # Fetch data for this specific market (using the market name directly)
-                api_data = self.fetch_api_data("betting-tools/outrights", {
-                    "tour": "pga",
-                    "market": market,
-                    "odds_format": "decimal"
-                })
-                
-                if not api_data or "odds" not in api_data:
-                    logger.warning(f"No data returned for {market} market")
-                    continue
-                
-                # Find this specific player in the response - with type checking
-                player_data = None
-                for odds_item in api_data.get("odds", []):
-                    # First, ensure odds_item is a dictionary
-                    if not isinstance(odds_item, dict):
-                        continue
-                        
-                    # Try to match by ID first, then by name
-                    if str(odds_item.get("dg_id", "")) == str(player_id):
-                        player_data = odds_item
-                        break
-                    elif odds_item.get("player_name", "") == player_name:
-                        player_data = odds_item
-                        break
-                
-                if not player_data:
-                    # Try a more lenient name match as fallback
-                    for odds_item in api_data.get("odds", []):
-                        # Skip if not a dictionary
-                        if not isinstance(odds_item, dict):
-                            continue
-                            
-                        name_parts = player_name.split(", ")
-                        if len(name_parts) > 1:
-                            last_name = name_parts[0].lower()
-                            if last_name in odds_item.get("player_name", "").lower():
-                                player_data = odds_item
-                                logger.info(f"Found player via last name match: {odds_item.get('player_name')}")
-                                break
-                
-                # After the loop, check if we found the player
-                if player_data:
-                    # Log the player data
-                    print(f"DEBUG: Player data for {player_name} in {market} market: {player_data}")
-                    
-                    # Check specific fields
-                    if "datagolf" in player_data:
-                        datagolf_value = player_data["datagolf"]
-                        print(f"DEBUG: datagolf value: {datagolf_value} (type: {type(datagolf_value)})")
-                
-                if not player_data:
-                    logger.warning(f"Player {player_name} not found in {market} odds data")
-                    continue
-                    
-                # Extract relevant odds info (model and top sportsbooks)
-                market_odds = {
-                    "market": market,
-                    "display_name": self._format_market_name(market),
-                    "model_decimal": 0,
-                    "model_probability": 0,
-                    "model_used": "none",
-                    "sportsbooks": []
+        Args:
+            model_probability: Model probability as percentage
+            decimal_odds: Decimal odds from sportsbook
+            mental_score: Mental form score (-1 to 1)
+            market: Market type (e.g., "win", "top_5", "mc")
+            
+        Returns:
+            Tuple of (adjusted EV percentage, adjustment percentage)
+        """
+        # Calculate base EV
+        base_ev = self.calculate_ev(model_probability, decimal_odds)
+        
+        # If no mental score, return base EV
+        if mental_score is None:
+            return base_ev, 0
+        
+        # Determine adjustment direction based on market type
+        # For "miss cut" (MC) market, reverse the adjustment direction
+        # because poor mental form (negative score) increases chance of missing cut
+        adjustment_direction = -1 if market == "mc" else 1
+        
+        # Adjust model probability based on mental score and market type
+        # For standard markets (like win, top_5):
+        #   - Positive mental scores increase the probability (max +15%)
+        #   - Negative mental scores decrease the probability (max -15%)
+        # For "miss cut" market, the adjustment is reversed
+        adjustment_factor = mental_score * 0.15 * adjustment_direction
+        adjusted_probability = model_probability * (1 + adjustment_factor)
+        
+        # Ensure probability doesn't exceed 100% or go below 0%
+        adjusted_probability = min(max(adjusted_probability, 0), 100)
+        
+        # Recalculate EV with adjusted probability
+        adjusted_ev = self.calculate_ev(adjusted_probability, decimal_odds)
+        
+        return adjusted_ev, adjustment_factor * 100
+    
+    def update_odds_data(self, markets=None):
+        """
+        Update odds for all players in the current tournament and
+        calculate adjusted EV based on mental scores.
+        
+        Args:
+            markets: List of markets to update (defaults to all)
+            
+        Returns:
+            Dictionary with event information and processed odds data
+        """
+        if markets is None:
+            markets = ["win", "top_5", "top_10", "top_20", "make_cut", "mc", "frl"]
+        
+        result = {
+            "event_name": None,
+            "last_updated": None,
+            "markets": {market: [] for market in markets}
+        }
+        
+        # Get odds data for first market to extract event info
+        first_market_data = self.fetch_api_data("betting-tools/outrights", {
+            "tour": "pga",
+            "market": markets[0],
+            "odds_format": "decimal"
+        })
+        
+        if not first_market_data or "event_name" not in first_market_data:
+            logger.error("Could not fetch event info from betting data")
+            return result
+        
+        event_name = first_market_data["event_name"]
+        result["event_name"] = event_name
+        result["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Fetch all players from database with their mental scores
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT p.id, p.name, p.dg_id, m.score
+        FROM players p
+        LEFT JOIN mental_form m ON p.id = m.player_id
+        ''')
+        
+        # Create a lookup dictionary for players
+        players_by_dg_id = {}
+        players_by_name = {}
+        
+        for player in cursor.fetchall():
+            if player['dg_id']:
+                players_by_dg_id[str(player['dg_id'])] = {
+                    'id': player['id'],
+                    'name': player['name'],
+                    'mental_score': player['score']
                 }
-                
-                # Get model data with proper None handling
-                if "datagolf" in player_data:
-                    datagolf_value = player_data["datagolf"]
+            
+            name_parts = player['name'].split(', ')
+            if len(name_parts) > 1:
+                last_name = name_parts[0].lower()
+                players_by_name[last_name] = {
+                    'id': player['id'],
+                    'name': player['name'],
+                    'mental_score': player['score']
+                }
+        
+        conn.close()
+        
+        # For debugging - track matched and unmatched players
+        all_matched_players = []
+        all_unmatched_players = []
+        
+        # Process each market
+        for market in markets:
+            # Reset tracking for this market
+            matched_players = []
+            unmatched_players = []
+            
+            api_data = self.fetch_api_data("betting-tools/outrights", {
+                "tour": "pga",
+                "market": market,
+                "odds_format": "decimal"
+            })
+            
+            if not api_data or "odds" not in api_data:
+                logger.warning(f"No data returned for {market} market")
+                continue
+            
+            # Process all players in the odds data
+            player_odds_list = []
+            
+            for odds_item in api_data.get("odds", []):
+                # Skip if not a dictionary
+                if not isinstance(odds_item, dict):
+                    continue
                     
-                    # Handle different types of datagolf values
+                dg_id = str(odds_item.get("dg_id", ""))
+                player_name = odds_item.get("player_name", "")
+                
+                # Try to match player in our database
+                player_info = None
+                
+                if dg_id and dg_id in players_by_dg_id:
+                    player_info = players_by_dg_id[dg_id]
+                else:
+                    # Try name matching as fallback
+                    name_parts = player_name.split(' ')
+                    if len(name_parts) > 0:
+                        last_name = name_parts[-1].lower()
+                        if last_name in players_by_name:
+                            player_info = players_by_name[last_name]
+                
+                # If we couldn't match the player, create a placeholder
+                if player_info is None:
+                    player_info = {
+                        'id': None,
+                        'name': player_name,
+                        'mental_score': None
+                    }
+                    
+                    # Track unmatched player
+                    unmatched_players.append(player_name)
+                    if player_name not in all_unmatched_players:
+                        all_unmatched_players.append(player_name)
+                else:
+                    # Track matched player
+                    matched_players.append(player_name)
+                    if player_name not in all_matched_players:
+                        all_matched_players.append(player_name)
+                
+                # Extract model probability
+                model_probability = 0
+                model_decimal = 0
+                model_used = "none"
+                
+                if "datagolf" in odds_item:
+                    datagolf_value = odds_item["datagolf"]
+                    
                     if isinstance(datagolf_value, dict):
-                        # Check if baseline_history_fit exists and is not None
-                        if "baseline_history_fit" in datagolf_value and datagolf_value["baseline_history_fit"] is not None:
-                            model_odds = datagolf_value["baseline_history_fit"]
-                            market_odds["model_decimal"] = model_odds
-                            market_odds["model_probability"] = 100 / model_odds if model_odds > 0 else 0
-                            market_odds["model_used"] = "baseline_history_fit"
-                        # Then check if baseline exists and is not None
-                        elif "baseline" in datagolf_value and datagolf_value["baseline"] is not None:
-                            model_odds = datagolf_value["baseline"]
-                            market_odds["model_decimal"] = model_odds
-                            market_odds["model_probability"] = 100 / model_odds if model_odds > 0 else 0
-                            market_odds["model_used"] = "baseline"
+                        if "baseline_history_fit" in datagolf_value and datagolf_value["baseline_history_fit"]:
+                            model_decimal = datagolf_value["baseline_history_fit"]
+                            model_probability = 100 / model_decimal if model_decimal > 0 else 0
+                            model_used = "baseline_history_fit"
+                        elif "baseline" in datagolf_value and datagolf_value["baseline"]:
+                            model_decimal = datagolf_value["baseline"]
+                            model_probability = 100 / model_decimal if model_decimal > 0 else 0
+                            model_used = "baseline"
                     elif isinstance(datagolf_value, (int, float)) and datagolf_value > 0:
-                        # Handle direct numeric value
-                        model_odds = datagolf_value
-                        market_odds["model_decimal"] = model_odds
-                        market_odds["model_probability"] = 100 / model_odds
-                        market_odds["model_used"] = "unknown"
-                    elif isinstance(datagolf_value, str):
-                        # Try to handle string value as a fallback
-                        try:
-                            # Try to convert to float if it's a numeric string
-                            if datagolf_value.replace('.', '', 1).isdigit():
-                                model_odds = float(datagolf_value)
-                                market_odds["model_decimal"] = model_odds
-                                market_odds["model_probability"] = 100 / model_odds if model_odds > 0 else 0
-                                market_odds["model_used"] = "string_conversion"
-                        except Exception as e:
-                            logger.warning(f"Failed to convert datagolf string value: {e}")
+                        model_decimal = datagolf_value
+                        model_probability = 100 / model_decimal
+                        model_used = "unknown"
                 
-                # Get all available sportsbooks
-                target_sportsbooks = [
-                    'bet365', 'betmgm', 'bovada', 'caesars', 'draftkings', 
-                    'fanduel', 'pinnacle'
-                ]
+                # Process each sportsbook
+                sportsbooks_data = []
                 
-                for book in target_sportsbooks:
-                    if book in player_data:
-                        book_value = player_data[book]
+                for book in ['bet365', 'betmgm', 'bovada', 'draftkings', 'fanduel']:
+                    if book in odds_item and odds_item[book]:
+                        decimal_odds = odds_item[book]
                         
-                        if isinstance(book_value, (int, float)) and book_value > 0:
-                            decimal_odds = book_value
-                            ev = self.calculate_ev(market_odds["model_probability"], decimal_odds)
+                        if isinstance(decimal_odds, (int, float)) and decimal_odds > 0:
+                            # Calculate base EV
+                            base_ev = self.calculate_ev(model_probability, decimal_odds)
                             
-                            market_odds["sportsbooks"].append({
-                                "name": book,
-                                "display_name": self._format_sportsbook_name(book),
-                                "odds": decimal_odds,
-                                "ev": ev
+                            # Calculate adjusted EV if we have a mental score
+                            adjusted_ev = base_ev
+                            mental_adjustment = 0
+                            
+                            if player_info['mental_score'] is not None:
+                                adjusted_ev, mental_adjustment = self.calculate_adjusted_ev(
+                                    model_probability, 
+                                    decimal_odds,
+                                    player_info['mental_score'],
+                                    market=market
+                                )
+                            
+                            # Store in database
+                            self.store_odds_data(
+                                player_id=player_info['id'],
+                                dg_id=dg_id,
+                                player_name=player_name,
+                                event_name=event_name,
+                                market=market,
+                                sportsbook=book,
+                                decimal_odds=decimal_odds,
+                                model_probability=model_probability,
+                                model_used=model_used,
+                                base_ev=base_ev,
+                                mental_adjustment=mental_adjustment,
+                                adjusted_ev=adjusted_ev,
+                                mental_score=player_info['mental_score']
+                            )
+                            
+                            # Add to sportsbooks list
+                            sportsbooks_data.append({
+                                'name': book,
+                                'display_name': self._format_sportsbook_name(book),
+                                'decimal_odds': decimal_odds,
+                                'american_odds': self.decimal_to_american(decimal_odds),
+                                'base_ev': base_ev,
+                                'mental_adjustment': mental_adjustment,
+                                'adjusted_ev': adjusted_ev
                             })
                 
-                # Sort sportsbooks by EV (highest first)
-                market_odds["sportsbooks"].sort(key=lambda x: x["ev"], reverse=True)
-                
-                # Add to player odds if we found any sportsbooks
-                if market_odds["sportsbooks"]:
-                    player_odds[market] = market_odds
-                    logger.info(f"Found {len(market_odds['sportsbooks'])} sportsbooks with {market} odds for {player_name}")
-                else:
-                    logger.warning(f"No sportsbook odds found for {player_name} in {market} market")
+                # Add to player odds list if we have any sportsbooks
+                if sportsbooks_data:
+                    # Sort sportsbooks by adjusted EV
+                    sportsbooks_data.sort(key=lambda x: x["adjusted_ev"], reverse=True)
+                    
+                    player_odds_list.append({
+                        'player_id': player_info['id'],
+                        'player_name': player_info['name'] or player_name,
+                        'dg_id': dg_id,
+                        'mental_score': player_info['mental_score'],
+                        'model_probability': model_probability,
+                        'sportsbooks': sportsbooks_data
+                    })
             
-            except Exception as e:
-                logger.warning(f"Error processing {market} market: {e}")
-                # Continue with other markets
+            # Debug output for this market
+            print(f"Market {market}: Matched {len(matched_players)} players, unmatched {len(unmatched_players)} players")
+            if unmatched_players:
+                print(f"  First 10 unmatched: {unmatched_players[:10]}")
+            
+            # Sort players by best adjusted EV
+            player_odds_list.sort(
+                key=lambda x: max([b["adjusted_ev"] for b in x["sportsbooks"]]) if x["sportsbooks"] else 0, 
+                reverse=True
+            )
+            
+            result["markets"][market] = player_odds_list
         
-        return player_odds
+        # Overall stats
+        print(f"OVERALL: Matched {len(all_matched_players)} unique players, unmatched {len(all_unmatched_players)} unique players")
+        print(f"First 20 unmatched players: {all_unmatched_players[:20]}")
+        
+        return result
+    
+    def store_odds_data(self, player_id, dg_id, player_name, event_name, market, sportsbook, 
+                       decimal_odds, model_probability, model_used, base_ev, 
+                       mental_adjustment, adjusted_ev, mental_score):
+        """
+        Store odds data in the database.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # First, store raw odds data
+            cursor.execute('''
+            INSERT INTO odds
+            (player_id, dg_id, event_name, market, sportsbook, decimal_odds, 
+             model_probability, model_used, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                player_id, dg_id, event_name, market, sportsbook, decimal_odds,
+                model_probability, model_used, timestamp
+            ))
+            
+            # Then store the recommendation data
+            cursor.execute('''
+            INSERT INTO bet_recommendations
+            (player_id, event_name, market, sportsbook, decimal_odds, base_ev, 
+             mental_adjustment, adjusted_ev, mental_score, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                player_id, event_name, market, sportsbook, decimal_odds, 
+                base_ev, mental_adjustment, adjusted_ev, mental_score, timestamp
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Error storing odds data: {e}")
     
     def decimal_to_american(self, decimal_odds):
         """Convert decimal odds to American format with proper +/- prefix."""
@@ -274,8 +475,21 @@ class OddsRetriever:
             "draftkings": "DraftKings",
             "fanduel": "FanDuel",
             "bet365": "Bet365",
-            "caesars": "Caesars",
-            "pinnacle": "Pinnacle",
             "bovada": "Bovada",
         }
         return book_display.get(book, book.capitalize())
+
+
+# Helper function for use in Flask app
+def format_market_name(market):
+    """Format market code into a readable name"""
+    market_display = {
+        "win": "Outright Winner",
+        "top_5": "Top 5 Finish",
+        "top_10": "Top 10 Finish",
+        "top_20": "Top 20 Finish",
+        "make_cut": "Make Cut",
+        "mc": "Miss Cut",
+        "frl": "First Round Leader"
+    }
+    return market_display.get(market, market.upper())
