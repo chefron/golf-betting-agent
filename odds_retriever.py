@@ -200,10 +200,11 @@ class OddsRetriever:
             logger.error("Could not fetch event info from betting data")
             return result
         
+        # Use a single timestamp for the entire batch
         self.current_batch_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         event_name = first_market_data["event_name"]
         result["event_name"] = event_name
-        result["last_updated"] = self.current_batch_timestamp  # Use the same timestamp in result too
+        result["last_updated"] = self.current_batch_timestamp
         
         # Fetch all players from database with their mental scores
         conn = sqlite3.connect(self.db_path)
@@ -237,8 +238,6 @@ class OddsRetriever:
                     'mental_score': player['score']
                 }
         
-        conn.close()
-        
         # For debugging - track matched and unmatched players
         all_matched_players = []
         all_unmatched_players = []
@@ -249,6 +248,15 @@ class OddsRetriever:
             matched_players = []
             unmatched_players = []
             
+            # CLEAN SLATE APPROACH: First delete existing recommendations for this market
+            cursor.execute('''
+            DELETE FROM bet_recommendations 
+            WHERE event_name = ? AND market = ?
+            ''', (event_name, market))
+            
+            print(f"Deleted existing recommendations for {event_name}, market {market}")
+            
+            # Now fetch and process the new data
             api_data = self.fetch_api_data("betting-tools/outrights", {
                 "tour": "pga",
                 "market": market,
@@ -258,6 +266,8 @@ class OddsRetriever:
             if not api_data or "odds" not in api_data:
                 logger.warning(f"No data returned for {market} market")
                 continue
+            
+            print(f"Processing {len(api_data.get('odds', []))} players for market {market}")
             
             # Process all players in the odds data
             player_odds_list = []
@@ -360,7 +370,8 @@ class OddsRetriever:
                                 base_ev=base_ev,
                                 mental_adjustment=mental_adjustment,
                                 adjusted_ev=adjusted_ev,
-                                mental_score=player_info['mental_score']
+                                mental_score=player_info['mental_score'],
+                                conn=conn
                             )
                             
                             # Add to sportsbooks list
@@ -390,8 +401,6 @@ class OddsRetriever:
             
             # Debug output for this market
             print(f"Market {market}: Matched {len(matched_players)} players, unmatched {len(unmatched_players)} players")
-            if unmatched_players:
-                print(f"  First 10 unmatched: {unmatched_players[:10]}")
             
             # Sort players by best adjusted EV
             player_odds_list.sort(
@@ -403,27 +412,35 @@ class OddsRetriever:
         
         # Overall stats
         print(f"OVERALL: Matched {len(all_matched_players)} unique players, unmatched {len(all_unmatched_players)} unique players")
-        print(f"First 20 unmatched players: {all_unmatched_players[:20]}")
+        
+        conn.commit()
+        conn.close()
         
         return result
     
     def store_odds_data(self, player_id, dg_id, player_name, event_name, market, sportsbook, 
-                       decimal_odds, model_probability, model_used, base_ev, 
-                       mental_adjustment, adjusted_ev, mental_score):
+                    decimal_odds, model_probability, model_used, base_ev, 
+                    mental_adjustment, adjusted_ev, mental_score, conn=None):
         """
         Store odds data in the database.
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
+            # Use the current batch timestamp for consistency
             timestamp = self.current_batch_timestamp
+            
+            # Determine if we need to create our own connection
+            close_conn = False
+            if conn is None:
+                conn = sqlite3.connect(self.db_path, timeout=30)  # 30 second timeout
+                close_conn = True
+            
+            cursor = conn.cursor()
             
             # First, store raw odds data
             cursor.execute('''
             INSERT INTO odds
             (player_id, dg_id, event_name, market, sportsbook, decimal_odds, 
-             model_probability, model_used, timestamp)
+            model_probability, model_used, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player_id, dg_id, event_name, market, sportsbook, decimal_odds,
@@ -434,15 +451,17 @@ class OddsRetriever:
             cursor.execute('''
             INSERT INTO bet_recommendations
             (player_id, event_name, market, sportsbook, decimal_odds, base_ev, 
-             mental_adjustment, adjusted_ev, mental_score, timestamp)
+            mental_adjustment, adjusted_ev, mental_score, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player_id, event_name, market, sportsbook, decimal_odds, 
                 base_ev, mental_adjustment, adjusted_ev, mental_score, timestamp
             ))
             
-            conn.commit()
-            conn.close()
+            # Only commit and close if we created our own connection
+            if close_conn:
+                conn.commit()
+                conn.close()
             
         except Exception as e:
             logger.error(f"Error storing odds data: {e}")

@@ -589,43 +589,38 @@ def betting_dashboard():
     query = """
     SELECT r.*, p.name as player_name 
     FROM bet_recommendations r
-    JOIN (
-        SELECT player_id, market, MAX(timestamp) as max_time
-        FROM bet_recommendations
-        WHERE event_name = ? AND market = ?
-        GROUP BY player_id, market
-    ) latest ON r.player_id = latest.player_id AND r.market = latest.market AND r.timestamp = latest.max_time
     LEFT JOIN players p ON r.player_id = p.id
+    WHERE r.event_name = ? AND r.market = ?
     """
 
+    # Simplified parameter list - just the event name and market
     params = [event_name, market]
-    
+
     # Add sportsbook filter if specified
     if sportsbook and sportsbook in available_sportsbooks:
         query += " AND r.sportsbook = ?"
         params.append(sportsbook)
-    
+
     # Add EV filters if provided
     if min_ev and min_ev.replace('.', '', 1).isdigit():
         query += " AND r.adjusted_ev >= ?"
         params.append(float(min_ev))
-    
+
     if max_ev and max_ev.replace('.', '', 1).isdigit():
         query += " AND r.adjusted_ev <= ?"
         params.append(float(max_ev))
-    
+
     print(f"Query: {query}")
     print(f"Params: {params}")
-    
+
     # Execute query
     cursor.execute(query, params)
     bet_data = cursor.fetchall()
     print(f"Retrieved {len(bet_data)} rows of bet data")
     
     # Group by player and find best sportsbook for each
-    # If sportsbook filter is active, only include those odds
     player_bets = {}
-    
+
     for bet in bet_data:
         player_id = bet['player_id']
         
@@ -637,14 +632,21 @@ def betting_dashboard():
                 'best_bet': None,
                 'all_bets': []
             }
+        elif bet['player_name'] and player_bets[player_id]['player_name'] == 'Unknown Player':
+            # Update player name if we find a better one
+            player_bets[player_id]['player_name'] = bet['player_name']
         
-        player_bets[player_id]['all_bets'].append(dict(bet))
-        
-        # Update best bet if this is better or if we're filtering by a specific sportsbook
-        if (player_bets[player_id]['best_bet'] is None or 
-            bet['adjusted_ev'] > player_bets[player_id]['best_bet']['adjusted_ev'] or
-            (sportsbook and bet['sportsbook'] == sportsbook)):
-            player_bets[player_id]['best_bet'] = dict(bet)
+        # Only add bets with valid decimal odds
+        if bet['decimal_odds'] > 0:
+            player_bets[player_id]['all_bets'].append(dict(bet))
+            
+            # Update best bet with priority on the selected sportsbook
+            if sportsbook and bet['sportsbook'] == sportsbook:
+                # If filtering by sportsbook, always use that sportsbook's odds
+                player_bets[player_id]['best_bet'] = dict(bet)
+            elif player_bets[player_id]['best_bet'] is None or bet['adjusted_ev'] > player_bets[player_id]['best_bet']['adjusted_ev']:
+                # Otherwise use the best EV
+                player_bets[player_id]['best_bet'] = dict(bet)
     
     # Convert to list
     player_list = list(player_bets.values())
