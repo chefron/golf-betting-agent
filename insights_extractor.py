@@ -33,7 +33,7 @@ EXTRACTION GUIDELINES:
    - Pressure handling (clutch performance or collapse patterns)
    - Focus and concentration (distraction or enhanced presence)
    - On-course emotional outbursts (club throwing, visible anger)
-   - Body language observations from commentators
+   - Body language observations
 
    PERSONAL & PROFESSIONAL ENVIRONMENT:
    - Life events (family changes, relocations, personal challenges)
@@ -48,10 +48,11 @@ EXTRACTION GUIDELINES:
    - Exclude course fit based on statistical patterns
    - Exclude rankings or world position discussions
    - Exclude general strategy discussions without player-specific insights
+   - Again, we're looking for QUALITATIVE and NOT QUANTITATIVE insights
 
 3. EXTRACTION QUALITY CONTROLS:
    - Maintain context that explains WHY the insight matters
-   - Only extract genuine insights - quality over quantity
+   - Only extract genuine qualitative insights - quality over quantity!
    - Specify the source if mentioned (player, coach, analyst)
 
 For each legitimate qualitative insight, format your response exactly as follows:
@@ -63,7 +64,7 @@ For each legitimate qualitative insight, format your response exactly as follows
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract ALL player insights regardless of whether they relate to this specific event. If a player is mentioned but no meaningful qualitative insights are provided, do not include them.
+While this transcript may discuss the {event_name}, extract ALL qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Sunday's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Do not include quantitative insights.
 
 Here is the transcript:
 {transcript}

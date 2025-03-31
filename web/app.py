@@ -301,39 +301,73 @@ def add_new_insight():
 def edit_insight(insight_id):
     """Edit an existing insight"""
     conn = get_db_connection(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     if request.method == 'POST':
         text = request.form.get('text')
+        player_name = request.form.get('player_name')  # Get the potentially updated player name
         source = request.form.get('source')
         source_type = request.form.get('source_type')
         content_title = request.form.get('content_title', '')
         content_url = request.form.get('content_url', '')
         date = request.form.get('date')
         
+        # First, get the original player_id for the insight
+        cursor.execute("SELECT player_id FROM insights WHERE id = ?", (insight_id,))
+        original_player = cursor.fetchone()
+        
+        if not original_player:
+            conn.close()
+            flash('Insight not found!', 'error')
+            return redirect(url_for('insights'))
+        
+        original_player_id = original_player['player_id']
+        new_player_id = original_player_id  # Default to keeping the same player
+        
+        # Check if the player name has been changed
+        cursor.execute("SELECT p.name FROM players p WHERE p.id = ?", (original_player_id,))
+        original_player_name_result = cursor.fetchone()
+        original_player_name = original_player_name_result['name'] if original_player_name_result else "Unknown"
+        
+        if player_name != original_player_name:
+            # Try to find the new player
+            player = get_player_by_name(conn, player_name)
+            
+            if player:
+                new_player_id = player['id']
+                print(f"Changing player assignment from {original_player_id} ({original_player_name}) to {new_player_id} ({player_name})")
+            else:
+                conn.close()
+                flash(f'Player not found: {player_name}. Insight will remain assigned to {original_player_name}.', 'error')
+                return redirect(url_for('edit_insight', insight_id=insight_id))
+        
         # Update the insight
         cursor.execute("""
         UPDATE insights
-        SET text = ?, source = ?, source_type = ?, content_title = ?, content_url = ?, date = ?
+        SET text = ?, player_id = ?, source = ?, source_type = ?, content_title = ?, content_url = ?, date = ?
         WHERE id = ?
-        """, (text, source, source_type, content_title, content_url, date, insight_id))
+        """, (text, new_player_id, source, source_type, content_title, content_url, date, insight_id))
         
-        # Get player_id for redirect
-        cursor.execute("SELECT player_id FROM insights WHERE id = ?", (insight_id,))
-        player_id = cursor.fetchone()[0]
-        
-        # Mark mental form for recalculation
+        # Mark mental form for recalculation for both original and new player (if different)
         cursor.execute("""
         UPDATE mental_form
         SET last_updated = NULL
         WHERE player_id = ?
-        """, (player_id,))
+        """, (original_player_id,))
+        
+        if new_player_id != original_player_id:
+            cursor.execute("""
+            UPDATE mental_form
+            SET last_updated = NULL
+            WHERE player_id = ?
+            """, (new_player_id,))
         
         conn.commit()
         conn.close()
         
         flash('Insight updated successfully', 'success')
-        return redirect(url_for('player_detail', player_id=player_id))
+        return redirect(url_for('player_detail', player_id=new_player_id))
     
     # GET request - show form with existing data
     cursor.execute("""
