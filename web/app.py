@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import sqlite3
 import os
 import sys
@@ -294,7 +294,23 @@ def add_new_insight():
     
     conn.close()
     
-    return render_template('add_insight.html', sources=sources, source_types=source_types, 
+    # Get parameters from URL query string (for pre-filling form)
+    player_name = request.args.get('player_name', '')
+    text = request.args.get('text', '')
+    source = request.args.get('source', '')
+    source_type = request.args.get('source_type', 'podcast')  # Default to podcast
+    content_title = request.args.get('content_title', '')
+    content_url = request.args.get('content_url', '')
+    
+    return render_template('add_insight.html', 
+                          sources=sources, 
+                          source_types=source_types,
+                          player_name=player_name,
+                          text=text,
+                          source=source,
+                          source_type=source_type,
+                          content_title=content_title,
+                          content_url=content_url,
                           today=datetime.now().strftime("%Y-%m-%d"))
 
 @app.route('/edit_insight/<int:insight_id>', methods=['GET', 'POST'])
@@ -520,6 +536,54 @@ def process_transcript():
     conn.close()
     
     return render_template('process.html', sources=sources)
+
+@app.route('/fetch_youtube_transcript', methods=['POST'])
+def fetch_youtube_transcript():
+    """Fetch transcript from a YouTube video URL"""
+    try:
+        # Get YouTube URL from form
+        youtube_url = request.form.get('youtube_url')
+        if not youtube_url:
+            return jsonify({'success': False, 'error': 'No YouTube URL provided'})
+        
+        # Import the necessary functions from youtube_transcript.py
+        from youtube_transcript import get_video_id_from_url, get_transcript, format_transcript
+        
+        # Get video ID from URL
+        video_id = get_video_id_from_url(youtube_url)
+        
+        # Get transcript
+        transcript_list = get_transcript(video_id)
+        if not transcript_list:
+            return jsonify({
+                'success': False, 
+                'error': 'Failed to fetch transcript. Make sure the video has closed captions available.'
+            })
+        
+        # Format transcript
+        transcript_text = format_transcript(transcript_list)
+        
+        # Try to get video title using pytube (optional)
+        video_title = None
+        try:
+            from pytube import YouTube
+            yt = YouTube(youtube_url)
+            video_title = yt.title
+        except:
+            # If pytube fails, just continue without the title
+            pass
+        
+        return jsonify({
+            'success': True, 
+            'transcript': transcript_text,
+            'video_title': video_title
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching YouTube transcript: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/betting')
 def betting_dashboard():

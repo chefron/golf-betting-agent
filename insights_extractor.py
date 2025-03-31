@@ -174,6 +174,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "EMILIANO GRIO": "Grillo, Emiliano",
         "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
         "WINDHAM CLARK": "Clark, Wyndham",
+        "MEN WOO LEE": "Lee, Min Woo",
+        "LUDVIG ÅBERG": "Aberg, Ludvig"
     }
     
     if name.upper() in special_cases:

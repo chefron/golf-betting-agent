@@ -6,6 +6,35 @@
 <div class="container">
     <h1 class="mb-4">Process Transcript</h1>
     
+    <!-- YouTube URL Input Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Fetch YouTube Transcript</h5>
+        </div>
+        <div class="card-body">
+            <form id="youtubeForm" action="{{ url_for('fetch_youtube_transcript') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label for="youtube_url" class="form-label">YouTube Video URL</label>
+                        <input type="url" class="form-control" id="youtube_url" name="youtube_url" 
+                               placeholder="https://www.youtube.com/watch?v=..." required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fab fa-youtube me-2"></i> Fetch Transcript
+                        </button>
+                    </div>
+                </div>
+                <div class="form-text">
+                    Enter a YouTube video URL to automatically extract and fill the transcript field below.
+                    Note that the video must have closed captions available.
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Main Transcript Processing Form -->
     <div class="card">
         <div class="card-body">
             <form method="POST" action="{{ url_for('process_transcript') }}">
@@ -48,14 +77,15 @@
                     
                     <div class="col-md-4">
                         <label for="content_url" class="form-label">Content URL (Optional)</label>
-                        <input type="url" class="form-control" id="content_url" name="content_url">
+                        <input type="url" class="form-control" id="content_url" name="content_url" 
+                               id="content_url_input">
                     </div>
                 </div>
                 
                 <div class="mb-3">
                     <label for="transcript" class="form-label">Transcript Text</label>
                     <textarea class="form-control" id="transcript" name="transcript" rows="15" required></textarea>
-                    <div class="form-text">Paste the full transcript text here</div>
+                    <div class="form-text">Paste the full transcript text here or fetch it from YouTube</div>
                 </div>
                 
                 <div class="alert alert-info">
@@ -78,19 +108,70 @@
         </div>
         <div class="card-body">
             <ol>
+                <li>Enter a YouTube URL and fetch the transcript, or paste a transcript directly.</li>
                 <li>Enter the tournament name and source of the transcript.</li>
                 <li>Select the type of source (podcast, interview, press conference, etc.).</li>
-                <li>Paste the full transcript text into the textarea.</li>
                 <li>Click "Process Transcript" to analyze the text using Claude API.</li>
                 <li>The system will extract player insights and add them to the database.</li>
                 <li>If some players are not found, you'll have a chance to manually map them.</li>
             </ol>
-            
-            <p>
-                <strong>Tip:</strong> You can use the <code>youtube_transcript.py</code> script to extract transcripts from YouTube videos
-                before pasting them here.
-            </p>
         </div>
     </div>
 </div>
+
+{% block scripts %}
+<script>
+    // When a YouTube URL is submitted, fetch the transcript and fill the form
+    document.getElementById('youtubeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const url = this.getAttribute('action');
+        const youtubeUrl = formData.get('youtube_url');
+        
+        // Show loading indicator
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Fetching...';
+        
+        // Make AJAX request to fetch transcript
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fill the transcript field with the fetched transcript
+                document.getElementById('transcript').value = data.transcript;
+                
+                // Auto-fill the content URL field with the YouTube URL
+                document.getElementById('content_url').value = youtubeUrl;
+                
+                // Try to extract video title if available
+                if (data.video_title) {
+                    document.getElementById('episode_title').value = data.video_title;
+                }
+                
+                // Show success message
+                alert('Transcript successfully fetched!');
+            } else {
+                // Show error message
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while fetching the transcript.');
+        })
+        .finally(() => {
+            // Restore button state
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        });
+    });
+</script>
+{% endblock %}
+
 {% endblock %}
