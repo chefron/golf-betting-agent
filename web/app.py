@@ -721,12 +721,19 @@ def betting_dashboard():
 
     for bet in bet_data:
         player_id = bet['player_id']
+
+        model_probability = None
+        try:
+            model_probability = bet['model_probability']
+        except (KeyError, IndexError):
+            pass
         
         if player_id not in player_bets:
             player_bets[player_id] = {
                 'player_id': player_id,
                 'player_name': bet['player_name'] or 'Unknown Player',
                 'mental_score': bet['mental_score'],
+                'model_probability': model_probability,
                 'best_bet': None,
                 'all_bets': []
             }
@@ -736,15 +743,26 @@ def betting_dashboard():
         
         # Only add bets with valid decimal odds
         if bet['decimal_odds'] > 0:
-            player_bets[player_id]['all_bets'].append(dict(bet))
+            # Make a copy of the bet dictionary to avoid modifying the original
+            bet_copy = dict(bet)
+            
+            # Ensure model_probability is included in the copied bet
+            if 'model_probability' not in bet_copy and model_probability is not None:
+                bet_copy['model_probability'] = model_probability
+                
+            player_bets[player_id]['all_bets'].append(bet_copy)
+            
+            # Update model_probability if not yet set and available in this bet
+            if player_bets[player_id]['model_probability'] is None and model_probability is not None:
+                player_bets[player_id]['model_probability'] = model_probability
             
             # Update best bet with priority on the selected sportsbook
             if sportsbook and bet['sportsbook'] == sportsbook:
                 # If filtering by sportsbook, always use that sportsbook's odds
-                player_bets[player_id]['best_bet'] = dict(bet)
+                player_bets[player_id]['best_bet'] = bet_copy
             elif player_bets[player_id]['best_bet'] is None or bet['adjusted_ev'] > player_bets[player_id]['best_bet']['adjusted_ev']:
                 # Otherwise use the best EV
-                player_bets[player_id]['best_bet'] = dict(bet)
+                player_bets[player_id]['best_bet'] = bet_copy
     
     # Convert to list
     player_list = list(player_bets.values())

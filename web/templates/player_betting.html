@@ -122,8 +122,9 @@
                             <thead>
                                 <tr>
                                     <th>Sportsbook</th>
-                                    <th>Decimal Odds</th>
-                                    <th>American Odds</th>
+                                    <th>Book Odds</th>
+                                    <th>DG Model</th>
+                                    <th>Adj Model</th>
                                     <th>Base EV</th>
                                     <th>Mental Adjustment</th>
                                     <th>Adjusted EV</th>
@@ -133,28 +134,68 @@
                                 {% for rec in market_group.recommendations %}
                                     <tr>
                                         <td>{{ rec.sportsbook|upper }}</td>
-                                        <td>{{ "%.2f"|format(rec.decimal_odds) }}</td>
                                         <td>
                                             {% if rec.decimal_odds >= 2.0 %}
-                                                +{{ "%.0f"|format((rec.decimal_odds - 1) * 100) }}
+                                                <b>+{{ "%.0f"|format((rec.decimal_odds - 1) * 100) }}</b>
                                             {% else %}
-                                                {{ "%.0f"|format(-100 / (rec.decimal_odds - 1)) }}
+                                                <b>{{ "%.0f"|format(-100 / (rec.decimal_odds - 1)) }}</b>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {# Using attribute method to check if model_probability exists #}
+                                            {% if rec.model_probability|default(0) > 0 %}
+                                                {% set dg_decimal_odds = 100/rec.model_probability %}
+                                                {% if dg_decimal_odds >= 2.0 %}
+                                                    <b>+{{ "%.0f"|format((dg_decimal_odds - 1) * 100) }}</b>
+                                                {% else %}
+                                                    <b>{{ "%.0f"|format(-100 / (dg_decimal_odds - 1)) }}</b>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {# Check if model_probability exists and mental_score is not none #}
+                                            {% if rec.model_probability|default(0) > 0 and rec.mental_score is not none %}
+                                                {% set adjustment_factor = 1 + (rec.mental_adjustment / 100) %}
+                                                {% set adjusted_probability = rec.model_probability * adjustment_factor %}
+                                                {% set adjusted_decimal_odds = 100 / adjusted_probability if adjusted_probability > 0 else 0 %}
+                                                
+                                                {% if adjusted_decimal_odds > 0 %}
+                                                    {% if adjusted_decimal_odds >= 2.0 %}
+                                                        <b>+{{ "%.0f"|format((adjusted_decimal_odds - 1) * 100) }}</b>
+                                                    {% else %}
+                                                        <b>{{ "%.0f"|format(-100 / (adjusted_decimal_odds - 1)) }}</b>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">N/A</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
                                             {% endif %}
                                         </td>
                                         <td class="{% if rec.base_ev > 0 %}ev-positive{% elif rec.base_ev < 0 %}ev-negative{% endif %}">
                                             {{ "%.1f"|format(rec.base_ev) }}%
                                         </td>
                                         <td>
-                                            {% if rec.mental_adjustment > 0 %}
-                                                <span class="ev-positive">+{{ "%.1f"|format(rec.mental_adjustment) }}%</span>
-                                            {% elif rec.mental_adjustment < 0 %}
-                                                <span class="ev-negative">{{ "%.1f"|format(rec.mental_adjustment) }}%</span>
+                                            {% if rec.mental_score is not none %}
+                                                {% if rec.mental_adjustment > 0 %}
+                                                    <span class="ev-positive">+{{ "%.1f"|format(rec.mental_adjustment) }}%</span>
+                                                {% elif rec.mental_adjustment < 0 %}
+                                                    <span class="ev-negative">{{ "%.1f"|format(rec.mental_adjustment) }}%</span>
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
                                             {% else %}
-                                                0%
+                                                <span class="text-muted">N/A</span>
                                             {% endif %}
                                         </td>
-                                        <td class="{% if rec.adjusted_ev > 0 %}ev-positive{% elif rec.adjusted_ev < 0 %}ev-negative{% endif %}">
-                                            {{ "%.1f"|format(rec.adjusted_ev) }}%
+                                        <td class="{% if rec.mental_score is not none and rec.adjusted_ev > 0 %}ev-positive{% elif rec.mental_score is not none and rec.adjusted_ev < 0 %}ev-negative{% endif %}">
+                                            {% if rec.mental_score is not none %}
+                                                {{ "%.1f"|format(rec.adjusted_ev) }}%
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}

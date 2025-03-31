@@ -104,6 +104,7 @@ def create_database(db_path="data/db/mental_form.db"):
         mental_adjustment REAL,
         adjusted_ev REAL,
         mental_score REAL,
+        model_probability REAL,
         timestamp TEXT,
         FOREIGN KEY (player_id) REFERENCES players (id)
     )

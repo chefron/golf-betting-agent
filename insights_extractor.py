@@ -175,6 +175,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
         "WINDHAM CLARK": "Clark, Wyndham",
         "MEN WOO LEE": "Lee, Min Woo",
+        "MENWOO LEE": "Lee, Min Woo",
+        "MINWOO LEE": "Lee, Min Woo",
         "LUDVIG ÅBERG": "Aberg, Ludvig"
     }
     

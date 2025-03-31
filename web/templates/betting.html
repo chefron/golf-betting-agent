@@ -181,7 +181,9 @@
                                 <tr>
                                     <th>Player</th>
                                     <th>Mental Score</th>
-                                    <th>Best Odds</th>
+                                    <th>Book Odds</th>
+                                    <th>DG Model</th>
+                                    <th>Adj Model</th>
                                     <th>Base EV</th>
                                     <th>Mental Adj</th>
                                     <th>Adjusted EV</th>
@@ -208,14 +210,42 @@
                                         </td>
                                         <td>
                                             {% if player.best_bet %}
-                                                <b>{{ player.best_bet.decimal_odds }}</b>
-                                                <small class="text-muted">
-                                                    ({% if player.best_bet.decimal_odds >= 2.0 %}
-                                                        +{{ "%.0f"|format((player.best_bet.decimal_odds - 1) * 100) }}
+                                                {% if player.best_bet.decimal_odds >= 2.0 %}
+                                                    <b>+{{ "%.0f"|format((player.best_bet.decimal_odds - 1) * 100) }}</b>
+                                                {% else %}
+                                                    <b>{{ "%.0f"|format(-100 / (player.best_bet.decimal_odds - 1)) }}</b>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.model_probability is defined and player.model_probability is not none and player.model_probability > 0 %}
+                                                {% set dg_decimal_odds = 100/player.model_probability %}
+                                                {% if dg_decimal_odds >= 2.0 %}
+                                                    <b>+{{ "%.0f"|format((dg_decimal_odds - 1) * 100) }}</b>
+                                                {% else %}
+                                                    <b>{{ "%.0f"|format(-100 / (dg_decimal_odds - 1)) }}</b>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if player.best_bet and player.model_probability is defined and player.model_probability is not none and player.model_probability > 0 and player.mental_score is not none %}    
+                                                {% set adjustment_factor = 1 + (player.best_bet.mental_adjustment / 100) %}
+                                                {% set adjusted_probability = player.model_probability * adjustment_factor %}
+                                                {% set adjusted_decimal_odds = 100 / adjusted_probability if adjusted_probability > 0 else 0 %}
+                                                
+                                                {% if adjusted_decimal_odds > 0 %}
+                                                    {% if adjusted_decimal_odds >= 2.0 %}
+                                                        <b>+{{ "%.0f"|format((adjusted_decimal_odds - 1) * 100) }}</b>
                                                     {% else %}
-                                                        {{ "%.0f"|format(-100 / (player.best_bet.decimal_odds - 1)) }}
-                                                    {% endif %})
-                                                </small>
+                                                        <b>{{ "%.0f"|format(-100 / (adjusted_decimal_odds - 1)) }}</b>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">N/A</span>
+                                                {% endif %}
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}
@@ -231,12 +261,16 @@
                                         </td>
                                         <td>
                                             {% if player.best_bet %}
-                                                {% if player.best_bet.mental_adjustment > 0 %}
-                                                    <span class="ev-positive">+{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
-                                                {% elif player.best_bet.mental_adjustment < 0 %}
-                                                    <span class="ev-negative">{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
+                                                {% if player.mental_score is not none %}
+                                                    {% if player.best_bet.mental_adjustment > 0 %}
+                                                        <span class="ev-positive">+{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
+                                                    {% elif player.best_bet.mental_adjustment < 0 %}
+                                                        <span class="ev-negative">{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
+                                                    {% else %}
+                                                        0%
+                                                    {% endif %}
                                                 {% else %}
-                                                    0%
+                                                    <span class="text-muted">N/A</span>
                                                 {% endif %}
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
@@ -244,9 +278,13 @@
                                         </td>
                                         <td>
                                             {% if player.best_bet %}
-                                                <span class="{% if player.best_bet.adjusted_ev > 0 %}ev-positive{% elif player.best_bet.adjusted_ev < 0 %}ev-negative{% endif %}">
-                                                    {{ "%.1f"|format(player.best_bet.adjusted_ev) }}%
-                                                </span>
+                                                {% if player.mental_score is not none %}
+                                                    <span class="{% if player.best_bet.adjusted_ev > 0 %}ev-positive{% elif player.best_bet.adjusted_ev < 0 %}ev-negative{% endif %}">
+                                                        {{ "%.1f"|format(player.best_bet.adjusted_ev) }}%
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">N/A</span>
+                                                {% endif %}
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}
@@ -257,7 +295,11 @@
                                                     <div class="sportsbook-item">
                                                         <small>
                                                             <b>{{ bet.sportsbook|upper }}</b>: 
-                                                            {{ "%.2f"|format(bet.decimal_odds) }}
+                                                            {% if bet.decimal_odds >= 2.0 %}
+                                                                +{{ "%.0f"|format((bet.decimal_odds - 1) * 100) }}
+                                                            {% else %}
+                                                                {{ "%.0f"|format(-100 / (bet.decimal_odds - 1)) }}
+                                                            {% endif %}
                                                             <span class="{% if bet.adjusted_ev > 0 %}ev-positive{% elif bet.adjusted_ev < 0 %}ev-negative{% endif %}">
                                                                 ({{ "%.1f"|format(bet.adjusted_ev) }}%)
                                                             </span>

@@ -451,11 +451,11 @@ class OddsRetriever:
             cursor.execute('''
             INSERT INTO bet_recommendations
             (player_id, event_name, market, sportsbook, decimal_odds, base_ev, 
-            mental_adjustment, adjusted_ev, mental_score, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            mental_adjustment, adjusted_ev, mental_score, model_probability, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player_id, event_name, market, sportsbook, decimal_odds, 
-                base_ev, mental_adjustment, adjusted_ev, mental_score, timestamp
+                base_ev, mental_adjustment, adjusted_ev, mental_score, model_probability, timestamp
             ))
             
             # Only commit and close if we created our own connection
