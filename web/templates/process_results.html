@@ -83,8 +83,8 @@
                                 <div class="accordion-body">
                                     <p>{{ insight.text }}</p>
                                     <div class="d-grid gap-2">
-                                        <a href="{{ url_for('add_new_insight') }}?player_name={{ insight.player_name|urlencode }}&text={{ insight.text|urlencode }}&source={{ source|urlencode }}&source_type={{ source_type|urlencode }}&content_title={{ content_title|urlencode if content_title else '' }}&content_url={{ content_url|urlencode if content_url else '' }}" 
-                                           class="btn btn-primary" target="_blank">
+                                        <a href="{{ url_for('add_new_insight') }}?player_name={{ insight.player_name|urlencode }}&text={{ insight.text|urlencode }}&source={{ source|urlencode }}&source_type={{ source_type|urlencode }}&content_title={{ content_title|urlencode if content_title else '' }}&content_url={{ content_url|urlencode if content_url else '' }}&date={{ insight_date|urlencode if insight_date else '' }}" 
+                                        class="btn btn-primary" target="_blank">
                                             <i class="fas fa-plus"></i> Add Manually
                                         </a>
                                     </div>

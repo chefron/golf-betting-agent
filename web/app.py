@@ -455,6 +455,7 @@ def process_transcript():
         source_type = request.form.get('source_type', 'podcast')
         episode_title = request.form.get('episode_title', '')
         content_url = request.form.get('content_url', '')
+        insight_date = request.form.get('insight_date', datetime.now().strftime("%Y-%m-%d"))
         
         if not transcript_text or not event_name or not source:
             flash('Please fill out all required fields', 'error')
@@ -507,7 +508,7 @@ def process_transcript():
                         source_type=source_type,
                         content_title=episode_title,
                         content_url=content_url,
-                        date=datetime.now().strftime("%Y-%m-%d")
+                        date=insight_date
                     )
                     insight_data['matched'] = True
                     insight_data['player_id'] = player_id
@@ -519,7 +520,11 @@ def process_transcript():
             return render_template('process_results.html', 
                                  insights=extracted_insights,
                                  event_name=event_name,
-                                 source=source)
+                                 source=source,
+                                 source_type=source_type,
+                                 content_title=episode_title,
+                                 content_url=content_url,
+                                 insight_date=insight_date)
                 
         except Exception as e:
             flash(f'Error processing transcript: {str(e)}', 'error')
@@ -535,7 +540,7 @@ def process_transcript():
     
     conn.close()
     
-    return render_template('process.html', sources=sources)
+    return render_template('process.html', sources=sources, today=datetime.now().strftime("%Y-%m-%d"))
 
 @app.route('/fetch_youtube_transcript', methods=['POST'])
 def fetch_youtube_transcript():
