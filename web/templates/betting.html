@@ -195,9 +195,13 @@
                                 {% for player in market_data.players %}
                                     <tr>
                                         <td>
-                                            <a href="{{ url_for('player_detail', player_id=player.player_id) }}">
+                                            {% if player.player_id %}
+                                                <a href="{{ url_for('player_detail', player_id=player.player_id) }}">
+                                                    {{ player.player_name }}
+                                                </a>
+                                            {% else %}
                                                 {{ player.player_name }}
-                                            </a>
+                                            {% endif %}
                                         </td>
                                         <td>
                                             {% if player.mental_score is not none %}
@@ -309,10 +313,16 @@
                                             </div>
                                         </td>
                                         <td>
+                                        {% if player.player_id %}
                                             <a href="{{ url_for('player_betting_detail', player_id=player.player_id, market=market_data.name) }}" 
-                                               class="btn btn-sm btn-outline-primary">
+                                            class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-search"></i> Details
                                             </a>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-secondary" disabled>
+                                                <i class="fas fa-search"></i> No Details
+                                            </button>
+                                        {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}

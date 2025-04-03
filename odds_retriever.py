@@ -412,9 +412,18 @@ class OddsRetriever:
         
         # Overall stats
         print(f"OVERALL: Matched {len(all_matched_players)} unique players, unmatched {len(all_unmatched_players)} unique players")
+
+        print("\n=== DETAILED UNMATCHED PLAYERS REPORT ===")
+        print(f"Total unmatched players: {len(all_unmatched_players)}")
+        for name in sorted(all_unmatched_players):
+            print(f"  - {name}")
         
         conn.commit()
         conn.close()
+
+        print(f"Total unmatched players: {len(all_unmatched_players)}")
+        for name in sorted(all_unmatched_players):
+            print(f"  - {name}")
         
         return result
     
@@ -498,7 +507,6 @@ class OddsRetriever:
             "bovada": "Bovada",
         }
         return book_display.get(book, book.capitalize())
-
 
 # Helper function for use in Flask app
 def format_market_name(market):

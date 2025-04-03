@@ -112,6 +112,9 @@ def calculate_mental_form(player_id, max_insights=20):
         raise ValueError("Anthropic API key is required but not found in environment variables")
     
     client = anthropic.Anthropic(api_key=api_key)
+
+    # Get current date for context
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
     
     # Prepare insights for prompt
     insights_text = "\n\n".join([f"Date: {i['date']}\nInsight: {i['text']}" for i in insights])
@@ -123,6 +126,8 @@ def calculate_mental_form(player_id, max_insights=20):
     -1 = Severely compromised mental state (likely to significantly underperform statistical expectations)
     0 = Neutral mental state (performing in line with statistical expectations)
     1 = Exceptional mental state (likely to significantly outperform statistical expectations)
+
+    Today's date: {today}
 
     MENTAL FORM ASSESSMENT FRAMEWORK:
 
@@ -158,18 +163,27 @@ def calculate_mental_form(player_id, max_insights=20):
     - NEGATIVE: Pattern of late-round collapses, difficulty closing tournaments
     - POSITIVE: Clutch performances, improvement in pressure situations, momentum from recent success
 
+    SCORE CALIBRATION GUIDELINES:
+    - Scores with limited evidence (1-2 insights) should generally stay within -0.3 to +0.3
+    - Scores beyond ±0.5 require substantial, consistent evidence across multiple aspects
+    - With conflicting evidence, scores should tend toward neutral (0)
+    - When insights are older than a month, scores should be closer to neutral
+    - The default assumption is a score of 0 (neutral) - move away from neutral ONLY with sufficient evidence
+
     WEIGHTING INSTRUCTIONS:
-    - Recent insights (within past 2 weeks) should carry more weight than older ones
+    - Recent insights (within past 2 weeks) should carry MORE weight than older ones
+    - Insights older than a month or two should carry little weight
     - Observable behaviors should outweigh speculative commentary
     - Do not double-count redundant insights
     - When conflicting insights exist, give more weight to the most recent information
+    - A single positive performance does NOT indicate an exceptional overall mental state
 
     Here are the insights:
     {insights_text}
 
     Based solely on these insights and the framework above:
     1. Provide a current mental form score between -1 and 1
-    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. You can include specific details and examples from the insights, but the explanation must be readable as a standalone assessment that someone could understand without seeing the original insights or even knowing they exist. Do not directly refer to "the insights."
+    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. You can include specific details and examples from the insights, but the explanation must be readable as a standalone assessment that someone could understand without seeing the original insights or even knowing they exist. DO NOT DIRECTLY REFER to "THE INSIGHTS."
 
     Format your response as:
     SCORE: [number between -1 and 1]
@@ -179,8 +193,8 @@ def calculate_mental_form(player_id, max_insights=20):
     # Call Claude to analyze mental form
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
-        max_tokens=500,
-        temperature=0,
+        max_tokens=1000,
+        temperature=.25,
         system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
         messages=[{"role": "user", "content": prompt}]
     )

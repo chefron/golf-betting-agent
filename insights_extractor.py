@@ -21,7 +21,7 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify intangible factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.
+You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.  Focus on INTANGIBLE INSIGHTS only.
 
 EXTRACTION GUIDELINES:
 
@@ -45,10 +45,10 @@ EXTRACTION GUIDELINES:
 
 2. STRICTLY EXCLUDE STATISTICAL INFORMATION:
    - Exclude strokes gained metrics and other performance statistics
-   - Exclude course fit based on statistical patterns
+   - Exclude skill assessments based on performance data
+   - Exclude course fit assessments
    - Exclude rankings or world position discussions
-   - Exclude general strategy discussions without player-specific insights
-   - Again, we're looking for QUALITATIVE and NOT QUANTITATIVE insights
+   - Again, we're looking for QUALITATIVE INTANGIBLES only
 
 3. EXTRACTION QUALITY CONTROLS:
    - Maintain context that explains WHY the insight matters
@@ -64,7 +64,7 @@ For each legitimate qualitative insight, format your response exactly as follows
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract ALL qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Sunday's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Do not include quantitative insights.
+While this transcript may discuss the {event_name}, extract all legitimate qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Sunday's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them.
 
 Here is the transcript:
 {transcript}
@@ -177,7 +177,35 @@ def get_player_by_name(conn, name, fuzzy=True):
         "MEN WOO LEE": "Lee, Min Woo",
         "MENWOO LEE": "Lee, Min Woo",
         "MINWOO LEE": "Lee, Min Woo",
-        "LUDVIG ÅBERG": "Aberg, Ludvig"
+        "MINU LEE": "Lee, Min Woo",
+        "LUDVIG ÅBERG": "Aberg, Ludvig",
+        "LUDVIG OBERG": "Aberg, Ludvig",
+        "STEPHEN JAEGER": "Jaeger, Stephan",
+        "STEVEN Jaeger": "Jaeger, Stephan",
+        "JJ SPAUN": "Spaun, J.J.",
+        "JJ SPAWN": "Spaun, J.J.",
+        "CHARLIE HOFFMAN": "Hoffman, Charley",
+        "TOM MCKIBBEN": "McKibbin, Tom",
+        "ROY MCILROY": "McIlroy, Rory",
+        "JOHN RAHM": "Rahm, Jon",
+        "JOHN ROM": "Rahm, Jon",
+        "HOWTON LEE": "Li, Haotong", 
+        "RICKY FOWLER": "Fowler, Rickie",
+        "THOMAS DIETRY": "Detry, Thomas",
+        "ADRIEN MERONK": "Meronk, Adrian",
+        "MAVERICK MCNEELY": "McNealy, Maverick",
+        "COLIN MORIKAWA": "Morikawa, Collin",
+        "PATRICK ROGERS": "Rodgers, Patrick",
+        "WINDAM CLARK": "Clark, Wyndham",
+        "ALDRI POTGATER": "Potgieter, Aldrich",
+        "JUSTIN SU": "Suh, Justin",
+        "RYAN PEAK": "PEAKE, RYAN",
+        "JOE HEITH": "Highsmith, Joe",
+        "CALLUM HILL": "Hill, Calum",
+        "CARL VILIPS": "Vilips, Karl",
+        "CARL VILLIPS": "Vilips, Karl",
+        "NEIL SHIPLEY": "Shipley, Neal",
+        "JOHNNY VEGAS": "Vegas, Jhonattan"
     }
     
     if name.upper() in special_cases:
