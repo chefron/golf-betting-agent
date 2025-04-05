@@ -132,58 +132,47 @@ def calculate_mental_form(player_id, max_insights=20):
     MENTAL FORM ASSESSMENT FRAMEWORK:
 
     1. Emotional Regulation
-    - NEGATIVE: On-course emotional outbursts (club throwing/breaking, visible anger), inability to move past mistakes
-    - POSITIVE: Demonstrated resilience after setbacks, calm demeanor under pressure
+    - NEGATIVE: On-course emotional outbursts, visible frustration, inability to move past mistakes
+    - POSITIVE: Demonstrated resilience, calm demeanor, constructive response to challenges
 
     2. Confidence Level
-    - NEGATIVE: Self-doubt in interviews, tentative decision-making, defensive language about game
-    - POSITIVE: Expressed belief in abilities, aggressive strategy choices, positive self-talk
+    - NEGATIVE: Expressed self-doubt, hesitancy in decision-making, defensive language
+    - POSITIVE: Stated belief in abilities, decisive approach, positive self-talk
 
     3. Focus & Concentration
-    - NEGATIVE: Distracted by external factors, inconsistent pre-shot routines, rushing shots
-    - POSITIVE: Enhanced visualization techniques, improved shot commitment, present-focused mindset
+    - NEGATIVE: Mentioned distractions, disrupted routines, rushing process
+    - POSITIVE: Discussed improved mental clarity, enhanced preparation, present-focused mindset
 
     4. Life Stability
-    - NEGATIVE: Personal difficulties (family issues, controversies), major life adjustments (new child, moving locations)
-    - POSITIVE: Resolution of off-course distractions, improved work-life balance
+    - NEGATIVE: Personal difficulties, major life adjustments, reported off-course stress
+    - POSITIVE: Expressed contentment with life balance, resolution of previous distractions
 
     5. Support System
-    - NEGATIVE: Caddie/coach conflicts, frequent team changes, isolation from support network
-    - POSITIVE: Strong team chemistry, productive coaching relationships, positive influence from mentors
+    - NEGATIVE: Team conflicts, coaching/caddie changes, isolation concerns
+    - POSITIVE: Mentioned positive team dynamics, valuable mentor relationships
 
-    6. Physical Readiness
-    - NEGATIVE: Unreported injuries, fatigue from scheduling, uncomfortable equipment changes
-    - POSITIVE: Enhanced fitness regimen, proper recovery protocols, optimal equipment setup
+    6. Physical Well-being
+    - NEGATIVE: Discussed injuries, fatigue, discomfort with equipment
+    - POSITIVE: Reported improved fitness, effective recovery, equipment satisfaction
 
-    7. Course Management
-    - NEGATIVE: Poor decision-making patterns, failure to adapt to conditions
-    - POSITIVE: Strategic improvements, better risk assessment, course-specific preparation
+    7. Mental Approach
+    - NEGATIVE: Described poor decision-making process, rigid strategic thinking
+    - POSITIVE: Discussed improved perspective, adaptability, or strategic clarity
 
-    8. Performance Trends
-    - NEGATIVE: Pattern of late-round collapses, difficulty closing tournaments
-    - POSITIVE: Clutch performances, improvement in pressure situations, momentum from recent success
-
-    SCORE CALIBRATION GUIDELINES:
-    - Scores with limited evidence (1-2 insights) should generally stay within -0.3 to +0.3
-    - Scores beyond ±0.5 require substantial, consistent evidence across multiple aspects
-    - With conflicting evidence, scores should tend toward neutral (0)
-    - When insights are older than a month, scores should be closer to neutral
-    - The default assumption is a score of 0 (neutral) - move away from neutral ONLY with sufficient evidence
-
-    WEIGHTING INSTRUCTIONS:
-    - Recent insights (within past 2 weeks) should carry MORE weight than older ones
-    - Insights older than a month or two should carry little weight
-    - Observable behaviors should outweigh speculative commentary
-    - Do not double-count redundant insights
-    - When conflicting insights exist, give more weight to the most recent information
-    - A single positive performance does NOT indicate an exceptional overall mental state
+    SCORING GUIDELINES:
+    - DO NOT infer current mental state from performance results alone
+    - Positive (or negative) performances on the course DO NOT necessarily indicate a positive (or negative) mental state
+    - The default assumption is 0 (neutral) - move away ONLY with explicit evidence
+    - Insights older than 30 days should carry minimal weight
+    - Scores beyond ±0.5 require substantial evidence across multiple categories
+    - Do not double-count redundant insights (there will likely be redundancies!)
 
     Here are the insights:
     {insights_text}
 
     Based solely on these insights and the framework above:
     1. Provide a current mental form score between -1 and 1
-    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. You can include specific details and examples from the insights, but the explanation must be readable as a standalone assessment that someone could understand without seeing the original insights or even knowing they exist. DO NOT DIRECTLY REFER to "THE INSIGHTS."
+    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. Your explanation must stand alone without referencing "insights" directly.
 
     Format your response as:
     SCORE: [number between -1 and 1]
@@ -194,7 +183,7 @@ def calculate_mental_form(player_id, max_insights=20):
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
         max_tokens=1000,
-        temperature=.25,
+        temperature=.5,
         system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
         messages=[{"role": "user", "content": prompt}]
     )

@@ -21,37 +21,37 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements.  Focus on INTANGIBLE INSIGHTS only.
+You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include a player than to reach for or fabricate a qualitative insight when none exists.
 
 EXTRACTION GUIDELINES:
 
 1. TARGET THESE HIGH-VALUE QUALITATIVE FACTORS:
 
    MENTAL & EMOTIONAL STATE:
-   - Confidence level and changes (lost/gained confidence)
-   - Emotional regulation on course (calmness or frustration)
-   - Pressure handling (clutch performance or collapse patterns)
-   - Focus and concentration (distraction or enhanced presence)
-   - On-course emotional outbursts (club throwing, visible anger)
-   - Body language observations
+   - Confidence level and changes (directly expressed or observed, not assumed from performance results)
+   - Emotional regulation on course (observed reactions, not inferred from playing well/poorly)
+   - Pressure handling (specific mental responses, not just performance outcomes)
+   - Focus and concentration (as directly discussed or observed)
+   - On-course emotional outbursts (specific incidents described)
+   - Body language observations (only when explicitly described)
 
    PERSONAL & PROFESSIONAL ENVIRONMENT:
    - Life events (family changes, relocations, personal challenges)
    - Team dynamics (caddie relationships, coach changes)
    - Equipment changes and their specific effects
    - Physical condition (injuries, fitness improvements, fatigue)
-   - Work ethic and practice quality (not just quantity)
+   - Work ethic and practice quality
    - Strategic approach changes (course management, risk assessment)
 
-2. STRICTLY EXCLUDE STATISTICAL INFORMATION:
-   - Exclude strokes gained metrics and other performance statistics
-   - Exclude skill assessments based on performance data
-   - Exclude course fit assessments
-   - Exclude rankings or world position discussions
-   - Again, we're looking for QUALITATIVE INTANGIBLES only
+2. STRICTLY EXCLUDE:
+   - Performance-based assumptions about mental state
+   - Statistics-based evaluations
+   - Skill assessments based on results
+   - Course fit discussions
+   - Rankings or world position discussions
 
-3. EXTRACTION QUALITY CONTROLS:
-   - Maintain context that explains WHY the insight matters
+3. QUALITY CONTROLS:
+   - Maintain context that explains why the insight matters
    - Only extract genuine qualitative insights - quality over quantity!
    - Specify the source if mentioned (player, coach, analyst)
 
@@ -64,7 +64,7 @@ For each legitimate qualitative insight, format your response exactly as follows
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract all legitimate qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Sunday's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them.
+While this transcript may discuss the {event_name}, extract all legitimate qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Sunday's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Remember, QUALITY OVER QUANTITY.
 
 Here is the transcript:
 {transcript}

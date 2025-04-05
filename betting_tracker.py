@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class GolfBettingTracker:
-    def __init__(self, api_key):
+    def __init__(self, api_key, kelly_fraction=0.25, default_sportsbook=None):
         self.api_key = api_key
         self.base_url = "https://feeds.datagolf.com"
         self.db_conn = self._initialize_database()
+        self.kelly_fraction = kelly_fraction  # Set Kelly fraction during initialization
+        self.default_sportsbook = default_sportsbook.lower() if default_sportsbook else None
     
     def _initialize_database(self):
         """Set up SQLite database with necessary tables for tracking bets and results"""
@@ -36,7 +38,10 @@ class GolfBettingTracker:
             settled_date TIMESTAMP,
             outcome TEXT,  -- 'win', 'loss', 'void', 'pending'
             profit_loss REAL,
-            model_probability REAL,  -- Our model's probability
+            base_model_probability REAL,  -- DataGolf's original probability
+            mental_form_score REAL,  -- Player's mental form score (-1 to 1)
+            mental_adjustment REAL,  -- Adjustment percentage
+            adjusted_probability REAL,  -- Probability after mental adjustment
             book_implied_probability REAL,  -- Book's implied probability
             expected_value REAL,  -- EV of the bet (in percentage)
             round_num INTEGER,  -- Round number for round-specific bets
@@ -77,6 +82,22 @@ class GolfBettingTracker:
         
         conn.commit()
         return conn
+    
+    def set_kelly_fraction(self, fraction):
+        """Update the Kelly fraction setting
+        
+        Args:
+            fraction: New Kelly fraction value (0-1)
+        """
+        if 0 <= fraction <= 1:
+            self.kelly_fraction = fraction
+        else:
+            raise ValueError("Kelly fraction must be between 0 and 1")
+        
+    def set_default_sportsbook(self, sportsbook):
+        """Set a default sportsbook to use for all betting recommendations"""
+        self.default_sportsbook = sportsbook.lower() if sportsbook else None
+        print(f"Default sportsbook set to: {self.default_sportsbook or 'All Sportsbooks'}")
     
     def fetch_current_events(self, tour="pga"):
         """Fetch current tournament information"""
@@ -131,7 +152,7 @@ class GolfBettingTracker:
             print(f"Error fetching model predictions: {response.status_code}")
             return None
     
-    def calculate_kelly_criterion(self, probability, odds, fraction=1.0):
+    def calculate_kelly_criterion(self, probability, odds):
         """
         Calculate Kelly Criterion for optimal bet sizing
         
@@ -152,42 +173,284 @@ class GolfBettingTracker:
         # Check for edge (only bet when we have positive expected value)
         if (b * probability - q) <= 0:
             return 0
-            
+                
         kelly = (b * probability - q) / b
         
         # Apply Kelly fraction to reduce variance
-        return kelly * fraction
+        return kelly * self.kelly_fraction
+    
+    def process_odds_data(self, odds_data, min_ev_threshold, bankroll, min_stake=1.0):
+        """
+        Process odds data from OddsRetriever and identify bet opportunities
+
+        Args:
+            odds_data: Output from OddsRetriever.update_odds_data()
+            min_ev_threshold: Minimum adjusted EV to consider a bet (default 5%)
+            bankroll: Current bankroll for bet sizing calculations
+            min_stake: Minimum stake to include in recommendations (default $1.0)
+
+        Returns:
+            List of bet opportunities sorted by adjusted EV
+        """
+        event_name = odds_data.get("event_name", "Unknown Event")
+        bet_opportunities = []
+
+        high_ev_players = set()
+        final_players = set()
+
+        for market_name, market_data in odds_data.get("markets", {}).items():
+            if not market_data:
+                continue
+
+            for player in market_data:
+                player_name = player.get("player_name", "Unknown Player")
+                player_id = player.get("player_id")
+                mental_score = player.get("mental_score")
+                dg_id = player.get("dg_id")
+
+                qualifying_books = []
+
+                for book in player.get("sportsbooks", []):
+                    # Filter by sportsbook if a default is set
+                    if self.default_sportsbook and book.get("name", "").lower() != self.default_sportsbook:
+                        continue
+
+                    adjusted_ev = book.get("adjusted_ev", 0)
+                    if adjusted_ev >= min_ev_threshold:
+                        qualifying_books.append(book)
+                        high_ev_players.add(f"{player_name} - {market_name}")
+
+                if not qualifying_books:
+                    continue
+
+                for book in qualifying_books:
+                    adjusted_ev = book.get("adjusted_ev", 0)
+                    decimal_odds = book.get("decimal_odds", 0)
+                    base_model_probability = player.get("model_probability", 0)
+                    mental_adjustment = book.get("mental_adjustment", 0)
+
+                    adjustment_factor = 1 + (mental_adjustment / 100)
+                    adjusted_probability = base_model_probability * adjustment_factor if base_model_probability > 0 else 0
+
+                    kelly_pct = 0
+                    kelly_stake = 0
+                    if adjusted_probability > 0:
+                        prob_decimal = adjusted_probability / 100
+                        kelly_pct = self.calculate_kelly_criterion(prob_decimal, decimal_odds)
+                        kelly_stake = kelly_pct * bankroll
+
+                    # Skip opportunities with stakes below the minimum
+                    if kelly_stake < min_stake:
+                        continue
+
+                    exists, existing_bet = self.has_existing_bet(
+                        odds_data.get("event_id", "unknown"),
+                        "outright",
+                        market_name,
+                        player_id
+                    )
+
+                    if exists:
+                        continue
+
+                    bet_opportunity = {
+                        "event_name": event_name,
+                        "market": market_name,
+                        "player_name": player_name,
+                        "player_id": player_id,
+                        "dg_id": dg_id,
+                        "sportsbook": book.get("name", ""),
+                        "decimal_odds": decimal_odds,
+                        "american_odds": book.get("american_odds", ""),
+                        "base_model_probability": base_model_probability,
+                        "mental_form_score": mental_score,
+                        "mental_adjustment": mental_adjustment,
+                        "adjusted_probability": adjusted_probability,
+                        "base_ev": book.get("base_ev", 0),
+                        "adjusted_ev": adjusted_ev,
+                        "kelly_stake": round(kelly_stake, 2),
+                        "kelly_percentage": round(kelly_pct * 100, 2)
+                    }
+
+                    bet_opportunities.append(bet_opportunity)
+                    final_players.add(f"{player_name} - {market_name}")
+
+        # Optional debug output for filtered players
+        filtered_players = high_ev_players - final_players
+        if filtered_players:
+            print(f"\n=== FILTERED PLAYERS ANALYSIS ===")
+            for player_filter in filtered_players:
+                player_name, market_name = player_filter.split(" - ")
+                for player in market_data:
+                    if player.get("player_name") == player_name:
+                        print(f"\nPlayer: {player_name}")
+                        print("Sportsbook EVs:")
+                        for book in player.get("sportsbooks", []):
+                            ev = book.get("adjusted_ev", 0)
+                            print(f"  {book.get('name')}: {ev:.2f}%")
+                        break
+
+        bet_opportunities.sort(key=lambda x: x.get("adjusted_ev", 0), reverse=True)
+        return bet_opportunities
     
     def record_bet(self, event_id, event_name, bet_type, bet_market, player_id, 
-                player_name, odds, stake, model_probability, opponent_id=None, 
-                opponent_name=None, round_num=None, notes=None):
+                player_name, odds, stake, base_model_probability, 
+                mental_form_score=None, mental_adjustment=None, adjusted_probability=None,
+                opponent_id=None, opponent_name=None, round_num=None, notes=None):
         """Record a new bet in the database"""
         potential_return = stake * odds
+        
+        # calculate adjusted probability from the base probability and adjustment
+        if adjusted_probability is None and base_model_probability is not None and mental_adjustment is not None:
+            adjustment_factor = 1 + (mental_adjustment / 100)
+            adjusted_probability = base_model_probability * adjustment_factor
+        
+        # Use the most accurate probability we have for EV calculation
+        probability_for_ev = adjusted_probability if adjusted_probability is not None else base_model_probability
         
         # Calculate book implied probability
         book_implied_probability = 1/odds
         
         # Calculate expected value
         win_amount = odds - 1
-        expected_value = ((model_probability * win_amount) - ((1 - model_probability) * 1)) * 100
+        expected_value = ((probability_for_ev * win_amount) - ((1 - probability_for_ev) * 1)) * 100
         
         cursor = self.db_conn.cursor()
         cursor.execute('''
         INSERT INTO bets (
             event_id, event_name, bet_type, bet_market, player_id, player_name,
             opponent_id, opponent_name, odds, stake, potential_return, 
-            placed_date, outcome, model_probability, 
-            book_implied_probability, expected_value, round_num, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            placed_date, outcome, base_model_probability, mental_form_score,
+            mental_adjustment, adjusted_probability, book_implied_probability, 
+            expected_value, round_num, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             event_id, event_name, bet_type, bet_market, player_id, player_name,
             opponent_id, opponent_name, odds, stake, potential_return,
-            datetime.now(), 'pending', model_probability,
-            book_implied_probability, expected_value, round_num, notes
+            datetime.now(), 'pending', base_model_probability, mental_form_score,
+            mental_adjustment, adjusted_probability, book_implied_probability,
+            expected_value, round_num, notes
         ))
         
         self.db_conn.commit()
         return cursor.lastrowid
+
+    def identify_recommended_bets(self, db_path="data/db/mental_form.db", min_ev=5.0, bankroll=1000, min_stake=1.0, sportsbook=None, max_recommendations=5):
+        """
+        Identify recommended betting opportunities without recording them
+        
+        This method:
+        1. Fetches odds data using OddsRetriever
+        2. Processes the data to identify value betting opportunities
+        3. Returns recommended bets without recording them
+        
+        Args:
+            db_path: Path to the mental form database
+            min_ev: Minimum adjusted EV to consider a bet (default 5%)
+            bankroll: Current bankroll for bet sizing calculations
+            min_stake: Minimum stake to include in recommendations (default $1.0)
+            sportsbook: Filter to a specific sportsbook (overrides default if specified)
+            max_recommendations: Maximum number of recommendations to return
+            
+        Returns:
+            Dictionary with recommended betting opportunities
+        """
+        from odds_retriever import OddsRetriever
+        
+        # If a temporary sportsbook override is provided, save the original and set the new one
+        original_sportsbook = None
+        if sportsbook is not None:
+            original_sportsbook = self.default_sportsbook
+            self.default_sportsbook = sportsbook.lower() if sportsbook else None
+        
+        try:
+            # Initialize OddsRetriever
+            odds_retriever = OddsRetriever(db_path=db_path)
+            
+            # Get latest odds data with mental adjustments
+            odds_data = odds_retriever.update_odds_data()
+            
+            # Process odds data to find value bets
+            bet_opportunities = self.process_odds_data(
+                odds_data, 
+                min_ev_threshold=min_ev,
+                bankroll=bankroll,
+                min_stake=min_stake
+            )
+            
+            # Determine which sportsbook(s) were used for display
+            sportsbook_display = f"for {self.default_sportsbook.upper()}" if self.default_sportsbook else "across all sportsbooks"
+            
+            # Print betting opportunities
+            print(f"Found {len(bet_opportunities)} potential bets with EV >= {min_ev}% {sportsbook_display}")
+            for i, opp in enumerate(bet_opportunities[:max_recommendations]):
+                print(f"{i+1}. {opp['player_name']} - {opp['market']} @ {opp['american_odds']} ({opp['sportsbook']})")
+                print(f"   Adjusted EV: {opp['adjusted_ev']:.2f}%, Recommended stake: ${opp['kelly_stake']:.2f}")
+            
+            return {
+                "event_name": odds_data.get("event_name", "Unknown Event"),
+                "identified_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "sportsbook": self.default_sportsbook,
+                "recommendations": bet_opportunities[:max_recommendations],
+                "total_opportunities": len(bet_opportunities)
+            }
+        finally:
+            # Restore the original sportsbook if we temporarily changed it
+            if original_sportsbook is not None:
+                self.default_sportsbook = original_sportsbook
+
+    def place_bets_from_opportunities(self, opportunities, default_stake=None, max_total_stake=None):
+        """
+        Place bets from identified opportunities
+        
+        Args:
+            opportunities: List of bet opportunities from process_odds_data
+            default_stake: Default stake amount (if not using Kelly)
+            max_total_stake: Maximum total stake across all bets
+            
+        Returns:
+            List of placed bet IDs
+        """
+        placed_bet_ids = []
+        total_stake = 0
+        
+        for opp in opportunities:
+            # Determine stake - use Kelly if available, otherwise default
+            stake = opp.get("kelly_stake") if opp.get("kelly_stake") and not default_stake else default_stake
+            
+            # Skip if no valid stake
+            if not stake or stake <= 0:
+                continue
+                
+            # Check if we'd exceed max total stake
+            if max_total_stake and total_stake + stake > max_total_stake:
+                # Reduce stake to fit within limit
+                stake = max(0, max_total_stake - total_stake)
+                if stake <= 0:
+                    break
+            
+            # Place the bet
+            bet_id = self.record_bet(
+                event_id=opp.get("event_id", "unknown"),
+                event_name=opp.get("event_name", "Unknown Event"),
+                bet_type="outright",
+                bet_market=opp.get("market"),
+                player_id=opp.get("player_id"),
+                player_name=opp.get("player_name"),
+                odds=opp.get("decimal_odds"),
+                stake=stake,
+                base_model_probability=opp.get("base_model_probability"),
+                mental_form_score=opp.get("mental_form_score"),
+                mental_adjustment=opp.get("mental_adjustment"),
+                adjusted_probability=opp.get("adjusted_probability"),
+                notes=f"Book: {opp.get('sportsbook')}, Adj EV: {opp.get('adjusted_ev'):.2f}%"
+            )
+            
+            if bet_id:
+                placed_bet_ids.append(bet_id)
+                total_stake += stake
+        
+        return placed_bet_ids
     
     def update_bet_outcome(self, bet_id, outcome, settled_date=None):
         """Update a bet with its outcome (win, loss, void)"""
@@ -474,6 +737,86 @@ class GolfBettingTracker:
         # Save the plot
         plt.savefig('ev_vs_roi.png')
         return 'ev_vs_roi.png'
+
+    def analyze_mental_adjustment_impact(self):
+        """
+        Analyze how mental form adjustments are affecting betting performance
+        
+        Returns:
+            Dictionary with performance metrics
+        """
+        cursor = self.db_conn.cursor()
+        
+        # Get all settled bets with both base and adjusted probabilities
+        cursor.execute('''
+        SELECT 
+            bet_id, player_name, outcome, stake, profit_loss,
+            base_model_probability, adjusted_probability, mental_adjustment,
+            odds, mental_form_score
+        FROM bets 
+        WHERE outcome != 'pending'
+        AND base_model_probability IS NOT NULL
+        AND adjusted_probability IS NOT NULL
+        ''')
+        
+        bets = cursor.fetchall()
+        
+        if not bets:
+            return {"error": "No settled bets with both base and adjusted probabilities"}
+        
+        # Calculate key metrics
+        results = {
+            "total_bets": len(bets),
+            "winning_bets": sum(1 for bet in bets if bet[2] == 'win'),
+            "total_stake": sum(bet[3] for bet in bets),
+            "total_profit": sum(bet[4] for bet in bets),
+            "positive_adjustments": sum(1 for bet in bets if bet[7] > 0),
+            "negative_adjustments": sum(1 for bet in bets if bet[7] < 0),
+            "neutral_adjustments": sum(1 for bet in bets if bet[7] == 0),
+        }
+        
+        # ROI calculation
+        results["overall_roi"] = (results["total_profit"] / results["total_stake"]) * 100 if results["total_stake"] > 0 else 0
+        
+        # Group by adjustment direction
+        positive_adj_bets = [bet for bet in bets if bet[7] > 0]
+        negative_adj_bets = [bet for bet in bets if bet[7] < 0]
+        neutral_adj_bets = [bet for bet in bets if bet[7] == 0]
+        
+        # Calculate ROI by adjustment direction
+        results["positive_adj_roi"] = (sum(bet[4] for bet in positive_adj_bets) / sum(bet[3] for bet in positive_adj_bets)) * 100 if positive_adj_bets and sum(bet[3] for bet in positive_adj_bets) > 0 else 0
+        results["negative_adj_roi"] = (sum(bet[4] for bet in negative_adj_bets) / sum(bet[3] for bet in negative_adj_bets)) * 100 if negative_adj_bets and sum(bet[3] for bet in negative_adj_bets) > 0 else 0
+        results["neutral_adj_roi"] = (sum(bet[4] for bet in neutral_adj_bets) / sum(bet[3] for bet in neutral_adj_bets)) * 100 if neutral_adj_bets and sum(bet[3] for bet in neutral_adj_bets) > 0 else 0
+        
+        # Analyze by mental form score range
+        mental_form_ranges = [
+            ('strong_negative', lambda x: x <= -0.5),
+            ('moderate_negative', lambda x: -0.5 < x <= -0.2),
+            ('neutral', lambda x: -0.2 < x < 0.2),
+            ('moderate_positive', lambda x: 0.2 <= x < 0.5),
+            ('strong_positive', lambda x: x >= 0.5)
+        ]
+        
+        mental_form_analysis = {}
+        for name, condition in mental_form_ranges:
+            range_bets = [bet for bet in bets if bet[9] is not None and condition(bet[9])]
+            
+            if range_bets:
+                total_stake = sum(bet[3] for bet in range_bets)
+                total_profit = sum(bet[4] for bet in range_bets)
+                roi = (total_profit / total_stake) * 100 if total_stake > 0 else 0
+                
+                mental_form_analysis[name] = {
+                    "count": len(range_bets),
+                    "stake": total_stake,
+                    "profit": total_profit,
+                    "roi": roi,
+                    "win_rate": sum(1 for bet in range_bets if bet[2] == 'win') / len(range_bets)
+                }
+        
+        results["mental_form_analysis"] = mental_form_analysis
+        
+        return results
         
     def close(self):
         """Close database connection"""

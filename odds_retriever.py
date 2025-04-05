@@ -339,7 +339,6 @@ class OddsRetriever:
                 for book in ['bet365', 'betmgm', 'bovada', 'draftkings', 'fanduel']:
                     if book in odds_item and odds_item[book]:
                         decimal_odds = odds_item[book]
-                        
                         if isinstance(decimal_odds, (int, float)) and decimal_odds > 0:
                             # Calculate base EV
                             base_ev = self.calculate_ev(model_probability, decimal_odds)
