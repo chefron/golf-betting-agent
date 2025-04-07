@@ -24,19 +24,64 @@
         font-weight: bold;
     }
     
-    .sportsbook-item {
-        border-bottom: 1px dotted #eee;
-        padding: 5px 0;
+    .odds-display {
+        font-weight: bold;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
     }
     
-    .sportsbook-item:last-child {
-        border-bottom: none;
+    .odds-display:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .sportsbook-col {
+        background-color: #f8f9fa;
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .sortable {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .sortable:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .sortable::after {
+        content: "⇵";
+        font-size: 0.8em;
+        margin-left: 5px;
+        opacity: 0.5;
+    }
+    
+    .sortable.sort-asc::after {
+        content: "↑";
+        opacity: 1;
+    }
+    
+    .sortable.sort-desc::after {
+        content: "↓";
+        opacity: 1;
+    }
+    
+    .betting-table th, 
+    .betting-table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .betting-table .player-col {
+        text-align: left;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid">
     <div class="row mb-4">
         <div class="col">
             <h1>Betting Dashboard</h1>
@@ -67,7 +112,7 @@
             {% for market_item in available_markets %}
                 <li class="nav-item">
                     <a class="nav-link {% if market_item == market_data.name %}active{% endif %}" 
-                       href="{{ url_for('betting_dashboard', market=market_item, min_ev=min_ev, max_ev=max_ev, sort=sort_by, order=sort_order) }}">
+                       href="{{ url_for('betting_dashboard', market=market_item) }}">
                         {{ market_item|replace('_', ' ')|title }}
                     </a>
                 </li>
@@ -86,115 +131,46 @@
                 This adjustment can be up to 15% in either direction at maximum mental form scores (±1.0).
             </p>
         </div>
-            
-        <!-- Filters -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Filters for {{ market_data.display_name }}</h5>
-            </div>
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('betting_dashboard') }}" class="row g-3">
-                    <input type="hidden" name="market" value="{{ market_data.name }}">
-                    
-                    <div class="col-md-2">
-                        <label for="sportsbook" class="form-label">Sportsbook</label>
-                        <select class="form-select" id="sportsbook" name="sportsbook">
-                            <option value="">All Sportsbooks</option>
-                            {% for book in available_sportsbooks %}
-                                <option value="{{ book }}" {% if selected_sportsbook == book %}selected{% endif %}>
-                                    {{ book|upper }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label for="min_ev" class="form-label">Min Adjusted EV %</label>
-                        <input type="number" step="0.1" class="form-control" id="min_ev" name="min_ev" 
-                               value="{{ min_ev }}" placeholder="e.g. 5">
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label for="max_ev" class="form-label">Max Adjusted EV %</label>
-                        <input type="number" step="0.1" class="form-control" id="max_ev" name="max_ev" 
-                               value="{{ max_ev }}" placeholder="e.g. 20">
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label for="sort" class="form-label">Sort By</label>
-                        <select class="form-select" id="sort" name="sort">
-                            <option value="adjusted_ev" {% if sort_by == 'adjusted_ev' %}selected{% endif %}>Adjusted EV</option>
-                            <option value="decimal_odds" {% if sort_by == 'decimal_odds' %}selected{% endif %}>Best Odds</option>
-                            <option value="mental_score" {% if sort_by == 'mental_score' %}selected{% endif %}>Mental Score</option>
-                            <option value="player_name" {% if sort_by == 'player_name' %}selected{% endif %}>Player Name</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label for="order" class="form-label">Order</label>
-                        <select class="form-select" id="order" name="order">
-                            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
-                            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-1">
-                        <label class="form-label">&nbsp;</label>
-                        <button type="submit" class="btn btn-primary w-100">Filter</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Quick Filter Buttons -->
-        <div class="mb-4">
-            <a href="{{ url_for('betting_dashboard', market=market_data.name, min_ev='5', sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
-               class="btn btn-outline-success me-2">
-                <i class="fas fa-thumbs-up"></i> Show +EV (>5%)
-            </a>
-            <a href="{{ url_for('betting_dashboard', market=market_data.name, max_ev='-5', sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
-               class="btn btn-outline-danger me-2">
-                <i class="fas fa-thumbs-down"></i> Show Fade Opportunities (<-5%)
-            </a>
-            <a href="{{ url_for('betting_dashboard', market=market_data.name, sportsbook=selected_sportsbook, sort=sort_by, order=sort_order) }}" 
-               class="btn btn-outline-secondary">
-                <i class="fas fa-list"></i> Show All
-            </a>
-        </div>
         
         <!-- Betting Data Table -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     {{ market_data.display_name }} Betting Data
-                    {% if selected_sportsbook %}
-                        <span class="badge bg-primary">{{ selected_sportsbook|upper }}</span>
-                    {% endif %}
                 </h5>
                 <small class="text-muted">Last Updated: {{ last_updated }}</small>
             </div>
             <div class="card-body">
                 {% if market_data.players %}
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover table-sm betting-table" id="bettingTable">
                             <thead>
                                 <tr>
-                                    <th>Player</th>
-                                    <th>Mental Score</th>
-                                    <th>Book Odds</th>
-                                    <th>DG Model</th>
-                                    <th>Adj Model</th>
-                                    <th>Base EV</th>
-                                    <th>Mental Adj</th>
-                                    <th>Adjusted EV</th>
-                                    <th>Sportsbooks</th>
-                                    <th>Actions</th>
+                                    <th rowspan="2" class="align-middle sortable player-col" data-sort="player">Player</th>
+                                    <th rowspan="2" class="align-middle sortable" data-sort="mental">Mental Score</th>
+                                    <th rowspan="2" class="align-middle">DG Model</th>
+                                    <th rowspan="2" class="align-middle">Adj Model</th>
+                                    
+                                    <!-- Create grouped columns for each sportsbook -->
+                                    {% set all_sportsbooks = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"] %}
+                                    {% for book in all_sportsbooks %}
+                                        <th colspan="2" class="sportsbook-col">{{ book|upper }}</th>
+                                    {% endfor %}
+                                    
+                                    <th rowspan="2" class="align-middle">Actions</th>
+                                </tr>
+                                <tr>
+                                    <!-- Second header row for ODDS and EV under each sportsbook -->
+                                    {% for book in all_sportsbooks %}
+                                        <th class="sortable" data-sort="{{ book }}-odds">ODDS</th>
+                                        <th class="sortable" data-sort="{{ book }}-ev">EV</th>
+                                    {% endfor %}
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for player in market_data.players %}
                                     <tr>
-                                        <td>
+                                        <td class="player-col">
                                             {% if player.player_id %}
                                                 <a href="{{ url_for('player_detail', player_id=player.player_id) }}">
                                                     {{ player.player_name }}
@@ -208,17 +184,6 @@
                                                 <span class="{% if player.mental_score > 0.2 %}score-positive{% elif player.mental_score < -0.2 %}score-negative{% endif %}">
                                                     {{ "%.2f"|format(player.mental_score) }}
                                                 </span>
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if player.best_bet %}
-                                                {% if player.best_bet.decimal_odds >= 2.0 %}
-                                                    <b>+{{ "%.0f"|format((player.best_bet.decimal_odds - 1) * 100) }}</b>
-                                                {% else %}
-                                                    <b>{{ "%.0f"|format(-100 / (player.best_bet.decimal_odds - 1)) }}</b>
-                                                {% endif %}
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}
@@ -254,64 +219,75 @@
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            {% if player.best_bet %}
-                                                <span class="{% if player.best_bet.base_ev > 0 %}ev-positive{% elif player.best_bet.base_ev < 0 %}ev-negative{% endif %}">
-                                                    {{ "%.1f"|format(player.best_bet.base_ev) }}%
-                                                </span>
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if player.best_bet %}
-                                                {% if player.mental_score is not none %}
-                                                    {% if player.best_bet.mental_adjustment > 0 %}
-                                                        <span class="ev-positive">+{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
-                                                    {% elif player.best_bet.mental_adjustment < 0 %}
-                                                        <span class="ev-negative">{{ "%.1f"|format(player.best_bet.mental_adjustment) }}%</span>
-                                                    {% else %}
-                                                        0%
+                                        
+                                        <!-- Sportsbook columns with separate ODDS and EV -->
+                                        {% for book_name in all_sportsbooks %}
+                                            <!-- ODDS column -->
+                                            <td data-value="{{ player.get(book_name ~ '_decimal_odds', 0) }}">
+                                                {% set found_book = false %}
+                                                {% for book in player.all_bets %}
+                                                    {% if not found_book and book.sportsbook|lower == book_name|lower %}
+                                                        {% if book.decimal_odds and book.decimal_odds > 1 %}
+                                                            <!-- Store the decimal odds as a data attribute for sorting -->
+                                                            {% set american_odds = ((book.decimal_odds - 1) * 100)|int if book.decimal_odds >= 2.0 else (-100 / (book.decimal_odds - 1))|int %}
+                                                            <div class="odds-display"
+                                                                 data-bs-toggle="modal" 
+                                                                 data-bs-target="#betModal"
+                                                                 data-player-name="{{ player.player_name }}"
+                                                                 data-player-id="{{ player.player_id }}"
+                                                                 data-market="{{ market_data.name }}"
+                                                                 data-sportsbook="{{ book.sportsbook }}"
+                                                                 data-odds="{{ book.decimal_odds }}"
+                                                                 data-american-odds="{% if book.decimal_odds >= 2.0 %}+{{ american_odds }}{% else %}{{ american_odds }}{% endif %}"
+                                                                 data-base-ev="{{ book.base_ev|round(2) }}"
+                                                                 data-mental-adjustment="{{ book.mental_adjustment|round(2) }}"
+                                                                 data-adjusted-ev="{{ book.adjusted_ev|round(2) }}"
+                                                                 data-base-probability="{{ player.model_probability|round(2) }}"
+                                                                 data-mental-score="{{ player.mental_score|default(0) }}"
+                                                                 data-dg-id="{{ player.dg_id|default('') }}"
+                                                                 data-event-name="{{ event_name }}">
+                                                                {% if book.decimal_odds >= 2.0 %}
+                                                                    +{{ american_odds }}
+                                                                {% else %}
+                                                                    {{ american_odds }}
+                                                                {% endif %}
+                                                            </div>
+                                                            <!-- Store data values for sorting -->
+                                                            <span class="d-none">{{ book.decimal_odds }}</span>
+                                                        {% else %}
+                                                            <span class="text-muted">N/A</span>
+                                                        {% endif %}
+                                                        {% set found_book = true %}
                                                     {% endif %}
-                                                {% else %}
-                                                    <span class="text-muted">N/A</span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if player.best_bet %}
-                                                {% if player.mental_score is not none %}
-                                                    <span class="{% if player.best_bet.adjusted_ev > 0 %}ev-positive{% elif player.best_bet.adjusted_ev < 0 %}ev-negative{% endif %}">
-                                                        {{ "%.1f"|format(player.best_bet.adjusted_ev) }}%
-                                                    </span>
-                                                {% else %}
-                                                    <span class="text-muted">N/A</span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div style="max-height: 100px; overflow-y: auto;">
-                                                {% for bet in player.all_bets %}
-                                                    <div class="sportsbook-item">
-                                                        <small>
-                                                            <b>{{ bet.sportsbook|upper }}</b>: 
-                                                            {% if bet.decimal_odds >= 2.0 %}
-                                                                +{{ "%.0f"|format((bet.decimal_odds - 1) * 100) }}
-                                                            {% else %}
-                                                                {{ "%.0f"|format(-100 / (bet.decimal_odds - 1)) }}
-                                                            {% endif %}
-                                                            <span class="{% if bet.adjusted_ev > 0 %}ev-positive{% elif bet.adjusted_ev < 0 %}ev-negative{% endif %}">
-                                                                ({{ "%.1f"|format(bet.adjusted_ev) }}%)
-                                                            </span>
-                                                        </small>
-                                                    </div>
                                                 {% endfor %}
-                                            </div>
-                                        </td>
+                                                {% if not found_book %}
+                                                    <span class="text-muted"></span>
+                                                {% endif %}
+                                            </td>
+                                            
+                                            <!-- EV column -->
+                                            <td data-value="{{ player.get(book_name ~ '_ev', 0) }}">
+                                                {% set found_book = false %}
+                                                {% for book in player.all_bets %}
+                                                    {% if not found_book and book.sportsbook|lower == book_name|lower %}
+                                                        {% if book.adjusted_ev %}
+                                                            <span class="{% if book.adjusted_ev > 0 %}ev-positive{% elif book.adjusted_ev < 0 %}ev-negative{% endif %}">
+                                                                {{ book.adjusted_ev|round(1) }}%
+                                                            </span>
+                                                            <!-- Store data values for sorting -->
+                                                            <span class="d-none">{{ book.adjusted_ev }}</span>
+                                                        {% else %}
+                                                            <span class="text-muted">N/A</span>
+                                                        {% endif %}
+                                                        {% set found_book = true %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                                {% if not found_book %}
+                                                    <span class="text-muted"></span>
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                        
                                         <td>
                                         {% if player.player_id %}
                                             <a href="{{ url_for('player_betting_detail', player_id=player.player_id, market=market_data.name) }}" 
@@ -339,4 +315,290 @@
         </div>
     {% endif %}
 </div>
+
+<!-- Bet Modal -->
+<div class="modal fade" id="betModal" tabindex="-1" aria-labelledby="betModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="betModalLabel">Track New Bet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="trackBetForm" method="POST" action="{{ url_for('track_bet') }}">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <h5 id="playerNameDisplay"></h5>
+                            <p class="mb-1">Market: <span id="marketDisplay"></span></p>
+                            <p class="mb-1">Sportsbook: <span id="sportsbookDisplay"></span></p>
+                            <p class="mb-1">Odds: <span id="oddsDisplay"></span></p>
+                            <p class="mb-0">EV: <span id="evDisplay"></span></p>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="playerIdInput" name="player_id">
+                    <input type="hidden" id="playerNameInput" name="player_name">
+                    <input type="hidden" id="marketInput" name="market">
+                    <input type="hidden" id="sportsbookInput" name="sportsbook">
+                    <input type="hidden" id="oddsInput" name="odds">
+                    <input type="hidden" id="americanOddsInput" name="american_odds">
+                    <input type="hidden" id="baseEvInput" name="base_ev">
+                    <input type="hidden" id="mentalAdjustmentInput" name="mental_adjustment">
+                    <input type="hidden" id="adjustedEvInput" name="adjusted_ev">
+                    <input type="hidden" id="baseProbabilityInput" name="base_probability">
+                    <input type="hidden" id="mentalScoreInput" name="mental_score">
+                    <input type="hidden" id="dgIdInput" name="dg_id">
+                    <input type="hidden" id="eventNameInput" name="event_name">
+                    
+                    <div class="mb-3">
+                        <label for="stakeInput" class="form-label">Stake Amount ($)</label>
+                        <input type="number" class="form-control" id="stakeInput" name="stake" step="0.01" required>
+                        <div class="form-text">Enter your bet amount</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notesInput" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="notesInput" name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Track Bet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle bet modal
+    const betModal = document.getElementById('betModal');
+    if (betModal) {
+        betModal.addEventListener('show.bs.modal', function(event) {
+            // Button that triggered the modal
+            const button = event.relatedTarget;
+            
+            // Extract data from button attributes
+            const playerName = button.getAttribute('data-player-name');
+            const playerId = button.getAttribute('data-player-id');
+            const market = button.getAttribute('data-market');
+            const sportsbook = button.getAttribute('data-sportsbook');
+            const odds = button.getAttribute('data-odds');
+            const americanOdds = button.getAttribute('data-american-odds');
+            const baseEv = button.getAttribute('data-base-ev');
+            const mentalAdjustment = button.getAttribute('data-mental-adjustment');
+            const adjustedEv = button.getAttribute('data-adjusted-ev');
+            const baseProbability = button.getAttribute('data-base-probability');
+            const mentalScore = button.getAttribute('data-mental-score');
+            const dgId = button.getAttribute('data-dg-id');
+            const eventName = button.getAttribute('data-event-name');
+            
+            // Update the modal's content
+            const modal = document.getElementById('betModal');
+            modal.querySelector('#playerNameDisplay').textContent = playerName;
+            modal.querySelector('#marketDisplay').textContent = market.replace('_', ' ').toUpperCase();
+            modal.querySelector('#sportsbookDisplay').textContent = sportsbook.toUpperCase();
+            modal.querySelector('#oddsDisplay').textContent = americanOdds;
+            
+            // Format EV with color and sign
+            const evDisplay = modal.querySelector('#evDisplay');
+            evDisplay.textContent = `${adjustedEv}%`;
+            if (parseFloat(adjustedEv) > 0) {
+                evDisplay.classList.add('ev-positive');
+                evDisplay.classList.remove('ev-negative');
+            } else if (parseFloat(adjustedEv) < 0) {
+                evDisplay.classList.add('ev-negative');
+                evDisplay.classList.remove('ev-positive');
+            } else {
+                evDisplay.classList.remove('ev-positive', 'ev-negative');
+            }
+            
+            // Set form field values
+            modal.querySelector('#playerIdInput').value = playerId;
+            modal.querySelector('#playerNameInput').value = playerName;
+            modal.querySelector('#marketInput').value = market;
+            modal.querySelector('#sportsbookInput').value = sportsbook;
+            modal.querySelector('#oddsInput').value = odds;
+            modal.querySelector('#americanOddsInput').value = americanOdds;
+            modal.querySelector('#baseEvInput').value = baseEv;
+            modal.querySelector('#mentalAdjustmentInput').value = mentalAdjustment;
+            modal.querySelector('#adjustedEvInput').value = adjustedEv;
+            modal.querySelector('#baseProbabilityInput').value = baseProbability;
+            modal.querySelector('#mentalScoreInput').value = mentalScore;
+            modal.querySelector('#dgIdInput').value = dgId;
+            modal.querySelector('#eventNameInput').value = eventName;
+            
+            // Calculate suggested stake based on Kelly criterion
+            // This is a simplified Kelly calculation (could be enhanced)
+            const probability = parseFloat(baseProbability) / 100;
+            const decimalOdds = parseFloat(odds);
+            const kellyFraction = 0.25; // 25% Kelly
+            
+            // Kelly formula: f* = (bp - q) / b
+            // where b = odds - 1, p = probability of winning, q = 1 - p
+            if (probability > 0 && decimalOdds > 1) {
+                const b = decimalOdds - 1;
+                const q = 1 - probability;
+                const kellyStake = Math.max(0, (b * probability - q) / b) * kellyFraction;
+                
+                // Suggest a reasonable stake based on Kelly (assuming $1000 bankroll)
+                const suggestedStake = Math.round(kellyStake * 1000 * 100) / 100;
+                
+                // Only set a suggested stake if it's positive and the adjusted EV is positive
+                if (suggestedStake > 0 && parseFloat(adjustedEv) > 0) {
+                    modal.querySelector('#stakeInput').value = suggestedStake;
+                } else {
+                    modal.querySelector('#stakeInput').value = '';
+                }
+            } else {
+                modal.querySelector('#stakeInput').value = '';
+            }
+        });
+    }
+    
+    // Sorting functionality
+    const table = document.getElementById('bettingTable');
+    if (table) {
+        const headers = table.querySelectorAll('th.sortable');
+        headers.forEach(header => {
+            header.addEventListener('click', function() {
+                const sortKey = this.getAttribute('data-sort');
+                sortTable(table, sortKey, this);
+            });
+        });
+    }
+    
+    // Table sorting function
+    function sortTable(table, sortKey, clickedHeader) {
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Toggle sort direction
+        const isAscending = !clickedHeader.classList.contains('sort-asc');
+        
+        // Reset all headers
+        table.querySelectorAll('th.sortable').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        // Set the clicked header's sort indicator
+        clickedHeader.classList.add(isAscending ? 'sort-asc' : 'sort-desc');
+        
+        // Sort the rows
+        rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            // Handle different sort keys
+            if (sortKey === 'player') {
+                // Sort by player name
+                aValue = a.querySelector('td:first-child').textContent.trim().toLowerCase();
+                bValue = b.querySelector('td:first-child').textContent.trim().toLowerCase();
+                return isAscending ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+            } 
+            else if (sortKey === 'mental') {
+                // Sort by mental score
+                const aText = a.querySelector('td:nth-child(2)').textContent.trim();
+                const bText = b.querySelector('td:nth-child(2)').textContent.trim();
+                
+                // Check if the values are N/A
+                const aIsNA = aText === 'N/A' || aText === '-';
+                const bIsNA = bText === 'N/A' || bText === '-';
+                
+                // If both are N/A, maintain original order
+                if (aIsNA && bIsNA) return 0;
+                
+                // Always push N/A values to the end
+                if (aIsNA) return 1;
+                if (bIsNA) return -1;
+                
+                // Parse the numerical values
+                aValue = parseFloat(aText) || 0;
+                bValue = parseFloat(bText) || 0;
+            }
+            else if (sortKey.endsWith('-odds')) {
+                // Extract the sportsbook index
+                const bookName = sortKey.split('-')[0];
+                const bookIndex = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"].indexOf(bookName);
+                
+                if (bookIndex !== -1) {
+                    // Calculate the column index (first 4 columns + bookIndex*2 for ODDS columns)
+                    const colIndex = 4 + (bookIndex * 2);
+                    
+                    // Get the cells
+                    const aCell = a.querySelector(`td:nth-child(${colIndex + 1})`);
+                    const bCell = b.querySelector(`td:nth-child(${colIndex + 1})`);
+                    
+                    // Check for missing values
+                    const aText = aCell.textContent.trim();
+                    const bText = bCell.textContent.trim();
+                    
+                    const aIsEmpty = aText === '-' || aText === 'N/A';
+                    const bIsEmpty = bText === '-' || bText === 'N/A';
+                    
+                    // Always push empty values to the end
+                    if (aIsEmpty && bIsEmpty) return 0;
+                    if (aIsEmpty) return 1;
+                    if (bIsEmpty) return -1;
+                    
+                    // Try to get the decimal odds value from hidden span
+                    const aHidden = aCell.querySelector('.d-none');
+                    const bHidden = bCell.querySelector('.d-none');
+                    
+                    aValue = aHidden ? parseFloat(aHidden.textContent) : 0;
+                    bValue = bHidden ? parseFloat(bHidden.textContent) : 0;
+                    
+                    // For odds, we want to sort by value (lower decimal odds = worse, but favorites)
+                    if (isAscending) {
+                        return aValue - bValue; // From lowest decimal odds to highest 
+                    } else {
+                        return bValue - aValue; // From highest decimal odds to lowest
+                    }
+                }
+            }
+            else if (sortKey.endsWith('-ev')) {
+                // Extract the sportsbook index
+                const bookName = sortKey.split('-')[0];
+                const bookIndex = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"].indexOf(bookName);
+                
+                if (bookIndex !== -1) {
+                    // Calculate the column index (first 4 columns + bookIndex*2 + 1 for EV columns)
+                    const colIndex = 4 + (bookIndex * 2) + 1;
+                    
+                    // Get the cells
+                    const aCell = a.querySelector(`td:nth-child(${colIndex + 1})`);
+                    const bCell = b.querySelector(`td:nth-child(${colIndex + 1})`);
+                    
+                    // Check for missing values
+                    const aText = aCell.textContent.trim();
+                    const bText = bCell.textContent.trim();
+                    
+                    const aIsEmpty = aText === '-' || aText === 'N/A';
+                    const bIsEmpty = bText === '-' || bText === 'N/A';
+                    
+                    // Always push empty values to the end
+                    if (aIsEmpty && bIsEmpty) return 0;
+                    if (aIsEmpty) return 1;
+                    if (bIsEmpty) return -1;
+                    
+                    // Try to get the EV value from hidden span
+                    const aHidden = aCell.querySelector('.d-none');
+                    const bHidden = bCell.querySelector('.d-none');
+                    
+                    aValue = aHidden ? parseFloat(aHidden.textContent) : 0;
+                    bValue = bHidden ? parseFloat(bHidden.textContent) : 0;
+                }
+            }
+            
+            // Default numeric comparison
+            return isAscending ? aValue - bValue : bValue - aValue;
+        });
+        
+        // Reinsert rows in the new order
+        rows.forEach(row => tbody.appendChild(row));
+    }
+});
+</script>
 {% endblock %}

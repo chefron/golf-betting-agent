@@ -974,6 +974,463 @@ def player_betting_detail(player_id):
                           available_markets=available_markets,
                           last_updated=last_updated)
 
+@app.route('/my-bets')
+def my_bets():
+    """View and manage bets"""
+    conn = get_db_connection(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get pending bets
+    cursor.execute('''
+    SELECT * FROM bets
+    WHERE outcome = 'pending'
+    ORDER BY placed_date DESC
+    ''')
+    pending_bets = cursor.fetchall()
+    
+    # Get settled bets
+    cursor.execute('''
+    SELECT * FROM bets
+    WHERE outcome != 'pending'
+    ORDER BY settled_date DESC
+    ''')
+    settled_bets = cursor.fetchall()
+    
+    # Calculate stats
+    stats = calculate_betting_stats(conn)
+    
+    conn.close()
+    
+    return render_template('my_bets.html', 
+                          pending_bets=pending_bets,
+                          settled_bets=settled_bets,
+                          stats=stats)
+
+@app.route('/track-bet', methods=['POST'])
+def track_bet():
+    """Record a new bet"""
+    if request.method != 'POST':
+        return redirect(url_for('my_bets'))
+    
+    # Get form data
+    player_id = request.form.get('player_id')
+    player_name = request.form.get('player_name')
+    market = request.form.get('market')
+    sportsbook = request.form.get('sportsbook')
+    
+    # Handle numeric fields with proper error handling
+    try:
+        odds = float(request.form.get('odds')) if request.form.get('odds') else 0
+        stake = float(request.form.get('stake')) if request.form.get('stake') else 0
+        base_ev = float(request.form.get('base_ev')) if request.form.get('base_ev') else 0
+        mental_adjustment = float(request.form.get('mental_adjustment')) if request.form.get('mental_adjustment') else 0
+        adjusted_ev = float(request.form.get('adjusted_ev')) if request.form.get('adjusted_ev') else 0
+        base_probability = float(request.form.get('base_probability')) if request.form.get('base_probability') else 0
+        
+        # Handle the mental_score - be very careful with 'None' string
+        mental_score_raw = request.form.get('mental_score')
+        if mental_score_raw and mental_score_raw.lower() != 'none':
+            mental_score = float(mental_score_raw)
+        else:
+            mental_score = None
+    except ValueError as e:
+        flash(f'Error converting form data: {str(e)}. Please check the values and try again.', 'error')
+        return redirect(url_for('betting_dashboard'))
+    
+    event_name = request.form.get('event_name')
+    notes = request.form.get('notes')
+    
+    # Calculate potential return
+    potential_return = stake * odds
+    
+    # Calculate adjusted probability
+    if base_probability > 0 and mental_adjustment is not None:
+        adjustment_factor = 1 + (mental_adjustment / 100)
+        adjusted_probability = base_probability * adjustment_factor
+    else:
+        adjusted_probability = base_probability
+    
+    # Book implied probability (based on odds)
+    book_implied_probability = (1 / odds) * 100 if odds > 0 else 0
+    
+    conn = get_db_connection(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Record the bet
+    cursor.execute('''
+    INSERT INTO bets (
+        event_id, event_name, bet_type, bet_market, player_id, player_name,
+        odds, stake, potential_return, placed_date, outcome,
+        base_model_probability, mental_form_score, mental_adjustment,
+        adjusted_probability, book_implied_probability, expected_value,
+        notes, sportsbook
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        'current', event_name, 'outright', market, player_id, player_name,
+        odds, stake, potential_return, datetime.now(), 'pending',
+        base_probability, mental_score, mental_adjustment,
+        adjusted_probability, book_implied_probability, adjusted_ev,
+        notes, sportsbook
+    ))
+    
+    conn.commit()
+    conn.close()
+    
+    flash(f'Bet on {player_name} ({market}) has been tracked successfully', 'success')
+    return redirect(url_for('my_bets'))
+
+@app.route('/settle-bet', methods=['POST'])
+def settle_bet():
+    """Mark a bet as won, lost, or void"""
+    if request.method != 'POST':
+        return redirect(url_for('my_bets'))
+        
+    bet_id = request.form.get('bet_id')
+    outcome = request.form.get('outcome')
+    
+    if not bet_id or not outcome or outcome not in ['win', 'loss', 'void']:
+        flash('Invalid bet settlement data', 'error')
+        return redirect(url_for('my_bets'))
+    
+    conn = get_db_connection(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get bet details
+    cursor.execute('SELECT stake, odds, player_name, bet_market FROM bets WHERE bet_id = ?', (bet_id,))
+    bet = cursor.fetchone()
+    
+    if not bet:
+        conn.close()
+        flash('Bet not found', 'error')
+        return redirect(url_for('my_bets'))
+    
+    stake = bet['stake']
+    odds = bet['odds']
+    player_name = bet['player_name']
+    market = bet['bet_market']
+    
+    # Calculate profit/loss
+    if outcome == 'win':
+        profit_loss = stake * (odds - 1)
+    elif outcome == 'loss':
+        profit_loss = -stake
+    else:  # void
+        profit_loss = 0
+    
+    # Update the bet
+    cursor.execute('''
+    UPDATE bets 
+    SET outcome = ?, settled_date = ?, profit_loss = ?
+    WHERE bet_id = ?
+    ''', (outcome, datetime.now(), profit_loss, bet_id))
+    
+    conn.commit()
+    conn.close()
+    
+    # Show appropriate message
+    if outcome == 'win':
+        flash(f'Bet on {player_name} marked as won! Profit: ${profit_loss:.2f}', 'success')
+    elif outcome == 'loss':
+        flash(f'Bet on {player_name} marked as lost. Loss: ${abs(profit_loss):.2f}', 'danger')
+    else:
+        flash(f'Bet on {player_name} marked as void.', 'info')
+    
+    return redirect(url_for('my_bets'))
+
+@app.route('/update-bankroll', methods=['POST'])
+def update_bankroll():
+    """Update the current bankroll"""
+    if request.method != 'POST':
+        return redirect(url_for('my_bets'))
+        
+    new_bankroll = float(request.form.get('bankroll', 0))
+    
+    conn = get_db_connection(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get the latest performance metric
+    cursor.execute('SELECT * FROM performance_metrics ORDER BY date DESC LIMIT 1')
+    latest = cursor.fetchone()
+    
+    # Calculate metrics
+    cursor.execute('''
+    SELECT 
+        COUNT(*) as total_bets,
+        SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as winning_bets,
+        SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losing_bets,
+        SUM(CASE WHEN outcome = 'pending' THEN 1 ELSE 0 END) as pending_bets,
+        SUM(stake) as total_staked,
+        SUM(CASE WHEN outcome = 'win' THEN potential_return ELSE 0 END) as total_returns,
+        SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as profit_loss
+    FROM bets
+    ''')
+    
+    metrics = cursor.fetchone()
+    
+    # Insert new performance metrics
+    if metrics:
+        total_bets = metrics['total_bets'] or 0
+        winning_bets = metrics['winning_bets'] or 0
+        losing_bets = metrics['losing_bets'] or 0
+        pending_bets = metrics['pending_bets'] or 0
+        total_staked = metrics['total_staked'] or 0
+        total_returns = metrics['total_returns'] or 0
+        profit_loss = metrics['profit_loss'] or 0
+        
+        # Calculate ROI
+        roi = (profit_loss / total_staked) * 100 if total_staked > 0 else 0
+        
+        cursor.execute('''
+        INSERT INTO performance_metrics (
+            date, total_bets, winning_bets, losing_bets, pending_bets,
+            total_staked, total_returns, profit_loss, roi, current_bankroll
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            datetime.now(), total_bets, winning_bets, losing_bets, pending_bets,
+            total_staked, total_returns, profit_loss, roi, new_bankroll
+        ))
+    
+    conn.commit()
+    conn.close()
+    
+    flash(f'Bankroll updated to ${new_bankroll:.2f}', 'success')
+    return redirect(url_for('my_bets'))
+
+def calculate_betting_stats(conn):
+    """Calculate betting statistics for display"""
+    cursor = conn.cursor()
+    
+    # Get overall counts
+    cursor.execute('''
+    SELECT 
+        COUNT(*) as total_bets,
+        SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as winning_bets,
+        SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losing_bets,
+        SUM(CASE WHEN outcome != 'pending' THEN 1 ELSE 0 END) as total_settled_bets,
+        SUM(stake) as total_staked,
+        SUM(CASE WHEN outcome = 'win' THEN potential_return ELSE 0 END) as total_returns,
+        SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as total_profit_loss
+    FROM bets
+    ''')
+    
+    overall = cursor.fetchone()
+    
+    # Initialize with default values in case no bets exist
+    win_rate = 0
+    roi = 0
+    total_settled_bets = 0
+    winning_bets = 0
+    losing_bets = 0
+    total_staked = 0
+    total_profit_loss = 0
+    
+    # Only calculate stats if we have overall data
+    if overall:
+        # Make sure values are not None - use 0 as default
+        winning_bets = overall['winning_bets'] or 0
+        losing_bets = overall['losing_bets'] or 0
+        total_settled_bets = overall['total_settled_bets'] or 0
+        total_staked = overall['total_staked'] or 0
+        total_profit_loss = overall['total_profit_loss'] or 0
+        
+        # Calculate win rate and ROI
+        win_rate = winning_bets / total_settled_bets if total_settled_bets > 0 else 0
+        roi = (total_profit_loss / total_staked) * 100 if total_staked > 0 else 0
+    
+    # Get the latest bankroll
+    cursor.execute('SELECT current_bankroll FROM performance_metrics ORDER BY date DESC LIMIT 1')
+    bankroll_row = cursor.fetchone()
+    current_bankroll = bankroll_row['current_bankroll'] if bankroll_row else 1000  # Default starting bankroll
+    
+    # Performance by market
+    cursor.execute('''
+    SELECT 
+        bet_market as market,
+        COUNT(*) as count,
+        SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+        SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as profit_loss,
+        SUM(CASE WHEN outcome != 'pending' THEN stake ELSE 0 END) as total_staked
+    FROM bets
+    WHERE outcome != 'pending'
+    GROUP BY bet_market
+    ''')
+    
+    market_rows = cursor.fetchall()
+    market_breakdown = []
+    
+    for market in market_rows:
+        market_win_rate = market['wins'] / market['count'] if market['count'] > 0 else 0
+        market_roi = (market['profit_loss'] / market['total_staked']) * 100 if market['total_staked'] > 0 else 0
+        
+        market_breakdown.append({
+            'name': market['market'],
+            'count': market['count'],
+            'win_rate': market_win_rate,
+            'profit_loss': market['profit_loss'] or 0,
+            'roi': market_roi
+        })
+    
+    # Performance by sportsbook
+    cursor.execute('''
+    SELECT 
+        sportsbook,
+        COUNT(*) as count,
+        SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+        SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as profit_loss,
+        SUM(CASE WHEN outcome != 'pending' THEN stake ELSE 0 END) as total_staked
+    FROM bets
+    WHERE outcome != 'pending'
+    GROUP BY sportsbook
+    ''')
+    
+    sportsbook_rows = cursor.fetchall()
+    sportsbook_breakdown = []
+    
+    for book in sportsbook_rows:
+        book_win_rate = book['wins'] / book['count'] if book['count'] > 0 else 0
+        book_roi = (book['profit_loss'] / book['total_staked']) * 100 if book['total_staked'] > 0 else 0
+        
+        sportsbook_breakdown.append({
+            'name': book['sportsbook'] or 'Unknown',
+            'count': book['count'],
+            'win_rate': book_win_rate,
+            'profit_loss': book['profit_loss'] or 0,
+            'roi': book_roi
+        })
+    
+    # Performance by EV range - only run this query if we have settled bets
+    ev_breakdown = []
+    if total_settled_bets > 0:
+        try:
+            cursor.execute('''
+            SELECT 
+                CASE
+                    WHEN expected_value < 0 THEN 'Negative'
+                    WHEN expected_value < 5 THEN '0-5%'
+                    WHEN expected_value < 10 THEN '5-10%'
+                    WHEN expected_value < 20 THEN '10-20%'
+                    ELSE '20%+'
+                END as ev_range,
+                COUNT(*) as count,
+                SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as profit_loss,
+                SUM(CASE WHEN outcome != 'pending' THEN stake ELSE 0 END) as total_staked
+            FROM bets
+            WHERE outcome != 'pending'
+            GROUP BY ev_range
+            ORDER BY MIN(expected_value)
+            ''')
+            
+            ev_rows = cursor.fetchall()
+            
+            for ev in ev_rows:
+                ev_win_rate = ev['wins'] / ev['count'] if ev['count'] > 0 else 0
+                ev_roi = (ev['profit_loss'] / ev['total_staked']) * 100 if ev['total_staked'] > 0 else 0
+                
+                ev_breakdown.append({
+                    'name': ev['ev_range'],
+                    'count': ev['count'],
+                    'win_rate': ev_win_rate,
+                    'profit_loss': ev['profit_loss'] or 0,
+                    'roi': ev_roi
+                })
+        except Exception as e:
+            print(f"Error processing EV breakdown: {e}")
+    
+    # Performance by mental form range - only run this query if we have settled bets
+    mental_form_breakdown = []
+    if total_settled_bets > 0:
+        try:
+            cursor.execute('''
+            SELECT 
+                CASE
+                    WHEN mental_form_score <= -0.5 THEN 'Strong Negative'
+                    WHEN mental_form_score <= -0.2 THEN 'Moderate Negative'
+                    WHEN mental_form_score < 0.2 THEN 'Neutral'
+                    WHEN mental_form_score < 0.5 THEN 'Moderate Positive'
+                    WHEN mental_form_score IS NOT NULL THEN 'Strong Positive'
+                    ELSE 'Unknown'
+                END as mental_form_range,
+                COUNT(*) as count,
+                SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN outcome != 'pending' THEN profit_loss ELSE 0 END) as profit_loss,
+                SUM(CASE WHEN outcome != 'pending' THEN stake ELSE 0 END) as total_staked
+            FROM bets
+            WHERE outcome != 'pending'
+            GROUP BY mental_form_range
+            ORDER BY MIN(mental_form_score)
+            ''')
+            
+            mental_form_rows = cursor.fetchall()
+            
+            for mf in mental_form_rows:
+                mf_win_rate = mf['wins'] / mf['count'] if mf['count'] > 0 else 0
+                mf_roi = (mf['profit_loss'] / mf['total_staked']) * 100 if mf['total_staked'] > 0 else 0
+                
+                mental_form_breakdown.append({
+                    'name': mf['mental_form_range'],
+                    'count': mf['count'],
+                    'win_rate': mf_win_rate,
+                    'profit_loss': mf['profit_loss'] or 0,
+                    'roi': mf_roi
+                })
+        except Exception as e:
+            print(f"Error processing mental form breakdown: {e}")
+    
+    # Return all the stats
+    return {
+        'total_bets': overall['total_bets'] if overall else 0,
+        'winning_bets': winning_bets,
+        'losing_bets': losing_bets,
+        'total_settled_bets': total_settled_bets,
+        'total_staked': total_staked,
+        'total_returns': overall['total_returns'] if overall and overall['total_returns'] is not None else 0,
+        'total_profit_loss': total_profit_loss,
+        'win_rate': win_rate,
+        'roi': roi,
+        'current_bankroll': current_bankroll,
+        'market_breakdown': market_breakdown,
+        'sportsbook_breakdown': sportsbook_breakdown,
+        'ev_breakdown': ev_breakdown,
+        'mental_form_breakdown': mental_form_breakdown
+    }
+
+@app.route('/delete-bet', methods=['POST'])
+def delete_bet():
+    """Delete a bet completely"""
+    if request.method != 'POST':
+        return redirect(url_for('my_bets'))
+        
+    bet_id = request.form.get('bet_id')
+    
+    if not bet_id:
+        flash('Invalid bet data', 'error')
+        return redirect(url_for('my_bets'))
+    
+    conn = get_db_connection(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get bet details for the flash message
+    cursor.execute('SELECT player_name, bet_market FROM bets WHERE bet_id = ?', (bet_id,))
+    bet = cursor.fetchone()
+    
+    if not bet:
+        conn.close()
+        flash('Bet not found', 'error')
+        return redirect(url_for('my_bets'))
+    
+    player_name = bet['player_name']
+    market = bet['bet_market']
+    
+    # Delete the bet
+    cursor.execute('DELETE FROM bets WHERE bet_id = ?', (bet_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    flash(f'Bet on {player_name} ({market}) has been deleted', 'success')
+    return redirect(url_for('my_bets'))
+
 @app.route('/about')
 def about():
     """About page with system information"""

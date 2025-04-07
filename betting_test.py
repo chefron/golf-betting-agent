@@ -42,7 +42,7 @@ def test_identify_recommended_bets():
     # Set parameters for the test
     min_ev = 7.0          # Minimum EV threshold (%)
     bankroll = 1000       # Example bankroll
-    min_stake = 1.0       # Minimum stake to recommend
+    min_stake = 0.01       # Minimum stake to recommend
     max_recommendations = 50  # Number of recommendations to show
 
     # Add this before calling identify_recommended_bets
