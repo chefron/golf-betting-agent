@@ -431,18 +431,19 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.querySelector('#dgIdInput').value = dgId;
             modal.querySelector('#eventNameInput').value = eventName;
             
-            // Calculate suggested stake based on Kelly criterion
-            // This is a simplified Kelly calculation (could be enhanced)
-            const probability = parseFloat(baseProbability) / 100;
+            // Calculate suggested stake based on Kelly criterion using adjusted probability
+            const baseProbValue = parseFloat(baseProbability);
+            const mentalAdjValue = parseFloat(mentalAdjustment);
+            const adjustmentFactor = 1 + (mentalAdjValue / 100);
+            const adjustedProbability = baseProbValue * adjustmentFactor / 100;
             const decimalOdds = parseFloat(odds);
             const kellyFraction = 0.25; // 25% Kelly
             
-            // Kelly formula: f* = (bp - q) / b
-            // where b = odds - 1, p = probability of winning, q = 1 - p
-            if (probability > 0 && decimalOdds > 1) {
+            // Kelly formula using adjusted probability
+            if (adjustedProbability > 0 && decimalOdds > 1) {
                 const b = decimalOdds - 1;
-                const q = 1 - probability;
-                const kellyStake = Math.max(0, (b * probability - q) / b) * kellyFraction;
+                const q = 1 - adjustedProbability;
+                const kellyStake = Math.max(0, (b * adjustedProbability - q) / b) * kellyFraction;
                 
                 // Suggest a reasonable stake based on Kelly (assuming $1000 bankroll)
                 const suggestedStake = Math.round(kellyStake * 1000 * 100) / 100;

@@ -21,7 +21,7 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Don't extract generic platitudes or clichés as meaningful insights. Only extract specific, detailed, and substantive information.
+You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Don't extract generic platitudes or clichés as meaningful insights. Only extract specific, detailed, and substantive information. You may lightly polish the insights for readability.
 
 EXTRACTION GUIDELINES:
 

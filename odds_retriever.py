@@ -155,10 +155,10 @@ class OddsRetriever:
         
         # Adjust model probability based on mental score and market type
         # For standard markets (like win, top_5):
-        #   - Positive mental scores increase the probability (max +25%)
-        #   - Negative mental scores decrease the probability (max -25%)
+        #   - Positive mental scores increase the probability (max +20%)
+        #   - Negative mental scores decrease the probability (max -20%)
         # For "miss cut" market, the adjustment is reversed
-        adjustment_factor = mental_score * 0.25 * adjustment_direction
+        adjustment_factor = mental_score * 0.20 * adjustment_direction
         adjusted_probability = model_probability * (1 + adjustment_factor)
         
         # Ensure probability doesn't exceed 100% or go below 0%
