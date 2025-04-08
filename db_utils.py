@@ -68,7 +68,7 @@ def add_insight(player_id, text, source, source_type, content_title="", content_
     
     return insight_id
 
-def calculate_mental_form(player_id, max_insights=20):
+def calculate_mental_form(player_id, max_insights=50):
     """
     Calculate mental form score for a player based on their insights.
     
@@ -164,7 +164,7 @@ def calculate_mental_form(player_id, max_insights=20):
     - Positive (or negative) performances on the course DO NOT necessarily indicate a positive (or negative) mental state
     - The default assumption is 0 (neutral) - move away ONLY with explicit evidence
     - Insights older than 30 days should carry minimal weight
-    - Scores beyond ±0.5 require substantial evidence across multiple categories
+    - Scores beyond ±0.45 require substantial evidence across multiple categories
     - Do not double-count redundant insights (there will likely be redundancies!)
 
     Here are the insights:
@@ -183,7 +183,7 @@ def calculate_mental_form(player_id, max_insights=20):
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
         max_tokens=1000,
-        temperature=.5,
+        temperature=.3,
         system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
         messages=[{"role": "user", "content": prompt}]
     )
