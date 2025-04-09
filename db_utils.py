@@ -121,63 +121,40 @@ def calculate_mental_form(player_id, max_insights=50):
     
     # Create the prompt
     prompt = f"""
-    Based on the following {len(insights)} insights about golfer {player_name}, assess their current MENTAL FORM on a scale from -1 to 1. This represents qualitative factors that traditional statistical models cannot capture.
+You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers. With 30+ years in the industry, you've developed an uncanny ability to read between the lines of press conferences, detect subtle shifts in confidence, and interpret body language from afar. Below, you'll find a collection of insights about {player_name} extracted from interviews, press conferences, podcast analysis, and insider reports. Your mission is to cut through the rehearsed responses, empty platitudes, and PR-polished statements to assess the golfer's true MENTAL FORM on a scale from -1 to 1. 
 
-    -1 = Severely compromised mental state (likely to significantly underperform statistical expectations)
-    0 = Neutral mental state (performing in line with statistical expectations)
-    1 = Exceptional mental state (likely to significantly outperform statistical expectations)
+-1.0 to -0.7 = Mental game in shambles: Completely shot confidence, yips territory, overthinking every shot, likely to implode spectacularly when the pressure's on. Will significantly underperform statistical models. 
+-0.6 to -0.3 = Fragile headspace: Visible frustration, forcing shots, defensive interviews, signs of technical doubt. Will probably leak strokes in crucial moments. 
+-0.2 to +0.2 = Standard tour pro mentality: neither particularly strong nor weak mentally. Statistical models should be accurate. Most golfers fall into this range.
+ +0.3 to +0.6 = Locked in: Clear confidence, decisive decision-making, pressure feels like opportunity. Expect statistical outperformance. 
++0.7 to +1.0 = In the zone: Rare peak flow state where everything slows down, focus is absolute, and confidence borders on prescience. Major championship mentality. Will make statistical models look conservative.
 
-    Today's date: {today}
+To arrive at {player_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely ignore recent performance results. We already have sophisticated statistical models for stroke analysis - what we need from you is pure psychological insight. A player who just won could still have a negative mental score if they're showing warning signs. Conversely, someone missing cuts might have an excellent mental score if their mindset shows the right indicators. Don't be fooled by recency bias or results-based thinking.
 
-    MENTAL FORM ASSESSMENT FRAMEWORK:
+When analyzing {player_name}'s mental state, look for these key indicators:
 
-    1. Emotional Regulation
-    - NEGATIVE: On-course emotional outbursts, visible frustration, inability to move past mistakes
-    - POSITIVE: Demonstrated resilience, calm demeanor, constructive response to challenges
+- Confidence: Does {player_name} have that dawg in him or is he filled with doubt? 
+- Pressure handling: Are they embracing challenges or showing signs of cracking? 
+- Decision clarity: Sharp, decisive thinking or second-guessing themselves? 
+- Life balance: Focused on golf or distracted by outside factors?
+- Team dynamics: Stable support system or friction with their circle? 
+- Physical health: That mind-body connection. Is bodily comfort/discomfort affecting their mental game?
 
-    2. Confidence Level
-    - NEGATIVE: Expressed self-doubt, hesitancy in decision-making, defensive language
-    - POSITIVE: Stated belief in abilities, decisive approach, positive self-talk
+The best insights often come from reading between the lines - what {player_name} isn't saying may be as important as what they are saying.
 
-    3. Focus & Concentration
-    - NEGATIVE: Mentioned distractions, disrupted routines, rushing process
-    - POSITIVE: Discussed improved mental clarity, enhanced preparation, present-focused mindset
+Without further ado, here are the insights:
+{insights_text}
 
-    4. Life Stability
-    - NEGATIVE: Personal difficulties, major life adjustments, reported off-course stress
-    - POSITIVE: Expressed contentment with life balance, resolution of previous distractions
+Based solely on these insights and the framework above:
 
-    5. Support System
-    - NEGATIVE: Team conflicts, coaching/caddie changes, isolation concerns
-    - POSITIVE: Mentioned positive team dynamics, valuable mentor relationships
+1. Provide a current mental form score between -1 and 1. Prioritize insights from the last 30 days (today is {today}). Don't be swayed by redundant themes - many similar comments don't make them more important.
+ 
+2. Explain your reasoning in 3-5 sentences with the bite and insight of a veteran sports psychologist, noting any clear trends in the player's mental state based on the timeline of insights. Be tough but fair. Be decisive. Don't pull punches - give your most incisive psychological diagnosis, even if it might ruffle feathers.
 
-    6. Physical Well-being
-    - NEGATIVE: Discussed injuries, fatigue, discomfort with equipment
-    - POSITIVE: Reported improved fitness, effective recovery, equipment satisfaction
-
-    7. Mental Approach
-    - NEGATIVE: Described poor decision-making process, rigid strategic thinking
-    - POSITIVE: Discussed improved perspective, adaptability, or strategic clarity
-
-    SCORING GUIDELINES:
-    - DO NOT infer current mental state from performance results alone
-    - Positive (or negative) performances on the course DO NOT necessarily indicate a positive (or negative) mental state
-    - The default assumption is 0 (neutral) - move away ONLY with explicit evidence
-    - Insights older than 30 days should carry minimal weight
-    - Scores beyond ±0.45 require substantial evidence across multiple categories
-    - Do not double-count redundant insights (there will likely be redundancies!)
-
-    Here are the insights:
-    {insights_text}
-
-    Based solely on these insights and the framework above:
-    1. Provide a current mental form score between -1 and 1
-    2. Explain your reasoning in 3-5 sentences, noting any clear trends in the player's mental state based on the timeline of insights. Your explanation must stand alone without referencing "insights" directly.
-
-    Format your response as:
-    SCORE: [number between -1 and 1]
-    JUSTIFICATION: [your explanation and trend analysis]
-    """
+Format your response as: 
+SCORE: [number between -1 and 1] 
+JUSTIFICATION: [your analysis] 
+"""
     
     # Call Claude to analyze mental form
     response = client.messages.create(
