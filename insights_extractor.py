@@ -21,7 +21,7 @@ def read_transcript(file_path):
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.).  Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Don't extract generic platitudes or clichés as meaningful insights. Only extract specific, detailed, and substantive information. You may lightly polish the insights for readability.
+You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.), and lightly polishing them for readability. Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Only extract specific, detailed, and substantive information.
 
 EXTRACTION GUIDELINES:
 
@@ -53,10 +53,9 @@ EXTRACTION GUIDELINES:
    - Vague statements that would apply to any golfer
 
 3. QUALITY CONTROLS:
-   - Maintain context that explains why the insight matters
    - Only extract genuine qualitative insights - quality over quantity!
-   - Specify the source if mentioned (player, coach, analyst)
    - DO NOT evaluate or interpret the insight - simply extract the information as presented
+   - Specify the source if mentioned (player, coach, analyst)
    - You may lightly polish the language for clarity and readability
 
 For each substantive qualitative insight, format your response exactly as follows:

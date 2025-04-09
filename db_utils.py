@@ -93,7 +93,7 @@ def calculate_mental_form(player_id, max_insights=50):
     
     # Get the most recent insights
     cursor.execute('''
-    SELECT text, date
+    SELECT text, date, source_type
     FROM insights
     WHERE player_id = ?
     ORDER BY date DESC
@@ -115,39 +115,54 @@ def calculate_mental_form(player_id, max_insights=50):
 
     # Get current date for context
     today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # Prepare player name for prompt by converting "Last, First" to "First Last"
+    def format_player_name(name):
+        if ',' in name:
+            last, first = name.split(',', 1)
+            return f"{first.strip()} {last.strip()}"
+        return name
+
+    # Use the formatted name in your prompt
+    player_display_name = format_player_name(player_name)
     
     # Prepare insights for prompt
-    insights_text = "\n\n".join([f"Date: {i['date']}\nInsight: {i['text']}" for i in insights])
+    insights_text = "\n\n".join([
+        f"Date: {i['date']}\n"
+        f"Source: {i['source_type'] if i['source_type'] else 'Unknown'}\n"
+        f"Insight: {i['text']}"
+        for i in insights
+    ])
     
     # Create the prompt
     prompt = f"""
-You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers. With 30+ years in the industry, you've developed an uncanny ability to read between the lines of press conferences, detect subtle shifts in confidence, and interpret body language from afar. Below, you'll find a collection of insights about {player_name} extracted from interviews, press conferences, podcast analysis, and insider reports. Your mission is to cut through the rehearsed responses, empty platitudes, and PR-polished statements to assess the golfer's true MENTAL FORM on a scale from -1 to 1. 
+You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers. With 30+ years in the industry, you've developed an uncanny ability to read between the lines of press conferences, detect subtle shifts in confidence, and interpret body language from afar. Below, you'll find a collection of insights about {player_display_name} extracted from interviews, press conferences, podcast analysis, and insider reports. Your mission is to cut through the rehearsed responses, empty platitudes, and PR-polished statements to assess the golfer's true MENTAL FORM on a scale from -1 to 1. 
 
--1.0 to -0.7 = Mental game in shambles: Completely shot confidence, yips territory, overthinking every shot, likely to implode spectacularly when the pressure's on. Will significantly underperform statistical models. 
--0.6 to -0.3 = Fragile headspace: Visible frustration, forcing shots, defensive interviews, signs of technical doubt. Will probably leak strokes in crucial moments. 
--0.2 to +0.2 = Standard tour pro mentality: neither particularly strong nor weak mentally. Statistical models should be accurate. Most golfers fall into this range.
- +0.3 to +0.6 = Locked in: Clear confidence, decisive decision-making, pressure feels like opportunity. Expect statistical outperformance. 
-+0.7 to +1.0 = In the zone: Rare peak flow state where everything slows down, focus is absolute, and confidence borders on prescience. Major championship mentality. Will make statistical models look conservative.
+-1.00 to -0.75 = Mental game in shambles: Completely shot confidence, yips territory, overthinking every shot, likely to implode spectacularly when the pressure's on. Will significantly underperform statistical models. 
+-0.75 to -0.25 = Fragile headspace: Visible frustration, forcing shots, defensive interviews, signs of technical doubt. Will probably leak strokes in crucial moments. 
+-0.25 to +0.25 = Standard tour pro mentality: neither particularly strong nor weak mentally, or lacking enough insights to deserve a better score. The majority of golfers will fall into this range. Those with only a few insights should probably receive a score around 0.
++0.25 to +0.75 = Locked in: Clear confidence, decisive decision-making, pressure feels like opportunity. Expect statistical outperformance. 
++0.75 to +1.00 = In the zone: Peak mental state where everything slows down, focus is absolute, and confidence borders on prescience. Major championship mentality. Will make statistical models look conservative.
 
-To arrive at {player_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely ignore recent performance results. We already have sophisticated statistical models for stroke analysis - what we need from you is pure psychological insight. A player who just won could still have a negative mental score if they're showing warning signs. Conversely, someone missing cuts might have an excellent mental score if their mindset shows the right indicators. Don't be fooled by recency bias or results-based thinking.
+To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely ignore recent performance results. We already have sophisticated statistical models for stroke analysis - what we need from you is pure psychological insight. A player who just won could still have a negative mental score if they're showing warning signs. Conversely, someone missing cuts might have an excellent mental score if their mindset shows the right indicators. Don't be fooled by recency bias or results-based thinking.
 
-When analyzing {player_name}'s mental state, look for these key indicators:
+When analyzing {player_display_name}'s mental state, look for these key indicators:
 
-- Confidence: Does {player_name} have that dawg in him or is he filled with doubt? 
+- Confidence: Does {player_display_name} have that dawg in him or is he filled with doubt? 
 - Pressure handling: Are they embracing challenges or showing signs of cracking? 
 - Decision clarity: Sharp, decisive thinking or second-guessing themselves? 
 - Life balance: Focused on golf or distracted by outside factors?
 - Team dynamics: Stable support system or friction with their circle? 
 - Physical health: That mind-body connection. Is bodily comfort/discomfort affecting their mental game?
 
-The best insights often come from reading between the lines - what {player_name} isn't saying may be as important as what they are saying.
+The best insights often come from reading between the lines - what {player_display_name} isn't saying may be as important as what he is saying.
 
 Without further ado, here are the insights:
 {insights_text}
 
 Based solely on these insights and the framework above:
 
-1. Provide a current mental form score between -1 and 1. Prioritize insights from the last 30 days (today is {today}). Don't be swayed by redundant themes - many similar comments don't make them more important.
+1. Provide a current mental form score between -1 and 1. Prioritize insights from the last 30 days (today is {today}). Don't be swayed by redundant themes - many similar comments don't make them more important. Default to a neutral score around 0 unless there's sufficient evidence to move the needle in either direction.
  
 2. Explain your reasoning in 3-5 sentences with the bite and insight of a veteran sports psychologist, noting any clear trends in the player's mental state based on the timeline of insights. Be tough but fair. Be decisive. Don't pull punches - give your most incisive psychological diagnosis, even if it might ruffle feathers.
 
@@ -155,12 +170,14 @@ Format your response as:
 SCORE: [number between -1 and 1] 
 JUSTIFICATION: [your analysis] 
 """
+    # Print the entire prompt (add this line)
+    print(f"\n==== PROMPT FOR {player_name} ====\n{prompt}\n==== END PROMPT ====\n")
     
     # Call Claude to analyze mental form
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
-        max_tokens=1000,
-        temperature=.3,
+        max_tokens=4000,
+        temperature=.5,
         system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
         messages=[{"role": "user", "content": prompt}]
     )
