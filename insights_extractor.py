@@ -20,6 +20,9 @@ def read_transcript(file_path):
 
 def create_claude_prompt(transcript, event_name):
     """Create a prompt for Claude to extract insights"""
+    # Get current date
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+
     prompt = f"""
 You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.), and lightly polishing them for readability. Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Only extract specific, detailed, and substantive information.
 
@@ -57,6 +60,7 @@ EXTRACTION GUIDELINES:
    - DO NOT evaluate or interpret the insight - simply extract the information as presented
    - Specify the source if mentioned (player, coach, analyst)
    - You may lightly polish the language for clarity and readability
+   - When time references are ambiguous, interpret them relative to today's date ({today})
 
 For each substantive qualitative insight, format your response exactly as follows:
 
@@ -67,7 +71,9 @@ For each substantive qualitative insight, format your response exactly as follow
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract all SUBSTANTIVE qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Remember, QUALITY OVER QUANTITY. It's entirely possible that this transcript contains very few (or even zero) substantive insights.
+While this transcript may discuss the {event_name}, extract all SUBSTANTIVE qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. For context, today's date is {today}.
+
+If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Remember, QUALITY OVER QUANTITY. It's entirely possible that this transcript contains very few (or even zero) substantive insights.
 
 Here is the transcript:
 {transcript}
