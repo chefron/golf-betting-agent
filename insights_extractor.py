@@ -24,7 +24,7 @@ def create_claude_prompt(transcript, event_name):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
 
     prompt = f"""
-You are a specialized analyzer extracting QUALITATIVE insights about professional golfers from various media sources (podcasts, interviews, press conferences, etc.), and lightly polishing them for readability. Your mission is to identify INTANGIBLE factors that traditional statistical models like Data Golf cannot capture, with special focus on mental game elements. Focus on QUALITATIVE INSIGHTS only. It is better to NOT include an insight than to reach for one or infer one based on performance results. Only extract specific, detailed, and substantive information.
+You are a sports psychologist extracting QUALITATIVE insights about professional golfers from media sources. Focus solely on INTANGIBLE factors statistical models cannot capture, especially mental aspects. Ignore performance results.  Focus on QUALITY insights OVER QUANTITY - it's OK if few or no substantive insights exist in the source.
 
 EXTRACTION GUIDELINES:
 
@@ -47,17 +47,15 @@ EXTRACTION GUIDELINES:
    - Strategic approach changes (course management, risk assessment)
 
 2. STRICTLY EXCLUDE:
-   - Performance-based assumptions about mental state
    - Statistics-based evaluations
    - Skill assessments based on results
    - Course fit discussions
    - Rankings or world position discussions
-   - Generic platitudes without specific details ("feeling good", "taking it one shot at a time", etc.)
    - Vague statements that would apply to any golfer
 
 3. QUALITY CONTROLS:
    - Only extract genuine qualitative insights - quality over quantity!
-   - DO NOT evaluate or interpret the insight - simply extract the information as presented
+   - DO NOT evaluate or interpret the insight - simply extract and lightly polish the information as presented
    - Specify the source if mentioned (player, coach, analyst)
    - You may lightly polish the language for clarity and readability
    - When time references are ambiguous, interpret them relative to today's date ({today})
@@ -71,9 +69,7 @@ For each substantive qualitative insight, format your response exactly as follow
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract all SUBSTANTIVE qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. For context, today's date is {today}.
-
-If a player is mentioned but no meaningful qualitative insights are provided, do not include them. Remember, QUALITY OVER QUANTITY. It's entirely possible that this transcript contains very few (or even zero) substantive insights.
+While this transcript may discuss the {event_name}, extract all substantive qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. For context, today's date is {today}. Remember, QUALITY OVER QUANTITY! Don't infer anything from performance results!
 
 Here is the transcript:
 {transcript}
@@ -216,7 +212,9 @@ def get_player_by_name(conn, name, fuzzy=True):
         "NEIL SHIPLEY": "Shipley, Neal",
         "JOHNNY VEGAS": "Vegas, Jhonattan",
         "BRIAN HARMON": "Harman, Brian",
-        "MARK LEISHMAN": "Leishman, Marc"
+        "MARK LEISHMAN": "Leishman, Marc",
+        "THORBJØRN OLESEN": "Olesen, Thorbjorn",
+        
     }
     
     if name.upper() in special_cases:
