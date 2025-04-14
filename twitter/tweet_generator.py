@@ -1,313 +1,334 @@
 """
-Tweet content generator for golf betting insights.
-
-This module handles generating tweets in the Fat Phil persona
-based on insights from the tournament data.
+This module handles the generation of tweets for The Head Pro,
+using the Anthropic Claude API to create insightful, character-driven
+content about golfers' mental states and betting recommendations.
 """
 
 import os
-import sys  # Add this import if it's not already there
-
-# Add this line to append the parent directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import json
-import random
-import logging
-from typing import List, Dict
+import datetime
+import sqlite3
 import anthropic
+from typing import Dict, List, Optional, Any, Tuple
 from dotenv import load_dotenv
 
-from market_analyzer import MarketAnalyzer
-from odds_retriever import OddsRetriever
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('twitter.generator')
-
-# Load environment variables
 load_dotenv()
 
-class TweetGenerator:
-    """Generates tweets in the Fat Phil persona based on golf insights"""
-    
-    def __init__(self):
+class HeadProTweetGenerator:
+    def __init__(self, persona_file: str = "head_pro_persona.txt", db_path: str = "data/db/mental_form.db"):
         """
-        Initialize the tweet generator.
+        Initialize the Head Pro tweet generator.
+
+        Args:
+            persona_file: Path to the file containing the Head Pro's persona description
+            db_path: Path to the database containing player and betting data
         """
-        # Get API key from environment
-        self.api_key = os.getenv('ANTHROPIC_API_KEY')
+        self.db_path = db_path
+        self.api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
-            raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable.")
+            raise ValueError("Anthropic API key not found in environmentmal variables")
         
-        self.client = anthropic.Anthropic(api_key=self.api_key)
-        self.persona = self._load_persona()
-        
-        # Initialize helper components
-        self.market_analyzer = MarketAnalyzer()
-        self.odds_retriever = OddsRetriever()
-        
-        logger.info("Initialized TweetGenerator")
-    
-    def _load_persona(self) -> str:
-        """
-        Load the Fat Phil persona from the persona.txt file.
-        
-        Returns:
-            The persona text content
-        
-        Raises:
-            ValueError: If persona file cannot be loaded
-        """
+        # Load the Head Pro persona
         try:
-            persona_path = os.path.join(os.path.dirname(__file__), '..', 'persona.txt')
-            with open(persona_path, 'r', encoding='utf-8') as f:
-                persona = f.read().strip()
-            logger.info("Loaded Fat Phil persona")
-            return persona
+            with open(persona_file, 'r', encoding='utf-8') as f:
+                self.persona = f.read()
         except Exception as e:
-            logger.error(f"Error loading persona: {e}")
-            raise ValueError(f"Failed to load persona file: {e}")
-    
-    def select_player(self, json_file: str) -> Dict:
-        """
-        Select a player from the tournament database.
+            error_msg = f"Critical error: Could not load persona file: {e}"
+            print(error_msg)
+            raise RuntimeError(error_msg)
         
-        Args:
-            json_file: Path to the tournament JSON file
-            
-        Returns:
-            Dictionary with player data
+    def _get_db_connection(self) -> sqlite3.Connection:
+        """Get a connection to the database"""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+    
+    def get_player_data(self, player_id: int) -> Dict[str, Any]:
         """
-        try:
-            # Load the tournament database
-            with open(json_file, 'r', encoding='utf-8') as f:
-                tournament_data = json.load(f)
-            
-            # Find players with insights
-            players_with_insights = []
-            for player_id, player_data in tournament_data["players"].items():
-                if player_data.get("insights") and player_data.get("insights").strip() != "":
-                    players_with_insights.append((player_id, player_data))
-            
-            if not players_with_insights:
-                raise ValueError("No players with insights found in the tournament database")
-            
-            # Randomly select a player
-            player_id, player_data = random.choice(players_with_insights)
-            
-            # Extract relevant information
-            player_info = {
-                "id": player_id,
-                "name": player_data["name"],
-                "insights": player_data["insights"],
-                "tournament_name": tournament_data["tournament"]["name"],
-                "tournament_date": tournament_data["tournament"]["date"]
+        Get all relevant player data for a player needed to generate a tweet.
+
+        Args:
+            player_id: Database ID of the player
+
+        Returns:
+            Dictionary containing player information, mental form, insights, and betting data
+        """
+        conn = self._get_db_connection()
+        cursor = conn.cursor()
+
+        # Get player basic info
+        cursor.execute("""
+        SELECT id, name, nicknames, notes
+        FROM players
+        Where id = ?
+        """, (player_id,))
+
+        player = cursor.fetchone()
+        if not player:
+            conn.close()
+            raise ValueError(f"Player with ID {player_id} not found")
+        
+        player_data = dict(player)
+
+        # Format player name for display (convert "last name, first name" to "fist name last name")
+        if ',' in player_data['name']:
+            last, first = player_data['name'].split(',', 1)
+            player_data['display_name'] = f"{first.strip()} {last.strip()}"
+        else:
+            player_data['display_name'] = player_data['name']
+
+        # Get mental form score and justification
+        cursor.execute("""
+        SELECT score, justification, last_updated
+        FROM mental_form
+        WHERE player_id = ?
+        """, (player_id,))
+
+        mental_form = cursor.fetchone()
+        if mental_form:
+            player_data['mental_form'] = dict(mental_form)
+        else:
+            player_data['mental_form'] = {
+                'score': None,
+                'justification': "No mental form data available.",
+                'last_updated': None
             }
-            
-            logger.info(f"Selected player: {player_info['name']}")
-            return player_info
-            
-        except Exception as e:
-            logger.error(f"Error selecting player: {e}")
-            raise
+        
+        # Get recent insights (most recent 10)
+        cursor.execute("""
+        SELECT text, source, date
+        FROM insights
+        WHERE player_id = ?
+        ORDER BY date DESC
+        LIMIT 15
+        """, (player_id,))
+
+        player_data['insights'] = [dict(insight) for insight in cursor.fetchall()]
+
+        conn.close()
+        return player_data
     
-    def enrich_player_data(self, player_info: Dict) -> Dict:
+    def get_betting_data(self, player_id: int, markets: List[str]) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Enrich player data with relevant betting markets and odds.
-        
+        Get betting data for specified markets for a player.
+
         Args:
-            player_info: Basic player information
-            
+            player_id: Database ID of the player
+            markets: List of betting markets to include (e.g., ["win", "top_5"])
+
         Returns:
-            Dictionary with player data enriched with odds
+            Dictionary of betting markets data organzied by market
         """
-        try:
-            # First, analyze the player's insight to identify relevant markets
-            markets = self.market_analyzer.analyze_insight(player_info["name"], player_info["insights"])
-            
-            print(f"DEBUG TweetGenerator: markets selected = {markets}")
-            
-            # Next, fetch odds for those markets
-            try:
-                print(f"DEBUG TweetGenerator: About to call fetch_relevant_odds")
-                print(f"DEBUG TweetGenerator: player_id = {player_info['id']}")
-                print(f"DEBUG TweetGenerator: player_name = {player_info['name']}")
-                
-                odds = self.odds_retriever.fetch_relevant_odds(
-                    player_info["id"], 
-                    player_info["name"], 
-                    markets
-                )
-                
-                print(f"DEBUG TweetGenerator: odds returned = {type(odds)}")
-                if odds:
-                    print(f"DEBUG TweetGenerator: odds keys = {odds.keys()}")
-                
-                # Add odds to player info
-                player_info["odds"] = odds
-                
-                markets_found = list(odds.keys())
-                logger.info(f"Enriched {player_info['name']}'s data with odds for these markets: {', '.join(markets_found)}")
-                
-            except Exception as e:
-                print(f"DEBUG TweetGenerator: Error in fetch_relevant_odds: {e}")
-                print(f"DEBUG TweetGenerator: Error type: {type(e)}")
-                import traceback
-                traceback.print_exc()
-                player_info["odds"] = {}
-            
-            return player_info
-                
-        except Exception as e:
-            logger.error(f"Error enriching player data: {e}")
-            # Still return the basic player info even if we couldn't get odds
-            player_info["odds"] = {}
-            return player_info
-    
-    def format_odds_for_prompt(self, odds_data: Dict) -> str:
-        """
-        Format odds data for inclusion in the tweet prompt.
+
+        conn = self._get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the current tournament
+        cursor.execute("""
+        SELECT event_name, MAX(timestamp) as latest
+        FROM bet_recommendations
+        GROUP BY event_name
+        ORDER BY latest DESC
+        LIMIT 1
+        """)
+
+        event_result = cursor.fetchone()
+        if not event_result:
+            conn.close()
+            return {"event_name": None, "markets":{}}
         
-        Args:
-            odds_data: Dictionary of market odds
-            
-        Returns:
-            Formatted odds text
-        """
-        if not odds_data:
-            return "No odds data available."
-        
-        odds_text = ""
-        
-        for market, market_data in odds_data.items():
-            # Add market header
-            odds_text += f"{market_data['display_name']}:\n"
-            
-            # Add model odds - now with "Fat Phil's Model" and no percentage
-            model_decimal = market_data["model_decimal"]
-            model_american = self.odds_retriever.decimal_to_american(model_decimal)
-            odds_text += f"- Fat Phil's Model: {model_american}\n"
-            
-            # Add top sportsbooks with best EV (limited to top 3)
-            if market_data["sportsbooks"]:
-                books_text = []
-                for book in market_data["sportsbooks"][:3]:  # Top 3 by EV
-                    american_odds = self.odds_retriever.decimal_to_american(book["odds"])
-                    ev_sign = "+" if book["ev"] >= 0 else ""  # Sign already included in EV number
-                    books_text.append(f"{book['display_name']}: {american_odds} ({ev_sign}{book['ev']:.1f}% EV)")
-                
-                odds_text += f"- Best odds: {' | '.join(books_text)}\n"
-            
-            odds_text += "\n"
-        
-        return odds_text
-    
-    def _unescape_json_string(self, text: str) -> str:
-        """
-        Properly unescape JSON escaped strings.
-        
-        Args:
-            text: Text that may contain escaped characters
-            
-        Returns:
-            Unescaped text
-        """
-        if not text:
-            return ""
-        
-        # Replace common escaped characters
-        replacements = {
-            "\\'": "'",  # Escaped single quote
-            '\\"': '"',  # Escaped double quote
-            "\\n": "\n", # Escaped newline
-            "\\r": "\r", # Escaped carriage return
-            "\\t": "\t"  # Escaped tab
+        event_name = event_result['event_name']
+
+        # Get betting data for each requested market
+        betting_data = {
+            "event_name": event_name,
+            "markets": {}
         }
-        
-        result = text
-        for escaped, unescaped in replacements.items():
-            result = result.replace(escaped, unescaped)
-        
-        return result
+
+        for market in markets:
+            cursor.execute("""
+            SELECT sportsbook, decimal_odds, base_ev, mental_adjustment, adjusted_ev, model_probability
+            FROM bet_recommendations
+            WHERE player_id = ? AND event_name = ? AND market = ?
+            ORDER BY adjusted_ev DESC
+            """, (player_id, event_name, market))
+
+            market_data = [dict(bet) for bet in cursor.fetchall()]
+
+            # Format each bet with American odds
+            for bet in market_data:
+                decimal_odds = bet['decimal_odds']
+                if decimal_odds >= 2.0:
+                    american_odds = f"+{int(round((decimal_odds - 1) * 100))}"
+                else:
+                    american_odds = f"{int(round(-100 / (decimal_odds - 1)))}"
+
+                bet['american_odds'] = american_odds
+
+            betting_data["markets"][market] = market_data
+
+        conn.close()
+        return betting_data
     
-    def generate_tweet(self, json_file: str, recent_tweets: List[str] = None) -> str:
+    def format_market_name(self, market_code: str) -> str:
+        """Format market code into a readable name"""
+        market_display = {
+            "win": "Outright Winner",
+            "top_5": "Top 5 Finish",
+            "top_10": "Top 10 Finish",
+            "top_20": "Top 20 Finish",
+            "make_cut": "Make Cut",
+            "mc": "Miss Cut",
+            "frl": "First Round Leader"
+        }
+        return market_display.get(market_code, market_code.upper())
+    
+    def format_sportsbook_name(self, book_code: str) -> str:
+        """Format sportsbook code into a readable name"""
+        book_display = {
+            "betmgm": "BetMGM",
+            "draftkings": "DraftKings",
+            "fanduel": "FanDuel",
+            "bet365": "Bet365",
+            "bovada": "Bovada",
+        }
+        return book_display.get(book_code, book_code.capitalize())
+    
+    def generate_tweet(self, player_id: int, markets: List[str], tournament_name: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
         """
-        Generate a tweet in the Fat Phil persona based on insights.
-        
+        Generate a tweet about a player's mental state and betting recommendations.
+
         Args:
-            json_file: Path to the tournament JSON file
-            recent_tweets: List of recent tweets to avoid repetition
-            
+            player_id: Database ID of the player
+            markets: List of betting markets to analyze
+            tournament_name: Name of the tournament (overrides the one from betting data if provided)
+
         Returns:
-            Generated tweet text
-            
-        Raises:
-            Exception: If tweet generation fails for any reason
+            Tuple of(tweet text, context data used to generate the tweet)
         """
-        try:
-            # Select a player
-            player_info = self.select_player(json_file)
-            
-            # Enrich with relevant betting markets and odds
-            enriched_player = self.enrich_player_data(player_info)
-            
-            # Format odds for the prompt
-            odds_text = self.format_odds_for_prompt(enriched_player.get("odds", {}))
-            
-            # Create the tweet generation prompt
-            tweet_prompt = f"""
-Based on the following golf betting insights and odds, create a single tweet as Fat Phil about {enriched_player['name']} for the {enriched_player['tournament_name']}. Focus on the most valuable betting angle that provides the best edge.
 
-PLAYER: {enriched_player['name']}
+        # Get player data
+        player_data = self.get_player_data(player_id)
 
-TOURNAMENT: {enriched_player['tournament_name']} ({enriched_player['tournament_date']})
+        # Get betting data for specified markets
+        betting_data = self.get_betting_data(player_id, markets)
 
-BETTING INSIGHTS:
-{self._unescape_json_string(enriched_player['insights'])}
+        # Override tournament name if provided
+        if tournament_name:
+            event_name = tournament_name
+        elif "event_name" in betting_data and betting_data["event_name"]:
+            event_name = betting_data["event_name"]
+        else:
+            raise ValueError("No tournament name provided and none found in betting data")
+        
+        # Create context for LLM
+        context = {
+            "player": player_data,
+            "betting": betting_data,
+            "tournament": event_name,
+            "markets": [self.format_market_name(m) for m in markets],
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
 
-RELEVANT ODDS:
-{odds_text}
+        # Create the tweet generation prompt
+        prompt = self._create_prompt(context)
 
-Create ONE concise tweet (max 280 characters) in Fat Phil's voice. Make it direct, colorful, and valuable to bettors. Focus on the specific betting angle with the best value, not just general information. Just write the tweet text itself with no additional explanation.
+        # Call LLM to generate the tweet
+        client = anthropic.Anthropic(api_key=self.api_key)
+
+        message = client.messages.create(
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=1000,
+            temperature=0.7,
+            system=self.persona,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        tweet_text = message.content[0].text.strip()
+
+        return tweet_text, context
+    
+    def _create_prompt(self, context: Dict[str, Any]) -> str:
+        """
+        Create a prompt for an LLM to generate a tweet.
+
+        Args:
+            context: Dictionary containing all the data needed for the tweet
+
+        Returns:
+            Prompt string to send to Claude
+        """
+
+        player = context["player"]
+        betting = context["betting"]
+        tournament = context["tournament"]
+        markets = context["markets"]
+
+        player_name = player["display_name"]
+        mental_score = player["mental_form"]["score"]
+        justification = player["mental_form"]["justification"]
+
+        prompt = f"""
+Please compose a tweet as the Head Pro analyzing {player_name}'s current mental state and how it affects his betting value for {tournament}.
+
+Your analysis should be based on:
+1. His current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1)
+2: Your justification for this score: "{justification}"json
+3: The betting data for these markets: {', '.join(markets)}
+
+Make a clear recommendation on whether bettors should either back or fade this player in specific markets, based on his mental score and betting value. Specifically comment on the Adjusted EV values, which incorporate the mental adjustment.
+
+The tweet must be under 280 characters. Be pithy but insightful. Short and punchy sentences. Less is more.
+
+For additional context, here are some recent insights excerpted from various media sources about {player_name}:
 """
+        # Add insights
+        for i, insight in enumerate(player["insights"]):
+            prompt += f"\n{i+1}. [{insight['date']}] {insight['text']}"
 
-            # Add recent tweets to avoid repetition, but with more flexibility
-            if recent_tweets and len(recent_tweets) > 0:
-                tweet_prompt += "\n\nAvoid repeating the same betting tips for the same players that appeared in your recent tweets. It's okay to recommend similar betting angles for different players if the value is there. Just don't be repetitive.\n\nRecent tweets:\n"
-                for tweet in recent_tweets[:10]:  # Only use last 10 tweets
-                    tweet_prompt += f"- {tweet}\n"
-            
-            # Generate tweet using Claude
-            logger.info(f"Generating tweet about {enriched_player['name']}")
+        # Add betting data
+        prompt += f"\n\nBetting_data for {player_name} at {tournament}:"
 
-            # Log the complete prompt (both system and user messages)
-            logger.info("---- COMPLETE PROMPT START ----")
-            logger.info(f"SYSTEM PROMPT:\n{self.persona}")
-            logger.info(f"USER PROMPT:\n{tweet_prompt}")
-            logger.info("---- COMPLETE PROMPT END ----")
+        for market_code, market_data in betting["markets"].items():
+            market_name = self.format_market_name(market_code)
+            prompt += f"\n\n{market_name} Market:"
+
+            if not market_data:
+                prompt += " No odds available"
+                continue
+
+            for bet in market_data:
+                sportsbook = self.format_sportsbook_name(bet["sportsbook"])
+                adjusted_ev = bet["adjusted_ev"]
+                american_odds = bet["american_odds"]
+                
+                prompt += f"\n- {sportsbook}: {american_odds} (Adjusted EV: {adjusted_ev:.1f}%)"
+
+        # Add any nicknames or notes if available
+        if player.get("nicknames"):
+            prompt += f"\n\nPlayer nicknames: {player['nicknames']}"
             
-            response = self.client.messages.create(
-                model="claude-3-7-sonnet-20250219",
-                max_tokens=4000,
-                temperature=0.7,  # Slightly higher temperature for creativity
-                system=self.persona,
-                messages=[
-                    {"role": "user", "content": tweet_prompt}
-                ]
-            )
-            
-            tweet_text = response.content[0].text.strip()
-            
-            # Remove any quotation marks that might have been added
-            tweet_text = tweet_text.strip('"\'')
-            
-            logger.info(f"Generated tweet: {tweet_text}")
-            return tweet_text
-            
-        except Exception as e:
-            logger.error(f"Error generating tweet: {e}")
-            raise  # Re-raise the exception
+        if player.get("notes"):
+            prompt += f"\n\nAdditional player notes: {player['notes']}"
+
+        prompt += "\n\nNow generate your tweet:"
+
+        return prompt
+    
+if __name__ == "__main__":
+    # Example usage
+    generator = HeadProTweetGenerator()
+    tweet, context = generator.generate_tweet(
+        player_id=123, # Replace with actual player ID
+        markets=["win", "top_5", "top_10"],
+        tournament_name="The Masters"
+    )
+    print(f"Generated tweet ({len(tweet)} characters):")
+    print(tweet)
+    
+
+
+                       
+                       
