@@ -214,6 +214,7 @@ def get_player_by_name(conn, name, fuzzy=True):
         "BRIAN HARMON": "Harman, Brian",
         "MARK LEISHMAN": "Leishman, Marc",
         "THORBJØRN OLESEN": "Olesen, Thorbjorn",
+        "SEBASTIAN MUÑOZ": "Munoz, Sebastian"
         
     }
     
