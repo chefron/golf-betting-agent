@@ -71,6 +71,7 @@ def add_insight(player_id, text, source, source_type, content_title="", content_
 def calculate_mental_form(player_id, max_insights=50):
     """
     Calculate mental form score for a player based on their insights.
+    Uses a self-review process to ensure justifications are self-contained.
     
     Args:
         player_id: ID of the player in the database
@@ -134,51 +135,72 @@ def calculate_mental_form(player_id, max_insights=50):
         for i in insights
     ])
     
-    # Create the prompt
+    # Create the enhanced prompt with self-review process
     prompt = f"""
-You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers. With 40+ years in the industry, you've developed an uncanny ability to read between the lines of press conferences, detect subtle shifts in confidence, and interpret body language from afar. Below, you'll find a collection of insights about {player_display_name} extracted from interviews, press conferences, podcast analysis, and insider reports. Your mission is to cut through the bias, rehearsed responses, and empty platitudes to assess the golfer's true CURRENT MENTAL FORM on a scale from -1 to 1. 
+You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers. With 40+ years in the industry, you've developed an uncanny ability to read between the lines of press conferences, detect subtle shifts in confidence, and interpret body language from afar. Below, you'll find a collection of insights about {player_display_name} extracted from interviews, press conferences, and second-hand analysis from various sources. Your mission is to cut through the bullshit, bias, and hot takes to assess the golfer's true CURRENT MENTAL FORM on a scale from -1 to 1.
 
--1.00 to -0.75 = Mental game in shambles: Completely shot confidence, yips territory, overthinking every shot, likely to implode spectacularly when the pressure's on. Will significantly underperform statistical models. 
--0.74 to -0.25 = Fragile headspace: Visible frustration, forcing shots, defensive interviews, signs of technical doubt. Will probably leak strokes in crucial moments. 
--0.24 to +0.24 = Neutral: neither particularly strong nor weak mentally at the moment, or lacking enough recent insights to deserve a better score. Most golfers you analyze will fall into this range, include those without recent insights (within one month of today, {today}) those with few insights, and those with conflicting insights.
-+0.25 to +0.74 = Locked in: Clear confidence, decisive decision-making, pressure feels like opportunity. Expect statistical outperformance.
+-1.00 to -0.75 = Mental game in shambles: Completely shot confidence, yips territory, overthinking every shot, likely to implode spectacularly when the pressure's on. Will significantly underperform statistical models.
+-0.74 to -0.25 = Fragile headspace: Visible frustration, forcing shots, defensive interviews, signs of technical doubt. Will probably leak strokes in crucial moments.
+-0.24 to +0.24 = Standard tour pro mentality: neither particularly mentally strong nor mentally weak at the moment, or lacking enough recent insights to deserve a better score. Most golfers you analyze will fall into this range, include those without recent insights (within one month of today, {today}) those with few insights, and those with conflicting insights.
++0.25 to +0.74 = Locked in: Clear confidence, decisive decision-making, pressure feels like opportunity. Expect statistical outperformance. Only assign scores in this range when there are multiple indicators of mental resilience from recent insights - mere optimism or standard pre-tournament confidence isn't enough!
 +0.75 to +1.00 = In the zone: Peak mental state where everything slows down, focus is absolute, and confidence borders on prescience. Major championship mentality. Will make statistical models look conservative.
 
-To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely ignore recent performance results. You don't give a rat's ass about stats or scores - just mental form. A player who just won could still have a negative mental form if they're showing warning signs. Conversely, someone missing cuts might have excellent mental form if their mindset shows the right indicators. In fact, you've got a legendary ability to spot early mental indicators that predict performance shifts BEFORE they show up in results - anticipatory assessments are more valuable than reactive ones. You love identifying players with strong mental indicators who are about to break out of a slump, or conversely, spotting the psychological red flags in currently successful players that signal an imminent decline in performance. You love being a contrarian.
+To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely ignore recent performance results. You don't give a rat's ass about stats or scores - just mental form. A player who just won could still have a negative mental form if they're showing warning signs. Conversely, someone missing cuts might have excellent mental form if their mindset shows the right indicators. In fact, you've got a legendary ability to spot early mental indicators that predict performance shifts BEFORE they show up in results - anticipatory assessments are more valuable than reactive ones. You love identifying players with strong mental indicators who are about to break out of a slump, or conversely, spotting the psychological red flags in currently successful players that signal an imminent decline in performance.
 
-When analyzing {player_display_name}'s current mental form, look for these key indicators:
+When analyzing {player_display_name}'s current mental state, look for these key indicators:
 
-- Confidence: Does {player_display_name} have that dawg in him or is he filled with doubt? 
-- Pressure handling: Are they embracing challenges or showing signs of cracking? 
-- Decision clarity: Sharp, decisive thinking or second-guessing themselves? 
+- Confidence: Does {player_display_name} have that dawg in him or is he filled with doubt?
+- Pressure handling: Are they embracing challenges or showing signs of cracking?
+- Decision clarity: Sharp, decisive thinking or second-guessing themselves?
 - Life balance: Focused on golf or distracted by outside factors?
-- Team dynamics: Stable support system or friction with their circle? 
+- Team dynamics: Stable support system or friction with their circle?
 - Physical health: That mind-body connection. Is bodily comfort/discomfort affecting their mental game?
 
-The best insights often come from reading between the lines - what {player_display_name} isn't saying may be as important as what he is saying. You should default to criticism rather than praise. You're kind of an prick, but you're always right.
+The best insights often come from reading between the lines - what {player_display_name} isn't saying may be as important as what he is saying.
 
 Without further ado, here are the insights:
 {insights_text}
 
 Based solely on these insights and the framework above:
 
-1. Provide a current mental form score between -1 and 1. Prioritize insights from the last 30 days (today is {today}). Don't be swayed by redundant themes - many similar comments don't make them more important. Default to a neutral score around 0 unless there's sufficient evidence to move the needle in either direction. A score of 0 is the norm!
- 
-2. Explain your reasoning in 3-5 sentences with the bite and hard-nosed insight of a veteran sports psychologist who sees through everyone's bullshit. Be skeptical. Be bold. Don't pull punches - give your most incisive psychological diagnosis, even if it might ruffle feathers. (Also, please make sure your justification stands alone and doesn't directly reference specific insights that readers won't have access to - instead, incorporate the key details from those insights directly into your analysis.)
+STEP 1: Analyze these insights carefully and determine a mental form score between -1 and 1. Prioritize insights from the last 30 days (today is {today}). Don't be swayed by redundant themes - many similar comments don't make them more important. Default to a neutral score around 0 unless there's sufficient evidence to move the needle in either direction. A score of 0 is the norm!
 
-Format your response as: 
-SCORE: [number between -1 and 1] 
-JUSTIFICATION: [your analysis] 
+STEP 2: Write a SELF-CONTAINED justification (3-5 sentences) explaining this score that someone with NO KNOWLEDGE of these insights could understand. Make it colorful and opinionated. You're a hard-ass straight-shooter with zero filter. Think of a crusty old pro who's had too many whiskeys at the 19th hole, dispensing wisdom that's equal parts genius and politically incorrect.
+
+Your justification must follow these strict rules:
+
+- Never directly refer to any insight, interview, comment, or quote
+- Never use phrases like "he mentioned," "he said," "he admitted," etc.
+- Never use definite articles ("the") when introducing new information; use indefinite articles ("a")
+- Never refer to specific events without proper context ("that triple bogey")
+- Never use language that assumes prior knowledge ("his caddie issues")
+
+EXAMPLES OF BAD JUSTIFICATIONS:
+❌ "His recent interview shows he's struggling with confidence on the greens."
+❌ "The equipment change has clearly affected his mental approach."
+❌ "That missed cut at the Masters has left psychological scars."
+
+EXAMPLES OF GOOD JUSTIFICATIONS:
+✓ "Thomas is currently navigating some putting confidence issues while trying to stay positive."
+✓ "A recent equipment change has clearly affected his mental approach to shot-making."
+✓ "A disappointing performance at this year's Masters has left psychological scars that are still healing."
+
+STEP 3: Review your justification carefully against these rules. If any sentence breaks these rules, rewrite it.
+
+I need your response in exactly this format:
+SCORE: [number between -1 and 1]
+JUSTIFICATION: [3-5 sentences that follow ALL the rules above]
 """
-    # Print the entire prompt (add this line)
+    
+    # Print the prompt for debugging
     print(f"\n==== PROMPT FOR {player_name} ====\n{prompt}\n==== END PROMPT ====\n")
     
     # Call Claude to analyze mental form
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
         max_tokens=4000,
-        temperature=.3,
-        system="You are an expert in qualitative golf analysis, specializing in identifying the non-statistical factors that influence player performance. Your task is to evaluate insights about golfers and determine how the qualitative factors mentioned might cause a player to perform differently than pure statistics would predict.",
+        temperature=0.3,
+        system="You are an expert in qualitative golf analysis, specializing in identifying psychological factors that influence player performance. Always create self-contained explanations that don't require access to source material to understand.",
         messages=[{"role": "user", "content": prompt}]
     )
     
