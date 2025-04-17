@@ -155,10 +155,10 @@ class OddsRetriever:
         
         # Adjust model probability based on mental score and market type
         # For standard markets (like win, top_5):
-        #   - Positive mental scores increase the probability (max +20%)
-        #   - Negative mental scores decrease the probability (max -20%)
+        #   - Positive mental scores increase the probability (max +30%)
+        #   - Negative mental scores decrease the probability (max -30%)
         # For "miss cut" market, the adjustment is reversed
-        adjustment_factor = mental_score * 0.20 * adjustment_direction
+        adjustment_factor = mental_score * 0.30 * adjustment_direction
         adjusted_probability = model_probability * (1 + adjustment_factor)
         
         # Ensure probability doesn't exceed 100% or go below 0%
@@ -336,7 +336,7 @@ class OddsRetriever:
                 # Process each sportsbook
                 sportsbooks_data = []
                 
-                for book in ['bet365', 'betmgm', 'bovada', 'draftkings', 'fanduel']:
+                for book in ['bet365', 'betonline', 'bovada', 'draftkings', 'fanduel']:
                     if book in odds_item and odds_item[book]:
                         decimal_odds = odds_item[book]
                         if isinstance(decimal_odds, (int, float)) and decimal_odds > 0:
@@ -504,6 +504,7 @@ class OddsRetriever:
             "fanduel": "FanDuel",
             "bet365": "Bet365",
             "bovada": "Bovada",
+            "betonline": "BetOnline"
         }
         return book_display.get(book, book.capitalize())
 

@@ -26,7 +26,7 @@ class HeadProTweetGenerator:
         self.db_path = db_path
         self.api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
-            raise ValueError("Anthropic API key not found in environmentmal variables")
+            raise ValueError("Anthropic API key not found in environment variables")
         
         # Load the Head Pro persona
         try:
@@ -60,7 +60,7 @@ class HeadProTweetGenerator:
         cursor.execute("""
         SELECT id, name, nicknames, notes
         FROM players
-        Where id = ?
+        WHERE id = ?
         """, (player_id,))
 
         player = cursor.fetchone()
@@ -70,7 +70,7 @@ class HeadProTweetGenerator:
         
         player_data = dict(player)
 
-        # Format player name for display (convert "last name, first name" to "fist name last name")
+        # Format player name for display (convert "last name, first name" to "first name last name")
         if ',' in player_data['name']:
             last, first = player_data['name'].split(',', 1)
             player_data['display_name'] = f"{first.strip()} {last.strip()}"
@@ -94,7 +94,7 @@ class HeadProTweetGenerator:
                 'last_updated': None
             }
         
-        # Get recent insights (most recent 10)
+        # Get recent insights (most recent 15)
         cursor.execute("""
         SELECT text, source, date
         FROM insights
@@ -117,7 +117,7 @@ class HeadProTweetGenerator:
             markets: List of betting markets to include (e.g., ["win", "top_5"])
 
         Returns:
-            Dictionary of betting markets data organzied by market
+            Dictionary of betting markets data organized by market
         """
 
         conn = self._get_db_connection()
@@ -186,7 +186,7 @@ class HeadProTweetGenerator:
     def format_sportsbook_name(self, book_code: str) -> str:
         """Format sportsbook code into a readable name"""
         book_display = {
-            "betmgm": "BetMGM",
+            "betonline": "BetOnline",
             "draftkings": "DraftKings",
             "fanduel": "FanDuel",
             "bet365": "Bet365",
@@ -275,7 +275,7 @@ Please compose a tweet as the Head Pro analyzing {player_name}'s current mental 
 
 Your analysis should be based on:
 1. His current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1)
-2: Your justification for this score: "{justification}"json
+2: Your justification for this score: "{justification}"
 3: The betting data for these markets: {', '.join(markets)}
 
 Make a clear recommendation on whether bettors should either back or fade this player in specific markets, based on his mental score and betting value. Specifically comment on the Adjusted EV values, which incorporate the mental adjustment.
@@ -289,7 +289,7 @@ For additional context, here are some recent insights excerpted from various med
             prompt += f"\n{i+1}. [{insight['date']}] {insight['text']}"
 
         # Add betting data
-        prompt += f"\n\nBetting_data for {player_name} at {tournament}:"
+        prompt += f"\n\nBetting data for {player_name} at {tournament}:"
 
         for market_code, market_data in betting["markets"].items():
             market_name = self.format_market_name(market_code)

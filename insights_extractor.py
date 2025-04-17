@@ -217,7 +217,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "SEBASTIAN MUÑOZ": "Munoz, Sebastian",
         "JOAQUÍN NIEMANN": "Niemann, Joaquin",
         "JOSE LUIS BALLESTER": "Ballester Barrio, Jose Luis",
-        "JOSÉ LUIS BALLESTER": "Ballester Barrio, Jose Luis"
+        "JOSÉ LUIS BALLESTER": "Ballester Barrio, Jose Luis",
+        "SCOTTY SCHEFFLER": "Scheffler, Scottie"
     }
     
     if name.upper() in special_cases:
