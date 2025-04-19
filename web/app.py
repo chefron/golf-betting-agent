@@ -226,7 +226,7 @@ def insights():
         params.append(f"%{source}%")
     
     # Add sorting
-    query += " ORDER BY i.date DESC LIMIT 100"
+    query += " ORDER BY i.date DESC LIMIT 1000"
     
     cursor.execute(query, params)
     insight_list = cursor.fetchall()

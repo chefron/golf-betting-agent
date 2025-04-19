@@ -152,7 +152,7 @@
                                     <th rowspan="2" class="align-middle">Adj Model</th>
                                     
                                     <!-- Create grouped columns for each sportsbook -->
-                                    {% set all_sportsbooks = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"] %}
+                                    {% set all_sportsbooks = ["draftkings", "fanduel", "betonline", "bet365", "bovada"] %}
                                     {% for book in all_sportsbooks %}
                                         <th colspan="2" class="sportsbook-col">{{ book|upper }}</th>
                                     {% endfor %}
@@ -522,7 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
             else if (sortKey.endsWith('-odds')) {
                 // Extract the sportsbook index
                 const bookName = sortKey.split('-')[0];
-                const bookIndex = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"].indexOf(bookName);
+                const bookIndex = ["draftkings", "fanduel", "betonline", "bet365", "bovada"].indexOf(bookName);
                 
                 if (bookIndex !== -1) {
                     // Calculate the column index (first 4 columns + bookIndex*2 for ODDS columns)
@@ -562,7 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
             else if (sortKey.endsWith('-ev')) {
                 // Extract the sportsbook index
                 const bookName = sortKey.split('-')[0];
-                const bookIndex = ["draftkings", "fanduel", "betmgm", "bet365", "bovada"].indexOf(bookName);
+                const bookIndex = ["draftkings", "fanduel", "betonline", "bet365", "bovada"].indexOf(bookName);
                 
                 if (bookIndex !== -1) {
                     // Calculate the column index (first 4 columns + bookIndex*2 + 1 for EV columns)
