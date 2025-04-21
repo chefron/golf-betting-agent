@@ -308,12 +308,12 @@ For additional context, here are some recent insights excerpted from various med
 
         # Add any nicknames or notes if available
         if player.get("nicknames"):
-            prompt += f"\n\nPlayer nicknames: {player['nicknames']}"
+            prompt += f"\n\nHere are some nicknames for {player_name} (use sparingly): {player['nicknames']}"
             
         if player.get("notes"):
-            prompt += f"\n\nAdditional player notes: {player['notes']}"
+            prompt += f"\n\nHere are additional notes on {player_name} for more color if you need it: {player['notes']}"
 
-        prompt += "\n\nNow generate your tweet:"
+        prompt += "\n\nNow please generate your tweet:"
 
         return prompt
     
