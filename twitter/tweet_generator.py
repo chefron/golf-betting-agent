@@ -271,52 +271,103 @@ class HeadProTweetGenerator:
         justification = player["mental_form"]["justification"]
 
         prompt = f"""
-Please compose a tweet as the Head Pro analyzing {player_name}'s current mental state and how it affects his betting value for {tournament}.
+        Please compose a tweet as the Head Pro analyzing {player_name}'s current mental state and how it affects his betting value for {tournament}.
 
-Your analysis should be based on:
-1. His current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1)
-2: Your justification for this score: "{justification}"
-3: The betting data for these markets: {', '.join(markets)}
+        According to your notes, {player_name} has a current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1). This score is based on your following assessment:
 
-Make a clear recommendation on whether bettors should either back or fade this player in specific markets, based on his mental score and betting value. Specifically comment on the Adjusted EV values, which incorporate the mental adjustment.
+        "{justification}"
 
-The tweet must be under 280 characters. Be pithy but insightful. Short and punchy sentences. Less is more.
+        According to your betting model, which combines traditional strokes gained stats with your proprietary mental score, the fair odds for {player_name} are as follows:
 
-For additional context, here are some recent insights excerpted from various media sources about {player_name}:
-"""
-        # Add insights
-        for i, insight in enumerate(player["insights"]):
-            prompt += f"\n{i+1}. [{insight['date']}] {insight['text']}"
+        === HEAD PRO MODEL ==="""
 
-        # Add betting data
-        prompt += f"\n\nBetting data for {player_name} at {tournament}:"
-
+        # Add model probabilities for each market
         for market_code, market_data in betting["markets"].items():
-            market_name = self.format_market_name(market_code)
-            prompt += f"\n\n{market_name} Market:"
+            market_name = market_code.upper()
+
+            # If we have model probability data, calculate odds
+            model_prob = None
+            for bet in market_data:
+                if bet.get("model_probability") is not None:
+                    model_prob = bet.get("model_probability")
+                    break
+            
+            if model_prob and model_prob > 0:
+                # Convert probability to American odds
+                if model_prob < 50:  # Underdog
+                    model_odds = f"+{int(round((100 / model_prob) - 1) * 100)}"
+                else:  # Favorite
+                    model_odds = f"-{int(round(100 / (1 - (model_prob / 100))))}"
+            else:
+                model_odds = "N/A"
+
+            prompt += f"\n{market_name}: {model_odds}"
+
+        prompt += f"""
+
+        === MARKET ODDS ===
+        The best available sportsbook odds and their expected values ("EV") are as follows:"""
+
+        # Add best available odds for each market
+        for market_code, market_data in betting["markets"].items():
+            market_name = market_code.upper()
 
             if not market_data:
-                prompt += " No odds available"
+                prompt += f"\n{market_name}: No odds available"
                 continue
 
-            for bet in market_data:
-                sportsbook = self.format_sportsbook_name(bet["sportsbook"])
-                adjusted_ev = bet["adjusted_ev"]
-                american_odds = bet["american_odds"]
-                
-                prompt += f"\n- {sportsbook}: {american_odds} (Adjusted EV: {adjusted_ev:.1f}%)"
+            # Find the bet with the best EV
+            best_bet = max(market_data, key=lambda x: x.get("adjusted_ev", 0)) if market_data else None
 
-        # Add any nicknames or notes if available
-        if player.get("nicknames"):
-            prompt += f"\n\nHere are some nicknames for {player_name} (use sparingly): {player['nicknames']}"
-            
-        if player.get("notes"):
-            prompt += f"\n\nHere are additional notes on {player_name} for more color if you need it: {player['notes']}"
+            if best_bet:
+                american_odds = best_bet.get("american_odds", "N/A")
+                adjusted_ev = best_bet.get("adjusted_ev", 0)
+                prompt += f"\n{market_name}: {american_odds} (EV: {adjusted_ev:.1f}%)"
+            else:
+                prompt += f"\n{market_name}: No odds available"
 
-        prompt += "\n\nNow please generate your tweet:"
+        prompt += f"""
+
+        === ANALYSIS INSTRUCTIONS ===
+        Your task is to compose a tweet analyzing one or at most two of these best, focusing on your where mental assessment creates an edge that most models miss. Focus on the most compelling opportunity rather than trying to cover all markets.
+
+        Here are your betting guidelines:
+        1. BACK a bet when:
+            - The EV is over +7% for placement bets (or closer to +20% for outright winner bets) AND
+            - The player's mental score is over +0.25
+            IMPORTANT: You NEVER recommend backing a player with a negative mental score, even if the model shows +EV. The mental flags override the model.
+
+        2. FADE a bet when:
+            - The EV is notably negative AND
+            - The player's mental score is negative
+
+        3. WAIT AND SEE when:
+            - The player has a positive mental score over +0.25 but the EV is barely negative or not positive enough
+            - The player's mental score is slightly positive (less than +0.25) - you need more positive mental indicators
+
+        === NICKNAMES AND NOTES ===
+        To give you a little more flavor, here are some nicknames and background notes for the player. They don't factor into the model at all - they're just for fun. Use them sparingly, if at all:
+        NICKNAMES: {player.get('nicknames', 'None')}
+        NOTES: {player.get('notes', 'None')}
+
+        === RECENT INSIGHTS ===
+        Here are some recent insights upon which your mental score and assessment are based. You can use them for additional detail and context:
+        """
+
+        # Add insights (limited to 15)
+        insights_to_show = player["insights"][:15] if player["insights"] else []
+        for i, insight in enumerate(insights_to_show):
+            prompt += f"\n- [{insight['date']}] {insight['text']}"
+
+        prompt += f"""
+        === OUTPUT INSTRUCTIONS ===
+        Just write the tweet text itself with no additional explanation. Don't use hashtags. Keep it under 280 characters.
+
+        Remember your voice: blunt, definitive assessments with a dry, biting wit. You're not afraid to be a bit of a prick if that's where the evidence points. 
+        """
 
         return prompt
-    
+
 if __name__ == "__main__":
     # Example usage
     generator = HeadProTweetGenerator()
