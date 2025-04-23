@@ -192,7 +192,10 @@ JUSTIFICATION: [3-5 sentence self-contained analysis with no references to sourc
 • Again, are the insights RECENT (today is {today}) and substantive enough to warrant a positive score?
 • Would this score surprise a casual golf fan? If not, dig deeper or go sharper.  
 • Are you relying too much on tone or surface-level quotes? If yes, rework.
-• Is your response formatted exactly according to the instructions above? If not, go back and format them correctly! 
+• Is your response formatted exactly according to the instructions above? If not, go back and format them correctly! It should just be:
+
+SCORE: [number between -1 and 1]  
+JUSTIFICATION: [3-5 sentence self-contained analysis with no references to source material]
 
 """
     

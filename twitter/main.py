@@ -83,6 +83,32 @@ class HeadProTwitterBot:
                 "tweet_interval_hours": 6,
                 "random_interval_variation": 1.5,  # +/- hours of randomness
             }
+    def _get_recent_tweets(self, max_tweets=10) -> List[str]:
+        """
+        Extract recent tweets from the history file.
+        
+        Args:
+            max_tweets: Maximum number of tweets to return
+            
+        Returns:
+            List of recent tweet content strings
+        """
+        try:
+            # Use the tweet history maintained by the TwitterPoster
+            recent_tweets = []
+            
+            for entry in self.poster.tweet_history:
+                if entry.get('status') in ['success', 'simulated'] and 'content' in entry:
+                    recent_tweets.append(entry['content'])
+                    
+                    if len(recent_tweets) >= max_tweets:
+                        break
+                        
+            return recent_tweets
+            
+        except Exception as e:
+            logger.warning(f"Error getting recent tweets: {e}")
+            return []
         
     def _load_player_list(self) -> List[Dict[str, Any]]:
         """Load the list of players to tweet about"""
@@ -184,12 +210,17 @@ class HeadProTwitterBot:
 
         logger.info(f"Generating tweet for player ID {player_id} about markets {markets}")
 
+        # Get recent tweets for context (to avoid repetition)
+        recent_tweets = self._get_recent_tweets(max_tweets=10)
+        logger.info(f"Found {len(recent_tweets)} recent tweets for context")
+
         try:
             # Generate tweet
             tweet_text, context = self.generator.generate_tweet(
                 player_id=player_id,
                 markets=markets,
-                tournament_name=tournament
+                tournament_name=tournament,
+                recent_tweets=recent_tweets
             )
 
             logger.info(f"Generate tweet ({len(tweet_text)} chars)")
@@ -298,6 +329,20 @@ class HeadProTwitterBot:
             logger.error(traceback.format_exc())
             
         logger.info("Scheduler stopped")
+
+def reset_player_list(bot: HeadProTwitterBot) -> None:
+    """
+    Reset the 'tweeted' status for all players in the player list.
+    
+    Args:
+        bot: HeadProTwitterBot instance
+    """
+    for player in bot.player_list:
+        player['tweeted'] = False
+        player.pop('last_tweeted', None)  # Remove last_tweeted if present
+        
+    bot.save_player_list()
+    print(f"Reset tweeted status for all {len(bot.player_list)} players.")
 
 def setup_player_list(bot: HeadProTwitterBot) -> None:
     """
@@ -485,6 +530,7 @@ def main():
     parser.add_argument("--run", action="store_true", help="Run the scheduler")
     parser.add_argument("--duration", type=float, default=None, help="Duration to run in hours (default: indefinitely)")
     parser.add_argument("--dry-run", action="store_true", help="Simulate tweeting without actually posting")
+    parser.add_argument("--reset", action="store_true", help="Reset tweeted status for all players")
 
     args = parser.parse_args()
 
@@ -498,6 +544,8 @@ def main():
     # Handle actions
     if args.setup:
         setup_player_list(bot)
+    elif args.reset:
+        reset_player_list(bot)
     elif args.tweet_now:
         result = bot.generate_and_post_tweet()
         if result:

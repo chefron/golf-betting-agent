@@ -93,17 +93,6 @@ class HeadProTweetGenerator:
                 'justification': "No mental form data available.",
                 'last_updated': None
             }
-        
-        # Get recent insights (most recent 15)
-        cursor.execute("""
-        SELECT text, source, date
-        FROM insights
-        WHERE player_id = ?
-        ORDER BY date DESC
-        LIMIT 15
-        """, (player_id,))
-
-        player_data['insights'] = [dict(insight) for insight in cursor.fetchall()]
 
         conn.close()
         return player_data
@@ -194,7 +183,7 @@ class HeadProTweetGenerator:
         }
         return book_display.get(book_code, book_code.capitalize())
     
-    def generate_tweet(self, player_id: int, markets: List[str], tournament_name: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
+    def generate_tweet(self, player_id: int, markets: List[str], tournament_name: Optional[str] = None, recent_tweets: List[str] = None) -> Tuple[str, Dict[str, Any]]:
         """
         Generate a tweet about a player's mental state and betting recommendations.
 
@@ -202,6 +191,7 @@ class HeadProTweetGenerator:
             player_id: Database ID of the player
             markets: List of betting markets to analyze
             tournament_name: Name of the tournament (overrides the one from betting data if provided)
+            recent_tweets: List of recent tweets to avoid repetition
 
         Returns:
             Tuple of(tweet text, context data used to generate the tweet)
@@ -212,6 +202,10 @@ class HeadProTweetGenerator:
 
         # Get betting data for specified markets
         betting_data = self.get_betting_data(player_id, markets)
+
+        # Extract the player's full name and any nickname
+        player_full_name = player_data["display_name"]
+        player_nickname = player_data.get("nicknames", "None")
 
         # Override tournament name if provided
         if tournament_name:
@@ -227,16 +221,20 @@ class HeadProTweetGenerator:
             "betting": betting_data,
             "tournament": event_name,
             "markets": [self.format_market_name(m) for m in markets],
+            "recent_tweets": recent_tweets or [],
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        # Create the tweet generation prompt
+        # Create the initial tweet generation prompt
         prompt = self._create_prompt(context)
-
-        # Call LLM to generate the tweet
+        
+        print(f"\n==== FULL PROMPT ====\n{prompt}\n==== END PROMPT ====\n")
+        
+        # Initialize the Anthropic client
         client = anthropic.Anthropic(api_key=self.api_key)
-
-        message = client.messages.create(
+        
+        # Create the initial message with the system and user message
+        initial_message = client.messages.create(
             model="claude-3-7-sonnet-20250219",
             max_tokens=1000,
             temperature=0.7,
@@ -245,10 +243,40 @@ class HeadProTweetGenerator:
                 {"role": "user", "content": prompt}
             ]
         )
+        
+        # Extract the initial tweet
+        tweet_text = initial_message.content[0].text.strip()
+        print(f"Initial tweet ({len(tweet_text)} chars):\n{tweet_text}\n")
+        
+        # Validation step - continue the conversation
+        validation_prompt = f"""Thanks for writing that tweet. Now let's validate it against our requirements:
 
-        tweet_text = message.content[0].text.strip()
+    1) Did you use either the full name "{player_full_name}" or an appropriate nickname when first introducing the player so your followers understand who you're talking about? If no, please revise the tweet. If yes, please proceed to step 2.
 
-        return tweet_text, context
+    2) Is the tweet completely self-contained? Would it make complete sense to your followers, who won't have access to the player's assessment? If no, please revise the tweet. If yes, please proceed to step 3.
+
+    3) Is the tweet 280 characters or less? If no, please revise the tweet to meet the character limit without truncating it and without violating step 1 and step 2. If yes, please post the tweet again with no additional explanation.
+
+    Note: If you need to revise the tweet at any step, make sure your revised version meets ALL previous requirements."""
+        
+        # Send the validation prompt, continuing the conversation
+        validation_message = client.messages.create(
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=1000,
+            temperature=0.7,
+            messages=[
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": tweet_text},
+                {"role": "user", "content": validation_prompt}
+            ]
+        )
+        
+        # Extract the final validated tweet
+        final_tweet = validation_message.content[0].text.strip()
+        
+        print(f"Final tweet ({len(final_tweet)} chars):\n{final_tweet}\n")
+        
+        return final_tweet, context
     
     def _create_prompt(self, context: Dict[str, Any]) -> str:
         """
@@ -265,21 +293,22 @@ class HeadProTweetGenerator:
         betting = context["betting"]
         tournament = context["tournament"]
         markets = context["markets"]
+        recent_tweets = context.get("recent_tweets", [])
 
         player_name = player["display_name"]
         mental_score = player["mental_form"]["score"]
         justification = player["mental_form"]["justification"]
 
         prompt = f"""
-        Please compose a tweet as the Head Pro analyzing {player_name}'s current mental state and how it affects his betting value for {tournament}.
+Please compose a tweet as the Head Pro analyzing {player_name}'s current mental state and how it affects his betting value for an upcoming tournament: {tournament}.
 
-        According to your notes, {player_name} has a current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1). This score is based on your following assessment:
+According to your notes, {player_name} has a current mental form score of {mental_score if mental_score is not None else 'unknown'} (on a scale from -1 to 1). This score is based on your following assessment:
 
-        "{justification}"
+    "{justification}"
 
-        According to your betting model, which combines traditional strokes gained stats with your proprietary mental score, the fair odds for {player_name} are as follows:
+According to your betting model, which combines traditional strokes gained stats with your proprietary mental score, the fair odds for {player_name} are as follows:
 
-        === HEAD PRO MODEL ==="""
+=== HEAD PRO MODEL ==="""
 
         # Add model probabilities for each market
         for market_code, market_data in betting["markets"].items():
@@ -305,8 +334,8 @@ class HeadProTweetGenerator:
 
         prompt += f"""
 
-        === MARKET ODDS ===
-        The best available sportsbook odds and their expected values ("EV") are as follows:"""
+=== MARKET ODDS ===
+The best available sportsbook odds and their expected values ("EV") are as follows:"""
 
         # Add best available odds for each market
         for market_code, market_data in betting["markets"].items():
@@ -328,43 +357,56 @@ class HeadProTweetGenerator:
 
         prompt += f"""
 
-        === ANALYSIS INSTRUCTIONS ===
-        Your task is to compose a tweet analyzing one or at most two of these best, focusing on your where mental assessment creates an edge that most models miss. Focus on the most compelling opportunity rather than trying to cover all markets.
+=== ANALYSIS INSTRUCTIONS ===
+Your task is to compose a tweet (maximum 280 characters) analyzing one of these bets, focusing on your where mental assessment creates an edge that most models miss. Focus on the most compelling opportunity rather than trying to cover all markets.
 
-        Here are your betting guidelines:
-        1. BACK a bet when:
-            - The EV is over +7% for placement bets (or closer to +20% for outright winner bets) AND
-            - The player's mental score is over +0.25
-            IMPORTANT: You NEVER recommend backing a player with a negative mental score, even if the model shows +EV. The mental flags override the model.
+Here are your betting guidelines:
+    1. BACK a bet when:
+        - The EV is over +7% for placement bets (or over +20% for outright winner bets) AND
+        - The player's mental score is over +0.25. Never recommend backing a player with a negative mental score, even if the model shows +EV. The mental flags override the model.
 
-        2. FADE a bet when:
-            - The EV is notably negative AND
-            - The player's mental score is negative
+    2. FADE a bet when:
+        - The EV is less than 7%
+        - The player's mental score is negative
 
-        3. WAIT AND SEE when:
-            - The player has a positive mental score over +0.25 but the EV is barely negative or not positive enough
-            - The player's mental score is slightly positive (less than +0.25) - you need more positive mental indicators
+    3. WAIT AND SEE when:
+        - The player has a positive mental score over +0.25 but the EV is barely negative or not positive enough
+        - The player's mental score is slightly positive (less than +0.25) - you need more positive mental indicators
 
-        === NICKNAMES AND NOTES ===
-        To give you a little more flavor, here are some nicknames and background notes for the player. They don't factor into the model at all - they're just for fun. Use them sparingly, if at all:
-        NICKNAMES: {player.get('nicknames', 'None')}
-        NOTES: {player.get('notes', 'None')}
+=== NICKNAMES AND NOTES ===
+To give you a little more flavor, here are some nicknames and background notes for the player. They don't factor into the model at all - they're just for fun. Use them sparingly, if at all:
+        
+NICKNAMES: {player.get('nicknames', 'None')}
+    
+NOTES: {player.get('notes', 'None')}
 
-        === RECENT INSIGHTS ===
-        Here are some recent insights upon which your mental score and assessment are based. You can use them for additional detail and context:
-        """
+"""
 
-        # Add insights (limited to 15)
-        insights_to_show = player["insights"][:15] if player["insights"] else []
-        for i, insight in enumerate(insights_to_show):
-            prompt += f"\n- [{insight['date']}] {insight['text']}"
+        # Add the recent tweets section to avoid repetition if we have any
+        if recent_tweets:
+            # Get the most recent tweets (up to 10)
+            max_tweets = min(10, len(recent_tweets))
+            recent_tweet_examples = recent_tweets[:max_tweets]
+
+            prompt += f"""
+=== RECENT TWEETS ===
+For variety, please avoid being too similar to your recent tweets. Create something fresh and different in structure and phrasing while maintaining your blunt, contrarian HEAD PRO voice:        
+"""
+
+            for i, tweet in enumerate(recent_tweet_examples):
+                prompt += f"\n{i+1}. {tweet}"
 
         prompt += f"""
-        === OUTPUT INSTRUCTIONS ===
-        Just write the tweet text itself with no additional explanation. Don't use hashtags. Keep it under 280 characters.
+=== OUTPUT INSTRUCTIONS ===
+CRITICAL: Your tweet MUST be UNDER 280 CHARACTERS and completely SELF-CONTAINED. Write like your followers don't have access to this prompt, because they don't!
 
-        Remember your voice: blunt, definitive assessments with a dry, biting wit. You're not afraid to be a bit of a prick if that's where the evidence points. 
-        """
+A self-contained tweet means:
+1. Always use either the player's full name or a nickname so your followers know who you're talking about. Say either "Charlie Hoffman" or "Chuck Hoffman" instead of just "Hoffman."
+2. Never mention raw numbers without context
+3. Never explicitly reference the prompt (don't say shit like "That +3000" or "WAIT AND SEE"). In fact, don't use quotation marks at all.
+
+Just write the tweet text itself with no additional explanation. No hashtags. 280 characters max. And self-contained!
+"""
 
         return prompt
 
