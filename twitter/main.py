@@ -36,14 +36,16 @@ class HeadProTwitterBot:
         """
         Initialize the Head Pro Twitter bot.
         """
-        self.config_file = "config.json"
-        self.db_path = "data/db/mental_form.db"
-        self.history_file = "twitter/tweet_history.json"
-        self.persona_file = "twitter/head_pro_persona.txt"
-        self.player_list_file = "twitter/player_list.json"
+        self.config_file = "../config.json"  # One directory up from the twitter folder
+        self.db_path = "../data/db/mental_form.db"  # Also relative to the twitter folder
+        self.history_file = "tweet_history.json"  # This can stay in the twitter folder
+        self.persona_file = "head_pro_persona.txt"  # Already in the twitter folder
+        self.player_list_file = "player_list.json"  # Also in the twitter folder
 
         # Create directories if they don't exist
-        os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
+        dirname = os.path.dirname(self.history_file)
+        if dirname:  # Only create directory if dirname is not empty
+            os.makedirs(dirname, exist_ok=True)
 
         # Load configuration
         self.config = self._load_config()

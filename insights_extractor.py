@@ -24,7 +24,9 @@ def create_claude_prompt(transcript, event_name):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
 
     prompt = f"""
-You are a sports psychologist extracting QUALITATIVE insights about professional golfers from media sources. Focus solely on INTANGIBLE factors statistical models cannot capture, especially mental aspects. Ignore performance results. Focus on QUALITY insights OVER QUANTITY - it's OK if few or no substantive insights exist in the source.
+You are a sports psychologist extracting QUALITATIVE insights about professional golfers from media sources. Focus solely on INTANGIBLE factors statistical models cannot capture, especially mental aspects. Ignore performance results. You don't care about stats or scores. 
+
+Focus on QUALITY insights OVER QUANTITY - it's OK if few or no substantive insights exist in the source.
 
 EXTRACTION GUIDELINES:
 
@@ -55,7 +57,7 @@ EXTRACTION GUIDELINES:
 
 3. QUALITY CONTROLS:
    - Only extract genuine qualitative insights - quality over quantity!
-   - DO NOT evaluate or interpret the insight - simply extract and lightly polish the information as presented
+   - DO NOT evaluate or interpret the insight - simply extract and lightly polish the information as presented. Be objective!
    - Specify the source if mentioned (player, coach, analyst)
    - You may lightly polish the language for clarity and readability
    - When time references are ambiguous, interpret them relative to today's date ({today})
@@ -185,6 +187,7 @@ def get_player_by_name(conn, name, fuzzy=True):
         "MINU LEE": "Lee, Min Woo",
         "LUDVIG ÅBERG": "Aberg, Ludvig",
         "LUDVIG OBERG": "Aberg, Ludvig",
+        "LUDVIG ÄBERG": "Aberg, Ludvig",
         "STEPHEN JAEGER": "Jaeger, Stephan",
         "STEVEN Jaeger": "Jaeger, Stephan",
         "JJ SPAUN": "Spaun, J.J.",
@@ -218,7 +221,11 @@ def get_player_by_name(conn, name, fuzzy=True):
         "JOAQUÍN NIEMANN": "Niemann, Joaquin",
         "JOSE LUIS BALLESTER": "Ballester Barrio, Jose Luis",
         "JOSÉ LUIS BALLESTER": "Ballester Barrio, Jose Luis",
-        "SCOTTY SCHEFFLER": "Scheffler, Scottie"
+        "SCOTTY SCHEFFLER": "Scheffler, Scottie",
+        "EMILIO GONZÁLEZ": "Gonzalez, Emilio",
+        "JULIÁN ETULAIN": "Etulain, Julian",
+        "JORGE FERNÁNDEZ VALDÉS": "Fernandez Valdes, Jorge"
+
     }
     
     if name.upper() in special_cases:
