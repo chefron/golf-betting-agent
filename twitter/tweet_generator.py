@@ -232,52 +232,106 @@ class HeadProTweetGenerator:
         
         # Initialize the Anthropic client
         client = anthropic.Anthropic(api_key=self.api_key)
-        
-        # Create the initial message with the system and user message
-        initial_message = client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=1000,
-            temperature=0.7,
-            system=self.persona,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        # Extract the initial tweet
-        tweet_text = initial_message.content[0].text.strip()
-        print(f"Initial tweet ({len(tweet_text)} chars):\n{tweet_text}\n")
-        
-        # Validation step - continue the conversation
-        validation_prompt = f"""Thanks for writing that tweet. Now let's validate it against our requirements:
 
-    1) Did you use either the full name "{player_full_name}" or an appropriate nickname when first introducing the player so your followers understand who you're talking about? If no, please revise the tweet. If yes, please proceed to step 2.
+        # Set up for retries if needed
+        max_attempts = 3
+        attempt = 0
+        final_tweet = None
 
-    2) Is the tweet completely self-contained? Would it make complete sense to your followers, who won't have access to the player's assessment? If no, please revise the tweet. If yes, please proceed to step 3.
+        while attempt < max_attempts:
+            attempt += 1
+            print(f"Attempt {attempt}/{max_attempts} to generate a valid tweet")
+            
+            if attempt == 1:
+                # First attempt - create the initial tweet
+                initial_message = client.messages.create(
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens=1000,
+                    temperature=0.7,
+                    system=self.persona,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                
+                # Extract the initial tweet
+                tweet_text = initial_message.content[0].text.strip()
+                print(f"Initial tweet ({len(tweet_text)} chars):\n{tweet_text}\n")
+                
+                # Validation step - continue the conversation
+                validation_prompt = f"""Thanks for writing that tweet. Now let's validate it against our requirements:
 
-    3) Is the tweet 280 characters or less? If no, please revise the tweet to meet the character limit without truncating it and without violating step 1 and step 2. If yes, please post the tweet again with no additional explanation.
+        1) Did you use either the full name "{player_full_name}" or an appropriate nickname when first introducing the player so your followers understand who you're talking about? If no, please revise the tweet. If yes, please proceed to step 2.
 
-    Note: If you need to revise the tweet at any step, make sure your revised version meets ALL previous requirements."""
+        2) Is the tweet completely self-contained? Would it make complete sense to your followers, who won't have access to the player's assessment? If no, please revise the tweet. If yes, please proceed to step 3.
+
+        3) Is the tweet 280 characters or less? If no, please revise the tweet to meet the character limit without truncating it and without violating step 1 and step 2. If yes, please post the tweet again with no additional explanation.
+
+        Note: If you need to revise the tweet at any step, make sure your revised version meets ALL previous requirements."""
+                
+                validation_message = client.messages.create(
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens=1000,
+                    temperature=0.7,
+                    messages=[
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": tweet_text},
+                        {"role": "user", "content": validation_prompt}
+                    ]
+                )
+                
+                # Extract the validated tweet
+                final_tweet = validation_message.content[0].text.strip()
+                
+            else:
+                # Check if the tweet is actually too long before telling the LLM it's too long
+                if len(final_tweet) <= 280:
+                    # If it's not too long, we're done
+                    print(f"Validated tweet is under 280 characters, no need for additional attempts")
+                    break
+                    
+                # Retry attempts - be more direct about character limit
+                retry_prompt = f"""Your previous tweet is STILL too long ({len(final_tweet)} characters). 
+                
+        Twitter has a STRICT 280 CHARACTER LIMIT. Please rewrite your tweet to be UNDER 280 CHARACTERS while:
+        1) Still using the full name "{player_full_name}"or a nickname when first introducing the player
+        2) Keeping the tweet self-contained and meaningful to followers
+        3) Maintaining the same analysis and recommendation
+
+        Make it shorter by being more concise. Remove unnecessary words, but keep the essential information and analysis. 
         
-        # Send the validation prompt, continuing the conversation
-        validation_message = client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            max_tokens=1000,
-            temperature=0.7,
-            messages=[
-                {"role": "user", "content": prompt},
-                {"role": "assistant", "content": tweet_text},
-                {"role": "user", "content": validation_prompt}
-            ]
-        )
+        Just provide the rewritten tweet with no explanation."""
+                
+                retry_message = client.messages.create(
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens=1000,
+                    temperature=0.7,
+                    messages=[
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": tweet_text},
+                        {"role": "user", "content": validation_prompt},
+                        {"role": "assistant", "content": final_tweet},
+                        {"role": "user", "content": retry_prompt}
+                    ]
+                )
+                
+                final_tweet = retry_message.content[0].text.strip()
+            
+            # Check if the tweet is within the character limit
+            print(f"Validated tweet ({len(final_tweet)} chars):\n{final_tweet}\n")
+            
+            if len(final_tweet) <= 280:
+                print(f"Successfully generated a valid tweet on attempt {attempt}")
+                break
+                
+            if attempt == max_attempts:
+                # If all attempts fail, we return the final tweet even if it's too long
+                print(f"Warning: All {max_attempts} attempts failed to create a tweet under 280 characters.")
+                print(f"Returning tweet with {len(final_tweet)} characters (over the limit).")
         
-        # Extract the final validated tweet
-        final_tweet = validation_message.content[0].text.strip()
-        
-        print(f"Final tweet ({len(final_tweet)} chars):\n{final_tweet}\n")
-        
+        # Return the final tweet AND context as a tuple
         return final_tweet, context
-    
+ 
     def _create_prompt(self, context: Dict[str, Any]) -> str:
         """
         Create a prompt for an LLM to generate a tweet.
@@ -358,9 +412,8 @@ The best available sportsbook odds and their expected values ("EV") are as follo
         prompt += f"""
 
 === ANALYSIS INSTRUCTIONS ===
-Your task is to compose a tweet (maximum 280 characters) analyzing one of these bets, focusing on your where mental assessment creates an edge that most models miss. Focus on the most compelling opportunity rather than trying to cover all markets.
+Your task is to compose a tweet (maximum 280 characters) analyzing one or two of these bets. Here are your betting guidelines:
 
-Here are your betting guidelines:
     1. BACK a bet when:
         - The EV is over +7% for placement bets (or over +20% for outright winner bets) AND
         - The player's mental score is over +0.25. Never recommend backing a player with a negative mental score, even if the model shows +EV. The mental flags override the model.
@@ -374,7 +427,7 @@ Here are your betting guidelines:
         - The player's mental score is slightly positive (less than +0.25) - you need more positive mental indicators
 
 === NICKNAMES AND NOTES ===
-To give you a little more flavor, here are some nicknames and background notes for the player. They don't factor into the model at all - they're just for fun. Use them sparingly, if at all:
+To give you a little more flavor, here are some nicknames and background notes for the player. They don't factor into the model - they're just for fun. Use them sparingly, if at all:
         
 NICKNAMES: {player.get('nicknames', 'None')}
     
@@ -390,7 +443,7 @@ NOTES: {player.get('notes', 'None')}
 
             prompt += f"""
 === RECENT TWEETS ===
-For variety, please avoid being too similar to your recent tweets. Create something fresh and different in structure and phrasing while maintaining your blunt, contrarian HEAD PRO voice:        
+For variety, please avoid being too similar to your recent tweets. Create something fresh and different in structure and phrasing while maintaining your trademark HEAD PRO voice:        
 """
 
             for i, tweet in enumerate(recent_tweet_examples):
@@ -398,16 +451,16 @@ For variety, please avoid being too similar to your recent tweets. Create someth
 
         prompt += f"""
 === OUTPUT INSTRUCTIONS ===
-CRITICAL: Your tweet MUST be UNDER 280 CHARACTERS and completely SELF-CONTAINED. Write like your followers don't have access to this prompt, because they don't!
+Your tweet MUST be UNDER 280 CHARACTERS and completely SELF-CONTAINED.
 
 A self-contained tweet means:
-1. Always use either the player's full name or a nickname so your followers know who you're talking about. Say either "Charlie Hoffman" or "Chuck Hoffman" instead of just "Hoffman."
-2. Never mention raw numbers without context
-3. Never explicitly reference the prompt (don't say shit like "That +3000" or "WAIT AND SEE"). In fact, don't use quotation marks at all.
+1. Write like your followers don't have access to the assessment, because they don't! Assume your followers know nothing about the player.
+2. Always use either the player's full name or a nickname so your followers know who you're talking about. Say either "Charlie Hoffman" or "Chuck Hoffman" instead of just "Hoffman."
+3. Never mention raw numbers without context
+4. Never explicitly reference the prompt (don't say shit like "That +3000" or "WAIT AND SEE"). In fact, don't use quotation marks at all.
 
-Just write the tweet text itself with no additional explanation. No hashtags. 280 characters max. And self-contained!
+Now go do your thing, Head Pro. Just write the tweet text itself with no additional explanation.
 """
-
         return prompt
 
 if __name__ == "__main__":
