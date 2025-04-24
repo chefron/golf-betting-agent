@@ -68,7 +68,7 @@ def add_insight(player_id, text, source, source_type, content_title="", content_
     
     return insight_id
 
-def calculate_mental_form(player_id, max_insights=50):
+def calculate_mental_form(player_id, max_insights=25):
     """
     Calculate mental form score for a player based on their insights.
     Uses a self-review process to ensure justifications are self-contained.

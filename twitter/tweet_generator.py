@@ -263,7 +263,7 @@ class HeadProTweetGenerator:
 
         1) Did you use either the full name "{player_full_name}" or an appropriate nickname when first introducing the player so your followers understand who you're talking about? If no, please revise the tweet. If yes, please proceed to step 2.
 
-        2) Is the tweet completely self-contained? Would it make complete sense to your followers, who won't have access to the player's assessment? If no, please revise the tweet. If yes, please proceed to step 3.
+        2) Is the tweet completely self-contained? Does it avoid using direct quotes? Would it make complete sense to your followers, who won't have access to the player's assessment? If no, please revise the tweet. If yes, please proceed to step 3.
 
         3) Is the tweet 280 characters or less? If no, please revise the tweet to meet the character limit without truncating it and without violating step 1 and step 2. If yes, please post the tweet again with no additional explanation.
 
@@ -457,7 +457,7 @@ A self-contained tweet means:
 1. Write like your followers don't have access to the assessment, because they don't! Assume your followers know nothing about the player.
 2. Always use either the player's full name or a nickname so your followers know who you're talking about. Say either "Charlie Hoffman" or "Chuck Hoffman" instead of just "Hoffman."
 3. Never mention raw numbers without context
-4. Never explicitly reference the prompt (don't say shit like "That +3000" or "WAIT AND SEE"). In fact, don't use quotation marks at all.
+4. Never explicitly reference the prompt (don't say shit like "That +3000" or "WAIT AND SEE"). In fact, don't use quotation marks at all. No direct quotes either!
 
 Now go do your thing, Head Pro. Just write the tweet text itself with no additional explanation.
 """
