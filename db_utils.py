@@ -149,18 +149,18 @@ Use the scale below:
 
 -1.00 to -0.75 → Completely rattled: Mentally imploding; yips likely; big red flags.  
 -0.74 to -0.25 → Fragile headspace: Multiple signs of doubt, frustration, or defensiveness. Not mentally reliable.  
--0.24 to +0.24 → Neutral: Standard pro mindset, unclear signals, or not enough recent intel. MOST PLAYERS SHOULD FALL HERE. A score of 0 is the norm!
+-0.24 to +0.24 → Neutral: Standard pro mindset, unclear signals, or not enough recent intel. MOST PLAYERS SHOULD FALL HERE. Players without recent insights (within 60 days of today, {today}) should probably fall within this range.
 +0.25 to +0.74 → Locked in: Authentic confidence, clarity under pressure, convincing poise. Not just saying the right things—*believing* them. Don't naturally default to this range (you have annoying habit of scoring everyone +0.35). It requires multiple, recent, and unusual signs of clarity, poise, or resolve.
 +0.75 to +1.00 → In the zone: Flow state. Rare. Reserve for peak mental clarity and full trust in process.
 
 To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely IGNORE recent performance results. You don't give a rat's ass about stats or scores or finishing positions - just mental form. A player who just won could still have a negative mental form if they're showing warning signs. Conversely, someone missing cuts might have excellent mental form if their mindset shows the right indicators.
 
 **Important Reminders:**
-• Your job is to be **predictive**, not reactive. Look for clues that contradict public perception. Spot a slump forming before it hits the scorecard. Identify a breakout brewing before it becomes obvious.
-• **Default to the neutral range (-0.24 to +0.24)** unless you have strong recent evidence to move the needle. Most golfers should be neutral! Those with only a few insights should probably recieve a score of 0.
-• If the golfer's only insights are older than a month, the score should never be above +0.24. Today is {today}). Prioritize insights from the past 30 days.
-• Don't be afraid to be negative or contrarian. Standard press conference confidence is noise unless unusually authentic or revealing. Vague optimism and cliches are totally meaningless. 
-• **Do not overweight repeated themes.** Ten similar comments don't carry more weight than one—look for unique or revealing signals. More insights doesn't equal a higher score!
+- Your job is to be **predictive**, not reactive. Look for clues that contradict public perception. Spot a slump forming before it hits the scorecard. Identify a breakout brewing before it becomes obvious.
+- **Default to the neutral range (-0.24 to +0.24)** unless you have strong recent evidence to move the needle. Most golfers should be neutral! Those with only a few insights should probably recieve a score of 0.
+- If the golfer's only insights are older than 60 days, the score should never be above +0.24. Today is {today}). Prioritize insights from the past 30 days.
+- Don't be afraid to be negative or contrarian. Standard press conference confidence is noise unless unusually authentic or revealing. Vague optimism and cliches are totally meaningless. 
+- **Do not overweight repeated themes.** Ten similar comments don't carry more weight than one—look for unique or revealing signals. More insights doesn't equal a higher score!
 
 ---
 
@@ -168,10 +168,10 @@ To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVE
 This is the hardest part. Your summary must be fully self-contained and make sense WITHOUT reading the insights. Write as if the reader will only see your summary and NOT the insights. Don't summarize the insights—reconstruct the psychology behind them in fresh, standalone language while maintaining the relevant details. The more detailed, the better!
 
 To ensure that it's self-contained:  
-• NEVER explicitly reference "the insights" or any source of information.  
-• Use indefinite articles (such as "a") instead of definite articles ("the") when introducing new info: "*A* recent swing coach change to Sean Foley" instead of "*THE* recent swing coach change to Sean Foley."
-• Use full names when referring to other players, caddies, coaches, etc.
-• Always give context when mentioning events, but never mention events in the future (e.g. "the upcoming Masters") because it's possible they've already happened. 
+- NEVER explicitly reference "the insights" or any source of information.  
+- Use indefinite articles (such as "a") instead of definite articles ("the") when introducing new info: "*A* recent swing coach change to Sean Foley" instead of "*THE* recent swing coach change to Sean Foley."
+- Use full names when referring to other players, caddies, coaches, etc.
+- Always give context when mentioning events, but never mention events in the future (e.g. "the upcoming Masters") because it's possible they've already happened. 
 
 **Tone guide:**  
 Be colorful, blunt, and opinionated. You're a hard-ass straight-shooter with zero filter. Imagine a crusty old pro with a strong pour in hand, calling it like he sees it at the 19th hole. You're not here to echo the hype. You're here to sniff out what's really going on under the surface.
@@ -188,11 +188,11 @@ JUSTIFICATION: [3-5 sentence self-contained analysis with no references to sourc
 ---
 
 **FINAL STEP: Check your work.**
-• If the score is outside the -0.24 to +0.24 range, is it justified by multiple, RECENT, and *unusual* indicators? If not, go back and start again.
-• Again, are the insights RECENT (today is {today}) and substantive enough to warrant a positive score?
-• Would this score surprise a casual golf fan? If not, dig deeper or go sharper.  
-• Are you relying too much on tone or surface-level quotes? If yes, rework.
-• Is your response formatted exactly according to the instructions above? If not, go back and format them correctly! It should just be:
+- If the score is outside the -0.24 to +0.24 range, is it justified by multiple, RECENT, and *unusual* indicators? If not, go back and start again.
+- Again, is the most recent insight within 60 days of today, {today}? If not, the score shouldn't be higher than a +0.24.
+- Would this score surprise a casual golf fan? If not, dig deeper or go sharper.  
+- Are you relying too much on tone or surface-level quotes? If yes, rework.
+- Is your response formatted exactly according to the instructions above? If not, go back and format them correctly! It should just be:
 
 SCORE: [number between -1 and 1]  
 JUSTIFICATION: [3-5 sentence self-contained analysis with no references to source material]
@@ -211,36 +211,64 @@ JUSTIFICATION: [3-5 sentence self-contained analysis with no references to sourc
         messages=[{"role": "user", "content": prompt}]
     )
     
-    # Extract mental form score and justification from response
-    full_response = response.content[0].text.strip()
+    # Extract the initial response
+    initial_response = response.content[0].text.strip()
     
-    # Always print the full response
-    print(f"Mental form analysis for {player_name}:")
-    print(f"Full response: '{full_response}'")
+    # Always print the initial response
+    print(f"Initial mental form analysis for {player_name}:")
+    print(f"Initial response: '{initial_response}'")
     
-    # Try to parse score and justification
+    # Add validation step
+    validation_prompt = f"""Thanks for the score and the assessment. Now let's validate them against our requirements:
+
+1) If the mental score falls outside the -0.24 to +0.24 range, is it justified by multiple, unusual, and RECENT insights (within 6 weeks of today, {today})? If no, please revise it. If yes, please proceed to step 2.
+
+2) Is the assessment completely self-contained? Would it make sense to a reader who doesn't have access to the insights? Does it avoid explicitly mentioning "the insights"? If no, please revise it. If yes, please post the mental score and assessment again in the correct format:
+
+SCORE: [number between -1 and 1]  
+JUSTIFICATION: [3-5 sentence self-contained assessment]"""
+    
+    # Call Claude for validation
+    validation_response = client.messages.create(
+        model="claude-3-7-sonnet-20250219",
+        max_tokens=4000,
+        temperature=0.2,  # Lower temperature for validation
+        system="You are an expert in qualitative golf analysis, specializing in identifying psychological factors that influence player performance. Always create self-contained explanations that don't require access to source material to understand.",
+        messages=[
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": initial_response},
+            {"role": "user", "content": validation_prompt}
+        ]
+    )
+    
+    # Extract validated response
+    validated_response = validation_response.content[0].text.strip()
+    print(f"Validated response: '{validated_response}'")
+    
+    # Parse the validated response
     try:
         # Extract score
-        score_line = [line for line in full_response.split('\n') if line.startswith('SCORE:')]
+        score_line = [line for line in validated_response.split('\n') if line.startswith('SCORE:')]
         if score_line:
             score_text = score_line[0].replace('SCORE:', '').strip()
             mental_form_score = float(score_text)
             # Ensure score is in valid range
             mental_form_score = max(-1, min(1, mental_form_score))
         else:
-            raise ValueError("Score not found in response")
-            
+            raise ValueError("Score not found in validated response")
+        
         # Extract justification
-        justification_line = [line for line in full_response.split('\n') if line.startswith('JUSTIFICATION:')]
+        justification_line = [line for line in validated_response.split('\n') if line.startswith('JUSTIFICATION:')]
         if justification_line:
             # Get the justification text, which might span multiple lines
-            justification_start_idx = full_response.find('JUSTIFICATION:')
-            justification_text = full_response[justification_start_idx:].replace('JUSTIFICATION:', '').strip()
+            justification_start_idx = validated_response.find('JUSTIFICATION:')
+            justification_text = validated_response[justification_start_idx:].replace('JUSTIFICATION:', '').strip()
         else:
             justification_text = "No justification provided."
         
-        print(f"Parsed mental form score: {mental_form_score}")
-        print(f"Justification: {justification_text}")
+        print(f"Final mental form score: {mental_form_score}")
+        print(f"Final justification: {justification_text}")
+        
     except (ValueError, IndexError) as e:
         print(f"Error parsing mental form data: {e}. Using default neutral value (0).")
         mental_form_score = 0
