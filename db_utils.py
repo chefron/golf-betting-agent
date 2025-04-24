@@ -165,9 +165,9 @@ To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVE
 ---
 
 **STEP 2: Write a standalone justification (3-5 sentences).**  
-This is the hardest part. Your summary must be fully self-contained and make sense WITHOUT reading the insights. Write as if the reader will only see your summary and NOT the insights. Don't summarize the insights—reconstruct the psychology behind them in fresh, standalone language.
+This is the hardest part. Your summary must be fully self-contained and make sense WITHOUT reading the insights. Write as if the reader will only see your summary and NOT the insights. Don't summarize the insights—reconstruct the psychology behind them in fresh, standalone language while maintaining the relevant details. The more detailed, the better!
 
-To ensure that:  
+To ensure that it's self-contained:  
 • NEVER explicitly reference "the insights" or any source of information.  
 • Use indefinite articles (such as "a") instead of definite articles ("the") when introducing new info: "*A* recent swing coach change to Sean Foley" instead of "*THE* recent swing coach change to Sean Foley."
 • Use full names when referring to other players, caddies, coaches, etc.

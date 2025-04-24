@@ -11,6 +11,21 @@
     .mental-form-chart {
         height: 300px;
     }
+    
+    .editable-field {
+        position: relative;
+    }
+    
+    .edit-button {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        opacity: 0.6;
+    }
+    
+    .edit-button:hover {
+        opacity: 1;
+    }
 </style>
 {% endblock %}
 
@@ -96,6 +111,78 @@
         </div>
     </div>
     
+    <!-- Nicknames and Notes Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Profile Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="editable-field mb-3">
+                        <h5>Nicknames</h5>
+                        <div id="nicknames-display">
+                            {% if player.nicknames %}
+                                <p>{{ player.nicknames }}</p>
+                            {% else %}
+                                <p class="text-muted">No nicknames recorded</p>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary edit-button" 
+                                onclick="showEditForm('nicknames')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <form id="edit-nicknames-form" class="d-none mt-2" method="POST" 
+                              action="{{ url_for('update_player_info', player_id=player.id) }}">
+                            <input type="hidden" name="field" value="nicknames">
+                            <div class="form-group">
+                                <label for="nicknames">Nicknames (comma-separated)</label>
+                                <input type="text" class="form-control" id="nicknames" name="value"
+                                       value="{{ player.nicknames or '' }}">
+                                <div class="form-text">Enter nicknames separated by commas</div>
+                            </div>
+                            <div class="mt-2">
+                                <button type="submit" class="btn btn-sm btn-success">Save</button>
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                        onclick="hideEditForm('nicknames')">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="editable-field mb-3">
+                        <h5>Notes</h5>
+                        <div id="notes-display">
+                            {% if player.notes %}
+                                <p>{{ player.notes }}</p>
+                            {% else %}
+                                <p class="text-muted">No notes added</p>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary edit-button" 
+                                onclick="showEditForm('notes')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <form id="edit-notes-form" class="d-none mt-2" method="POST" 
+                              action="{{ url_for('update_player_info', player_id=player.id) }}">
+                            <input type="hidden" name="field" value="notes">
+                            <div class="form-group">
+                                <label for="notes">Player Notes</label>
+                                <textarea class="form-control" id="notes" name="value" rows="4">{{ player.notes or '' }}</textarea>
+                                <div class="form-text">Add interesting notes, tendencies, or other relevant information</div>
+                            </div>
+                            <div class="mt-2">
+                                <button type="submit" class="btn btn-sm btn-success">Save</button>
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                        onclick="hideEditForm('notes')">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Insights Section -->
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between">
@@ -159,24 +246,24 @@
             {% endif %}
         </div>
     </div>
-    
-    <!-- Player Notes Section (if we decide to add this) -->
-    {% if player.notes %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Notes</h5>
-        </div>
-        <div class="card-body">
-            <p>{{ player.notes }}</p>
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-{% if history %}
 <script>
+    function showEditForm(field) {
+        // Hide the display and show the form
+        document.getElementById(field + '-display').classList.add('d-none');
+        document.getElementById('edit-' + field + '-form').classList.remove('d-none');
+    }
+    
+    function hideEditForm(field) {
+        // Show the display and hide the form
+        document.getElementById(field + '-display').classList.remove('d-none');
+        document.getElementById('edit-' + field + '-form').classList.add('d-none');
+    }
+
+    {% if history %}
     document.addEventListener('DOMContentLoaded', function() {
         // Prepare data for the chart
         const dates = [{% for item in history %}'{{ item.date }}'{% if not loop.last %}, {% endif %}{% endfor %}];
@@ -214,6 +301,6 @@
             }
         });
     });
+    {% endif %}
 </script>
-{% endif %}
 {% endblock %}

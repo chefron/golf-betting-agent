@@ -145,7 +145,7 @@ def player_detail(player_id):
     
     # Get player info
     cursor.execute("""
-    SELECT p.*, m.score, m.justification, m.last_updated
+    SELECT p.*, m.score, m.justification, m.last_updated, p.nicknames, p.notes
     FROM players p
     LEFT JOIN mental_form m ON p.id = m.player_id
     WHERE p.id = ?
@@ -177,6 +177,37 @@ def player_detail(player_id):
     
     return render_template('player_detail.html', player=player, 
                           insights=insights, history=history)
+
+@app.route('/update_player_info/<int:player_id>', methods=['POST'])
+def update_player_info(player_id):
+    """Update player nickname or notes"""
+    field = request.form.get('field')
+    value = request.form.get('value', '')
+
+    # Validate the field
+    if field not in ['nicknames', 'notes']:
+        flash('Invalid field to update', 'error')
+        return redirect(url_for('player_detail', player_id=player_id))
+    
+    try:
+        conn = get_db_connection(DB_PATH)
+        cursor = conn.cursor()
+
+        # Update the field
+        cursor.execute(f"""
+        UPDATE players
+        SET {field} = ?
+        WHERE id = ?
+        """, (value, player_id))
+
+        conn.commit()
+        conn.close()
+
+        flash(f'Player {field} updated successfully', 'success')
+    except Exception as e:
+        flash(f'Error updating player info: {str(e)}', 'error')
+
+    return redirect (url_for('player_detail', player_id=player_id))
 
 @app.route('/calculate_mental_form/<int:player_id>', methods=['POST'])
 def recalculate_mental_form(player_id):
