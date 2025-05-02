@@ -58,7 +58,7 @@ EXTRACTION GUIDELINES:
 3. QUALITY CONTROLS:
    - Only extract genuine qualitative insights - quality over quantity!
    - DO NOT evaluate or interpret the insight - simply extract and lightly polish the information as presented. Be objective!
-   - Specify the source if mentioned (player, coach, analyst)
+   - Specify the source if mentioned (player, coach, analyst), as well as any tournaments. Context is important.
    - You may lightly polish the language for clarity and readability
    - When time references are ambiguous, interpret them relative to today's date ({today})
 
