@@ -71,7 +71,7 @@ For each substantive qualitative insight, format your response exactly as follow
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract all substantive qualitative player insights regardless of whether they relate to this specific event. When possible, include specific tournament names, timing information (e.g., "last week at the Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. For context, today's date is {today}. Remember, QUALITY OVER QUANTITY! Be selective, and don't infer anything from performance results!
+While this transcript may discuss the {event_name}, extract all substantive qualitative player insights regardless of whether they relate to this specific event. Each insight may only be assigned to one golfer. When possible, include specific tournament names, timing information (e.g., "last week at the 2025 Masters," "during Valspar's final round"), and any relevant context about how recent the insight is. This timeline information will help establish patterns in the player's mental state, physical health, and other intangibles over time. For context, today's date is {today}. Remember, QUALITY OVER QUANTITY! Be selective, and don't infer anything from performance results!
 
 Here is the transcript:
 {transcript}
