@@ -55,6 +55,7 @@ class DataRetrievalOrchestrator:
             }
         }
         
+        conn = None
         try:
             # Connect to the database
             conn = self._get_db_connection()
@@ -65,23 +66,27 @@ class DataRetrievalOrchestrator:
             # Process players - either specified in query or get relevant ones
             self._process_players(conn, query_info, data)
             
-            # Process tournaments - either specified or get current
-            self._process_tournaments(conn, query_info, data)
-            
-            # Get odds data if needed
-            if query_info.get('needs_odds_data', False):
-                self._retrieve_odds_data(conn, query_info, data)
-            
-            # Get betting recommendations if appropriate
-            if query_info.get('query_type') == 'betting_value':
-                self._retrieve_betting_recommendations(conn, query_info, data)
-            
-            conn.close()
+            # Only get tournament and odds data for certain query types
+            if query_info.get('query_type') not in ['future_tournament']:
+                # Process tournaments - get current
+                self._process_tournaments(conn, query_info, data)
+                
+                # Get odds data if needed
+                if query_info.get('needs_odds_data', False):
+                    self._retrieve_odds_data(conn, query_info, data)
+                
+                # Get betting recommendations if appropriate
+                if query_info.get('query_type') == 'betting_value':
+                    self._retrieve_betting_recommendations(conn, query_info, data)
             
         except Exception as e:
             logger.error(f"Error retrieving data: {e}")
             import traceback
             logger.error(traceback.format_exc())
+        finally:
+            # Ensure connection is closed even if exception occurs
+            if conn:
+                conn.close()
         
         return data
     
@@ -131,6 +136,10 @@ class DataRetrievalOrchestrator:
                 # Add detailed info if needed
                 if query_info.get('needs_mental_form', False):
                     self._add_mental_form_data(conn, player_id, data['players'][display_name])
+                
+                # Add personality info if needed
+                if query_info.get('needs_player_personality', False):
+                    self._add_player_personality_data(conn, player_id, data['players'][display_name])
         
         # Process specified players
         for player_name in player_names:
@@ -154,9 +163,13 @@ class DataRetrievalOrchestrator:
                 # Add detailed info if needed
                 if query_info.get('needs_mental_form', False):
                     self._add_mental_form_data(conn, player_id, data['players'][display_name])
+                
+                # Add personality info if needed
+                if query_info.get('needs_player_personality', False):
+                    self._add_player_personality_data(conn, player_id, data['players'][display_name])
                     
                 # Add recent insights if needed for detailed mental form questions
-                if query_info.get('query_type') == 'player_mental_form':
+                if query_info.get('query_type') == 'mental_form' or query_info.get('query_type') == 'player_info':
                     self._add_player_insights(conn, player_id, data['players'][display_name], limit=10)
             else:
                 logger.warning(f"Could not find player: {player_name}")
@@ -177,36 +190,344 @@ class DataRetrievalOrchestrator:
             query_info: Query analysis info
             data: Data structure to populate
         """
-        tournaments = query_info.get('tournaments', [])
+        # We only support the current tournament
+        current_tournament = self._get_current_tournament(conn)
         
-        # If 'current' is in the list, get the current tournament
-        if 'current' in tournaments:
-            current_tournament = self._get_current_tournament(conn)
-            if current_tournament:
-                tournaments.remove('current')
-                tournaments.append(current_tournament['event_name'])
+        if current_tournament:
+            tournament_name = current_tournament['event_name']
+            data['tournaments'][tournament_name] = current_tournament
+        else:
+            logger.warning("No current tournament found in database")
+            data['tournaments']['unknown'] = {
+                'name': 'Unknown Tournament',
+                'not_found': True
+            }
+
+        # If this is a future tournament query, add that info
+        if query_info.get('query_type') == 'future_tournament':
+            data['future_tournament'] = {
+                'mentioned': query_info.get('tournaments', []),
+                'is_future': True
+            }
+    
+    def _get_top_ranked_players(self, conn: sqlite3.Connection, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get top ranked players based on the absolute value of their mental form score.
         
-        # Ensure we have at least the current tournament
-        if not tournaments and query_info.get('query_type') in ['betting_value', 'tournament_odds']:
-            current_tournament = self._get_current_tournament(conn)
-            if current_tournament:
-                tournaments.append(current_tournament['event_name'])
-        
-        # Process each tournament
-        for tournament_name in tournaments:
-            # Get tournament details
-            tournament = self._get_tournament_info(conn, tournament_name)
+        Args:
+            conn: Database connection
+            limit: Maximum number of players to return
             
-            if tournament:
-                # Add tournament info to data
-                data['tournaments'][tournament_name] = tournament
+        Returns:
+            List of player info dictionaries
+        """
+        cursor = conn.cursor()
+        
+        # Get players with mental form data, ordered by absolute value of score
+        cursor.execute('''
+        SELECT p.id, p.name, p.dg_id, p.amateur, p.country, m.score
+        FROM players p
+        JOIN mental_form m ON p.id = m.player_id
+        WHERE m.score IS NOT NULL
+        ORDER BY ABS(m.score) DESC
+        LIMIT ?
+        ''', (limit,))
+        
+        players = cursor.fetchall()
+        return [dict(player) for player in players]
+    
+    def _add_player_personality_data(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any]) -> None:
+        """
+        Add personality data (nicknames, notes) to the player info.
+        
+        Args:
+            conn: Database connection
+            player_id: Player ID
+            player_data: Player data dictionary to update
+        """
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT nicknames, notes
+        FROM players
+        WHERE id = ?
+        ''', (player_id,))
+        
+        personality = cursor.fetchone()
+        if personality:
+            if personality['nicknames']:
+                player_data['nicknames'] = personality['nicknames']
+            
+            if personality['notes']:
+                player_data['notes'] = personality['notes']
+    
+    def _get_current_tournament(self, conn: sqlite3.Connection) -> Optional[Dict[str, Any]]:
+        """
+        Get the current tournament from the database.
+        
+        Args:
+            conn: Database connection
+            
+        Returns:
+            Tournament info dictionary or None if not found
+        """
+        cursor = conn.cursor()
+        
+        # Get the most recent tournament from bet_recommendations
+        cursor.execute('''
+        SELECT event_name, MAX(timestamp) as latest
+        FROM bet_recommendations
+        GROUP BY event_name
+        ORDER BY latest DESC
+        LIMIT 1
+        ''')
+        
+        tournament = cursor.fetchone()
+        if tournament:
+            return {
+                'event_name': tournament['event_name'],
+                'timestamp': tournament['latest']
+            }
+        
+        return None
+    
+    def _get_odds_for_market(self, conn: sqlite3.Connection, tournament_name: str, market: str, 
+                            player_ids: List[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get odds data for a specific market, tournament, and optionally filtered by player IDs.
+        Only includes odds data where the player has a mental form score.
+        
+        Args:
+            conn: Database connection
+            tournament_name: Tournament name
+            market: Market name (win, top_5, etc.)
+            player_ids: Optional list of player IDs to filter by
+            
+        Returns:
+            List of odds data dictionaries
+        """
+        cursor = conn.cursor()
+        
+        # Base query
+        query = '''
+        SELECT br.id, br.player_id, p.name as player_name, 
+               br.sportsbook, br.decimal_odds, br.base_ev,
+               br.mental_adjustment, br.adjusted_ev, br.mental_score,
+               br.model_probability, br.timestamp
+        FROM bet_recommendations br
+        JOIN players p ON br.player_id = p.id
+        WHERE br.event_name = ? 
+              AND br.market = ?
+              AND br.mental_score IS NOT NULL
+        '''
+        
+        params = [tournament_name, market]
+        
+        # Add player filter if provided
+        if player_ids:
+            placeholders = ','.join('?' for _ in player_ids)
+            query += f" AND br.player_id IN ({placeholders})"
+            params.extend(player_ids)
+        
+        # Add ordering and limit
+        query += " ORDER BY br.adjusted_ev DESC"
+        
+        cursor.execute(query, params)
+        odds_data = cursor.fetchall()
+        
+        # Format odds data
+        formatted_odds = []
+        for odds in odds_data:
+            odds_dict = dict(odds)
+            
+            # Add formatted American odds
+            decimal_odds = odds_dict.get('decimal_odds', 0)
+            if decimal_odds >= 2.0:
+                american_odds = f"+{int(round((decimal_odds - 1) * 100))}"
             else:
-                logger.warning(f"Could not find tournament: {tournament_name}")
-                # Add placeholder for missing tournament
-                data['tournaments'][tournament_name] = {
-                    'name': tournament_name,
-                    'not_found': True
-                }
+                american_odds = f"{int(round(-100 / (decimal_odds - 1)))}"
+            
+            odds_dict['american_odds'] = american_odds
+            
+            # Add display name
+            player_name = odds_dict.get('player_name', '')
+            odds_dict['player_display_name'] = self._format_player_name(player_name)
+            
+            formatted_odds.append(odds_dict)
+        
+        return formatted_odds
+    
+    def _get_value_bets(self, conn: sqlite3.Connection, tournament_name: str, market: str, 
+                      min_ev: float = 5.0, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get value bets for a specific market and tournament.
+        Only includes bets where the player has a mental form score.
+        
+        Args:
+            conn: Database connection
+            tournament_name: Tournament name
+            market: Market name (win, top_5, etc.)
+            min_ev: Minimum adjusted EV to consider
+            limit: Maximum number of bets to return
+            
+        Returns:
+            List of value bet dictionaries
+        """
+        cursor = conn.cursor()
+        
+        query = '''
+        SELECT br.id, br.player_id, p.name as player_name, 
+               br.sportsbook, br.decimal_odds, br.base_ev,
+               br.mental_adjustment, br.adjusted_ev, br.mental_score,
+               br.model_probability, br.timestamp
+        FROM bet_recommendations br
+        JOIN players p ON br.player_id = p.id
+        WHERE br.event_name = ? 
+              AND br.market = ? 
+              AND br.adjusted_ev >= ?
+              AND br.mental_score IS NOT NULL
+        ORDER BY br.adjusted_ev DESC
+        LIMIT ?
+        '''
+        
+        cursor.execute(query, (tournament_name, market, min_ev, limit))
+        bets = cursor.fetchall()
+        
+        # Format value bets
+        formatted_bets = []
+        for bet in bets:
+            bet_dict = dict(bet)
+            
+            # Add formatted American odds
+            decimal_odds = bet_dict.get('decimal_odds', 0)
+            if decimal_odds >= 2.0:
+                american_odds = f"+{int(round((decimal_odds - 1) * 100))}"
+            else:
+                american_odds = f"{int(round(-100 / (decimal_odds - 1)))}"
+            
+            bet_dict['american_odds'] = american_odds
+            
+            # Add display name
+            player_name = bet_dict.get('player_name', '')
+            bet_dict['player_display_name'] = self._format_player_name(player_name)
+            
+            formatted_bets.append(bet_dict)
+        
+        return formatted_bets
+    
+    def _find_player_by_name(self, conn: sqlite3.Connection, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find a player by name with fuzzy matching.
+        
+        Args:
+            conn: Database connection
+            name: Player name to search for
+            
+        Returns:
+            Player info dictionary or None if not found
+        """
+        cursor = conn.cursor()
+        
+        # Convert input name to lowercase for comparison
+        name_lower = name.lower()
+        name_parts = name_lower.split()
+        
+        if len(name_parts) > 1:
+            # First try an exact match with reversed name (last, first)
+            last_name = name_parts[-1]
+            first_name = ' '.join(name_parts[:-1])
+            reversed_name = f"{last_name}, {first_name}"
+            
+            cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (reversed_name,))
+            players = cursor.fetchall()
+            if players:
+                return dict(players[0])
+            
+            # If that fails, try to find players with matching last name
+            cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{last_name},%",))
+            players = cursor.fetchall()
+            
+            # For common last names, we need to check if the first name also matches
+            if players:
+                # Check if any of these players have a matching first name
+                for player in players:
+                    player_name_parts = player['name'].lower().split(', ')
+                    if len(player_name_parts) > 1:
+                        player_first = player_name_parts[1]
+                        # Check if input first name is in player's first name
+                        if first_name in player_first or player_first in first_name:
+                            return dict(player)
+        
+        # Try a simple contains match as fallback
+        cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{name_lower}%",))
+        players = cursor.fetchall()
+        if players:
+            return dict(players[0])
+        
+        # Check special cases mapping
+        special_cases = self._get_special_cases_mapping()
+        if name_lower in special_cases:
+            mapped_name = special_cases[name_lower]
+            cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (mapped_name.lower(),))
+            players = cursor.fetchall()
+            if players:
+                return dict(players[0])
+        
+        return None
+    
+    def _add_mental_form_data(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any]) -> None:
+        """
+        Add mental form data to the player info.
+        
+        Args:
+            conn: Database connection
+            player_id: Player ID
+            player_data: Player data dictionary to update
+        """
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT score, justification, last_updated
+        FROM mental_form
+        WHERE player_id = ?
+        ''', (player_id,))
+        
+        mental_form = cursor.fetchone()
+        if mental_form:
+            player_data['mental_form'] = {
+                'score': mental_form['score'],
+                'justification': mental_form['justification'],
+                'last_updated': mental_form['last_updated']
+            }
+        else:
+            player_data['mental_form'] = {
+                'score': None,
+                'justification': "No mental form data available.",
+                'last_updated': None
+            }
+    
+    def _add_player_insights(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any], limit: int = 10) -> None:
+        """
+        Add recent insights to the player info.
+        
+        Args:
+            conn: Database connection
+            player_id: Player ID
+            player_data: Player data dictionary to update
+            limit: Maximum number of insights to include
+        """
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+        SELECT text, source, source_type, content_title, content_url, date
+        FROM insights
+        WHERE player_id = ?
+        ORDER BY date DESC
+        LIMIT ?
+        ''', (player_id, limit))
+        
+        insights = cursor.fetchall()
+        player_data['insights'] = [dict(insight) for insight in insights]
     
     def _retrieve_odds_data(self, conn: sqlite3.Connection, query_info: Dict[str, Any], data: Dict[str, Any]) -> None:
         """
@@ -332,322 +653,6 @@ class DataRetrievalOrchestrator:
         
         # Sort recommendations by adjusted EV
         data['recommendations'].sort(key=lambda x: x.get('adjusted_ev', 0), reverse=True)
-    
-    def _find_player_by_name(self, conn: sqlite3.Connection, name: str) -> Optional[Dict[str, Any]]:
-        """
-        Find a player by name with fuzzy matching.
-        
-        Args:
-            conn: Database connection
-            name: Player name to search for
-            
-        Returns:
-            Player info dictionary or None if not found
-        """
-        cursor = conn.cursor()
-        
-        # Convert input name to lowercase for comparison
-        name_lower = name.lower()
-        name_parts = name_lower.split()
-        
-        if len(name_parts) > 1:
-            # First try an exact match with reversed name (last, first)
-            last_name = name_parts[-1]
-            first_name = ' '.join(name_parts[:-1])
-            reversed_name = f"{last_name}, {first_name}"
-            
-            cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (reversed_name,))
-            players = cursor.fetchall()
-            if players:
-                return dict(players[0])
-            
-            # If that fails, try to find players with matching last name
-            cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{last_name},%",))
-            players = cursor.fetchall()
-            
-            # For common last names, we need to check if the first name also matches
-            if players:
-                # Check if any of these players have a matching first name
-                for player in players:
-                    player_name_parts = player['name'].lower().split(', ')
-                    if len(player_name_parts) > 1:
-                        player_first = player_name_parts[1]
-                        # Check if input first name is in player's first name
-                        if first_name in player_first or player_first in first_name:
-                            return dict(player)
-        
-        # Try a simple contains match as fallback
-        cursor.execute('SELECT * FROM players WHERE LOWER(name) LIKE ?', (f"%{name_lower}%",))
-        players = cursor.fetchall()
-        if players:
-            return dict(players[0])
-        
-        # Check special cases mapping
-        special_cases = self._get_special_cases_mapping()
-        if name_lower in special_cases:
-            mapped_name = special_cases[name_lower]
-            cursor.execute('SELECT * FROM players WHERE LOWER(name) = ?', (mapped_name.lower(),))
-            players = cursor.fetchall()
-            if players:
-                return dict(players[0])
-        
-        return None
-    
-    def _add_mental_form_data(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any]) -> None:
-        """
-        Add mental form data to the player info.
-        
-        Args:
-            conn: Database connection
-            player_id: Player ID
-            player_data: Player data dictionary to update
-        """
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-        SELECT score, justification, last_updated
-        FROM mental_form
-        WHERE player_id = ?
-        ''', (player_id,))
-        
-        mental_form = cursor.fetchone()
-        if mental_form:
-            player_data['mental_form'] = {
-                'score': mental_form['score'],
-                'justification': mental_form['justification'],
-                'last_updated': mental_form['last_updated']
-            }
-        else:
-            player_data['mental_form'] = {
-                'score': None,
-                'justification': "No mental form data available.",
-                'last_updated': None
-            }
-    
-    def _add_player_insights(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any], limit: int = 10) -> None:
-        """
-        Add recent insights to the player info.
-        
-        Args:
-            conn: Database connection
-            player_id: Player ID
-            player_data: Player data dictionary to update
-            limit: Maximum number of insights to include
-        """
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-        SELECT text, source, source_type, content_title, content_url, date
-        FROM insights
-        WHERE player_id = ?
-        ORDER BY date DESC
-        LIMIT ?
-        ''', (player_id, limit))
-        
-        insights = cursor.fetchall()
-        player_data['insights'] = [dict(insight) for insight in insights]
-    
-    def _get_top_ranked_players(self, conn: sqlite3.Connection, limit: int = 20) -> List[Dict[str, Any]]:
-        """
-        Get top ranked players based on having recent mental form data.
-        
-        Args:
-            conn: Database connection
-            limit: Maximum number of players to return
-            
-        Returns:
-            List of player info dictionaries
-        """
-        cursor = conn.cursor()
-        
-        # Get players with mental form data
-        cursor.execute('''
-        SELECT p.id, p.name, p.dg_id, p.amateur, p.country, m.score
-        FROM players p
-        JOIN mental_form m ON p.id = m.player_id
-        ORDER BY m.last_updated DESC
-        LIMIT ?
-        ''', (limit,))
-        
-        players = cursor.fetchall()
-        return [dict(player) for player in players]
-    
-    def _get_current_tournament(self, conn: sqlite3.Connection) -> Optional[Dict[str, Any]]:
-        """
-        Get the current tournament from the database.
-        
-        Args:
-            conn: Database connection
-            
-        Returns:
-            Tournament info dictionary or None if not found
-        """
-        cursor = conn.cursor()
-        
-        # Get the most recent tournament from bet_recommendations
-        cursor.execute('''
-        SELECT event_name, MAX(timestamp) as latest
-        FROM bet_recommendations
-        GROUP BY event_name
-        ORDER BY latest DESC
-        LIMIT 1
-        ''')
-        
-        tournament = cursor.fetchone()
-        if tournament:
-            return {
-                'event_name': tournament['event_name'],
-                'timestamp': tournament['latest']
-            }
-        
-        return None
-    
-    def _get_tournament_info(self, conn: sqlite3.Connection, tournament_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Get information about a specific tournament.
-        
-        Args:
-            conn: Database connection
-            tournament_name: Tournament name
-            
-        Returns:
-            Tournament info dictionary or None if not found
-        """
-        cursor = conn.cursor()
-        
-        # Try to find the tournament in bet_recommendations
-        cursor.execute('''
-        SELECT event_name, MAX(timestamp) as latest
-        FROM bet_recommendations
-        WHERE LOWER(event_name) LIKE ?
-        GROUP BY event_name
-        ''', (f"%{tournament_name.lower()}%",))
-        
-        tournament = cursor.fetchone()
-        if tournament:
-            return {
-                'event_name': tournament['event_name'],
-                'timestamp': tournament['latest']
-            }
-        
-        return None
-    
-    def _get_odds_for_market(self, conn: sqlite3.Connection, tournament_name: str, market: str, 
-                            player_ids: List[int] = None) -> List[Dict[str, Any]]:
-        """
-        Get odds data for a specific market, tournament, and optionally filtered by player IDs.
-        
-        Args:
-            conn: Database connection
-            tournament_name: Tournament name
-            market: Market name (win, top_5, etc.)
-            player_ids: Optional list of player IDs to filter by
-            
-        Returns:
-            List of odds data dictionaries
-        """
-        cursor = conn.cursor()
-        
-        # Base query
-        query = '''
-        SELECT br.id, br.player_id, p.name as player_name, 
-               br.sportsbook, br.decimal_odds, br.base_ev,
-               br.mental_adjustment, br.adjusted_ev, br.mental_score,
-               br.model_probability, br.timestamp
-        FROM bet_recommendations br
-        JOIN players p ON br.player_id = p.id
-        WHERE br.event_name = ? AND br.market = ?
-        '''
-        
-        params = [tournament_name, market]
-        
-        # Add player filter if provided
-        if player_ids:
-            placeholders = ','.join('?' for _ in player_ids)
-            query += f" AND br.player_id IN ({placeholders})"
-            params.extend(player_ids)
-        
-        # Add ordering and limit
-        query += " ORDER BY br.adjusted_ev DESC"
-        
-        cursor.execute(query, params)
-        odds_data = cursor.fetchall()
-        
-        # Format odds data
-        formatted_odds = []
-        for odds in odds_data:
-            odds_dict = dict(odds)
-            
-            # Add formatted American odds
-            decimal_odds = odds_dict.get('decimal_odds', 0)
-            if decimal_odds >= 2.0:
-                american_odds = f"+{int(round((decimal_odds - 1) * 100))}"
-            else:
-                american_odds = f"{int(round(-100 / (decimal_odds - 1)))}"
-            
-            odds_dict['american_odds'] = american_odds
-            
-            # Add display name
-            player_name = odds_dict.get('player_name', '')
-            odds_dict['player_display_name'] = self._format_player_name(player_name)
-            
-            formatted_odds.append(odds_dict)
-        
-        return formatted_odds
-    
-    def _get_value_bets(self, conn: sqlite3.Connection, tournament_name: str, market: str, 
-                      min_ev: float = 5.0, limit: int = 5) -> List[Dict[str, Any]]:
-        """
-        Get value bets for a specific market and tournament.
-        
-        Args:
-            conn: Database connection
-            tournament_name: Tournament name
-            market: Market name (win, top_5, etc.)
-            min_ev: Minimum adjusted EV to consider
-            limit: Maximum number of bets to return
-            
-        Returns:
-            List of value bet dictionaries
-        """
-        cursor = conn.cursor()
-        
-        query = '''
-        SELECT br.id, br.player_id, p.name as player_name, 
-               br.sportsbook, br.decimal_odds, br.base_ev,
-               br.mental_adjustment, br.adjusted_ev, br.mental_score,
-               br.model_probability, br.timestamp
-        FROM bet_recommendations br
-        JOIN players p ON br.player_id = p.id
-        WHERE br.event_name = ? AND br.market = ? AND br.adjusted_ev >= ?
-        ORDER BY br.adjusted_ev DESC
-        LIMIT ?
-        '''
-        
-        cursor.execute(query, (tournament_name, market, min_ev, limit))
-        bets = cursor.fetchall()
-        
-        # Format value bets
-        formatted_bets = []
-        for bet in bets:
-            bet_dict = dict(bet)
-            
-            # Add formatted American odds
-            decimal_odds = bet_dict.get('decimal_odds', 0)
-            if decimal_odds >= 2.0:
-                american_odds = f"+{int(round((decimal_odds - 1) * 100))}"
-            else:
-                american_odds = f"{int(round(-100 / (decimal_odds - 1)))}"
-            
-            bet_dict['american_odds'] = american_odds
-            
-            # Add display name
-            player_name = bet_dict.get('player_name', '')
-            bet_dict['player_display_name'] = self._format_player_name(player_name)
-            
-            formatted_bets.append(bet_dict)
-        
-        return formatted_bets
     
     def _format_player_name(self, name: str) -> str:
         """

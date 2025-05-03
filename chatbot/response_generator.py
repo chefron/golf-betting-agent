@@ -30,13 +30,14 @@ class ResponseGenerator:
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = "claude-3-7-sonnet-20250219"  # Use the latest model
         
-        # Load the Head Pro persona
+        # Load the Head Pro persona - fail if not available
         try:
             with open(persona_file, 'r', encoding='utf-8') as f:
                 self.persona = f.read()
+            logger.info(f"Loaded Head Pro persona from {persona_file}")
         except Exception as e:
             logger.error(f"Error loading persona file: {e}")
-            self.persona = "You are THE HEAD PRO, a razor-sharp armchair sports psychologist who specializes in dissecting the psyches of professional golfers."
+            raise ValueError(f"Failed to load Head Pro persona from {persona_file}")
     
     def generate_response(self, query: str, retrieved_data: Dict[str, Any], 
                          conversation_history: List[Dict[str, Any]] = None) -> str:
@@ -76,10 +77,6 @@ class ResponseGenerator:
             
             # Extract the response
             generated_text = response.content[0].text
-            
-            # Log a sample of the response
-            sample = generated_text[:100] + "..." if len(generated_text) > 100 else generated_text
-            logger.info(f"Generated response (sample): {sample}")
             
             return generated_text
             
@@ -129,6 +126,13 @@ class ResponseGenerator:
                     if last_updated:
                         player_parts.append(f"    Last Updated: {last_updated}")
                 
+                # Add personality info if available
+                if player_info.get('nicknames'):
+                    player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
+                
+                if player_info.get('notes'):
+                    player_parts.append(f"    Notes: {player_info.get('notes')}")
+                
                 # Add a sample of insights if available
                 insights = player_info.get('insights', [])
                 if insights:
@@ -149,6 +153,15 @@ class ResponseGenerator:
                     context_parts.append(f"  {tournament_name}: Not found in database")
                 else:
                     context_parts.append(f"  {tournament_name}")
+        
+        # Add information about future tournament queries
+        if data.get('future_tournament'):
+            future_info = data.get('future_tournament', {})
+            mentioned_tournaments = future_info.get('mentioned', [])
+            if mentioned_tournaments:
+                context_parts.append("\nFUTURE TOURNAMENT QUERY:")
+                context_parts.append(f"  Mentioned tournaments: {', '.join(mentioned_tournaments)}")
+                context_parts.append("  Note: Our model only works for current tournaments, not future ones")
         
         # Add odds data if available - focus on the most relevant odds
         if data.get('odds', {}).get('by_player'):
@@ -238,7 +251,7 @@ class ResponseGenerator:
         prompt = f"""
 You are THE HEAD PRO, a brutally honest, whisky-soaked armchair sports psychologist with 30+ years of experience reading pro golfers' minds.
 
-Current date: {current_date}
+Current date: {current_date} (Please take special note of the fact that it's 2025 now. We're not in 2024 anymore!)
 
 PREVIOUS CONVERSATION:
 {conv_history}
@@ -257,18 +270,32 @@ INSTRUCTIONS:
 
 3. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration.
 
-4. For betting recommendations, focus on the psychological angle. Don't just list the odds and EV numbers - explain WHY you believe there's value based on your read of the player's mental state.
+4. If provided player personality info (nicknames, notes), incorporate these appropriately into your response to add color and authenticity.
 
-5. Be decisive and definitive in your takes - that's your brand. Don't equivocate or hedge.
+5. For betting recommendations, focus on the psychological angle. Don't just list the odds and EV numbers - explain WHY you believe there's value based on your read of the player's mental state.
 
-6. Keep your response relatively concise and focused directly on answering the query.
+6. Be decisive and definitive in your takes - that's your brand. Don't equivocate or hedge.
 
-7. If data is missing or limited, still give your take based on what you know, but be honest about the limitations.
+7. Keep your response relatively concise and focused directly on answering the query.
 
-8. Use golf slang and insider references that demonstrate your deep knowledge of the game and its history.
+8. If the query is about a future tournament, explain that your model doesn't work for future events because players' mental form changes constantly, but you can give a general read on players' current form.
+
+9. If data is missing or limited, still give your take based on what you know, but be honest about the limitations.
+
+10. Use golf slang and insider references that demonstrate your deep knowledge of the game and its history.
+
+CRITICAL: DO NOT make up or hallucinate specific tournament information, schedules, venues, or upcoming events unless they are explicitly mentioned in the retrieved data. Do not reference specific tournaments like "this week's event" or "next week's major" unless this information is provided in the data. Stick strictly to what you know from the retrieved data when discussing specific tournaments, schedules, or locations.
+
 
 Now respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query.
 """
+        # Print the full prompt to console for debugging
+        print("\n" + "="*80)
+        print("FULL PROMPT BEING SENT TO CLAUDE:")
+        print("="*80)
+        print(prompt)
+        print("="*80 + "\n")
+        
         return prompt
     
     def _generate_fallback_response(self, query: str, data: Dict[str, Any]) -> str:
@@ -287,11 +314,13 @@ Now respond to the user as THE HEAD PRO, giving your unfiltered take directly ad
         fallbacks = {
             'greeting': "Well hello there. What can The Head Pro help you with today? Looking for betting value, mental form insights, or just a straight-shooting take on what's happening in the golf world?",
             
-            'player_mental_form': "Listen, I'd love to give you a proper read on this player's mental game, but I'm having trouble accessing my notes at the moment. Ask me about someone else, or be more specific about what you want to know.",
+            'mental_form': "Listen, I'd love to give you a proper read on this player's mental game, but I'm having trouble accessing my notes at the moment. Ask me about someone else, or be more specific about what you want to know.",
             
             'betting_value': "I've got some thoughts on betting value, but my numbers aren't loading properly right now. Try asking me about a specific player's mental form instead, or come back in a bit when my system's cooperating.",
             
-            'tournament_odds': "Can't pull the odds data at the moment. My system's on the fritz. Come back to me with a specific player name if you want my psychological assessment, that I can do without the numbers.",
+            'player_info': "Can't pull up my full dossier on this player at the moment. My system's on the fritz. Try asking something more specific about their mental form - that part of my brain is still working.",
+            
+            'future_tournament': "Listen, kid - I don't have a crystal ball. My model works on current mental form data, and trying to project that months into the future is a fool's errand. A player who's locked in today could be a mental wreck by the time that tournament rolls around. Come back a week or two before the event when I'll have fresh intel.",
             
             'general_chat': "Listen, my mental database is a bit foggy at the moment. The 19th hole might've been a few too many last night. What else can I help you with?"
         }
@@ -299,32 +328,3 @@ Now respond to the user as THE HEAD PRO, giving your unfiltered take directly ad
         return fallbacks.get(query_type, 
             "Something's gone sideways with my system. The tech boys tell me it'll be sorted soon. In the meantime, try asking me something specific about a player's mental state or maybe some betting recommendations for the upcoming tournament."
         )
-
-# Example usage
-if __name__ == "__main__":
-    import os
-    from dotenv import load_dotenv
-    
-    load_dotenv()
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    
-    generator = ResponseGenerator(api_key)
-    
-    # Test with dummy data
-    dummy_data = {
-        'query_info': {'query_type': 'player_mental_form'},
-        'players': {
-            'Scottie Scheffler': {
-                'mental_form': {
-                    'score': 0.85,
-                    'justification': 'Displaying extraordinary focus and emotional control even in challenging situations. His post-round interviews reveal complete confidence in his process and an unshakable belief in his game plan. Scheffler is showing all the signs of a player in a flow state where the game feels effortless.',
-                    'last_updated': '2025-04-20'
-                }
-            }
-        }
-    }
-    
-    test_query = "What do you think about Scottie Scheffler's mental game right now?"
-    
-    response = generator.generate_response(test_query, dummy_data)
-    print(response)

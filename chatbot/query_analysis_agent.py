@@ -30,21 +30,6 @@ class QueryAnalysisAgent:
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = "claude-3-7-sonnet-20250219"  # Use the latest model
         
-        # Common golf tournaments
-        self.common_tournaments = [
-            "Masters", "The Masters", "Augusta", 
-            "PGA Championship", "The PGA", 
-            "U.S. Open", "US Open", "The Open", "Open Championship", "British Open",
-            "Players Championship", "The Players",
-            "Tour Championship", "FedEx Cup", 
-            "Waste Management", "Phoenix Open",
-            "Travelers Championship", "Memorial Tournament",
-            "Arnold Palmer Invitational", "API", 
-            "Genesis Invitational", "Farmers Insurance Open",
-            "Wells Fargo Championship", "Valspar Championship",
-            "RBC Heritage", "Valero Texas Open"
-        ]
-        
         # Common betting markets
         self.common_markets = [
             "win", "winner", "outright", 
@@ -144,7 +129,7 @@ class QueryAnalysisAgent:
                 'markets': [],
                 'needs_mental_form': False,
                 'needs_odds_data': False,
-                'needs_general_golf_knowledge': True,
+                'needs_player_personality': False,
                 'analysis_method': 'pattern'
             }
         
@@ -154,14 +139,14 @@ class QueryAnalysisAgent:
         if match:
             player_name = match.group(3).strip()
             return {
-                'query_type': 'player_mental_form',
+                'query_type': 'mental_form',
                 'players': [player_name],
                 'tournaments': [],
                 'time_period': 'current',
                 'markets': [],
                 'needs_mental_form': True,
                 'needs_odds_data': False,
-                'needs_general_golf_knowledge': True,
+                'needs_player_personality': True,
                 'analysis_method': 'pattern'
             }
         
@@ -176,7 +161,7 @@ class QueryAnalysisAgent:
                 'markets': ['win', 'top_5', 'top_10'],  # Common markets
                 'needs_mental_form': True,
                 'needs_odds_data': True,
-                'needs_general_golf_knowledge': True,
+                'needs_player_personality': False,
                 'analysis_method': 'pattern'
             }
             
@@ -197,8 +182,7 @@ class QueryAnalysisAgent:
         # Get current date for context
         current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # List common tournaments and golf events for reference
-        tournaments_str = ", ".join(self.common_tournaments)
+        # List common betting markets
         markets_str = ", ".join(self.common_markets)
         
         prompt = f"""
@@ -211,8 +195,6 @@ PREVIOUS CONVERSATION CONTEXT:
 
 CURRENT DATE: {current_date}
 
-COMMON GOLF TOURNAMENTS: {tournaments_str}
-
 COMMON BETTING MARKETS: {markets_str}
 
 DATABASE TABLES AVAILABLE:
@@ -222,26 +204,33 @@ DATABASE TABLES AVAILABLE:
 4. odds - Contains current betting odds for various markets
 5. bet_recommendations - Contains value betting opportunities based on odds and mental form
 
+IMPORTANT NOTE: Our specialized golf betting model only works for the CURRENT tournament. 
+We do not have odds or ability to make recommendations for future tournaments because:
+1. Players' mental form changes constantly
+2. We don't have odds data for future events
+3. Our model is designed for immediate/current tournament insights
+
 Analyze the query and determine exactly what data we need to retrieve. Output a JSON object with these fields:
 
 ```json
 {{
-  "query_type": "<One of: player_info, tournament_odds, mental_form, betting_value, general_chat>",
+  "query_type": "<One of: player_info, mental_form, betting_value, general_chat, future_tournament>",
   "players": ["<List of player names mentioned or implied>"],
   "tournaments": ["<List of tournaments mentioned or implied>"],
   "time_period": "<Time period mentioned or implied (current, past, specific date)>",
   "markets": ["<Any betting markets mentioned (win, top_5, etc.)>"],
   "needs_mental_form": <Boolean indicating if mental form analysis is needed>,
   "needs_odds_data": <Boolean indicating if odds data is needed>,
-  "needs_general_golf_knowledge": <Boolean indicating if general golf knowledge is required>,
+  "needs_player_personality": <Boolean indicating if player personality details (nicknames, notes) are needed>,
   "specifics": "<Any additional specific information needed>"
 }}
 ```
 
 IMPORTANT GUIDELINES:
 - If no specific player is mentioned but the query is about players in general, leave the "players" array empty
-- If no specific tournament is mentioned but the query is about a tournament, add "current" to the tournaments array
-- If multiple query types apply, choose the most specific one
+- If the query mentions a tournament that is NOT the current tournament, set query_type to "future_tournament"
+- For general player personality inquiries (like "tell me about player X"), set needs_player_personality to true
+- If the query is specifically about a player's mental state or form, set needs_mental_form to true
 - For time_period, use "current" if referring to present or upcoming events
 - The "specifics" field should include any other important details needed to answer the query
 
@@ -289,10 +278,11 @@ Only provide the JSON output, no other text.
             'markets': [],
             'needs_mental_form': False,
             'needs_odds_data': False,
-            'needs_general_golf_knowledge': True,
+            'needs_player_personality': False,
             'analysis_method': 'default',
             'analysis_timestamp': datetime.now().isoformat()
         }
+
 
 # Example usage
 if __name__ == "__main__":
