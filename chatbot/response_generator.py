@@ -86,7 +86,7 @@ class ResponseGenerator:
     
     def _format_data_as_context(self, data: Dict[str, Any]) -> str:
         """
-        Format retrieved data as context for Claude.
+        Format retrieved data as context for Claude with improved relevance ranking.
         
         Args:
             data: Retrieved data structure
@@ -100,15 +100,50 @@ class ResponseGenerator:
         query_type = data.get('query_info', {}).get('query_type', 'unknown')
         context_parts.append(f"QUERY TYPE: {query_type}")
         
-        # Add player information if available
+        # Add tournament information first (most critical context)
+        if data.get('tournaments'):
+            context_parts.append("\nTOURNAMENTS:")
+            for tournament_name, tournament_info in data['tournaments'].items():
+                if tournament_info.get('not_found'):
+                    context_parts.append(f"  {tournament_name}: Not found in database")
+                else:
+                    context_parts.append(f"  {tournament_name}")
+        
+        # Add betting recommendations next for betting value queries
+        if data.get('recommendations') and query_type == 'betting_value':
+            context_parts.append("\nBETTING RECOMMENDATIONS:")
+            for i, rec in enumerate(data['recommendations']):
+                player_name = rec.get('player_display_name', 'Unknown Player')
+                market = rec.get('market', '').replace('_', ' ').upper()
+                tournament = rec.get('tournament', 'Unknown Tournament')
+                odds = rec.get('american_odds', 'N/A')
+                ev = rec.get('adjusted_ev', 0)
+                sportsbook = rec.get('sportsbook', 'N/A')
+                
+                context_parts.append(f"  {i+1}. {player_name} - {market} at {tournament}")
+                context_parts.append(f"     Odds: {odds} ({sportsbook}), Adjusted EV: {ev:.1f}%")
+                
+                # Add mental form context for this recommendation
+                mental_score = rec.get('mental_score')
+                if mental_score is not None:
+                    context_parts.append(f"     Mental Form Score: {mental_score}")
+        
+        # Now add player information, prioritizing recommended players first
         if data.get('players'):
             context_parts.append("\nPLAYER DATA:")
+            
+            # Sort players by relevance - recommendations first, then specifically mentioned
+            recommended_players = []
+            other_players = []
+            
             for player_name, player_info in data['players'].items():
-                # Skip players not found
-                if player_info.get('not_found'):
-                    context_parts.append(f"  {player_name}: Not found in database")
-                    continue
-                
+                if player_info.get('is_recommendation'):
+                    recommended_players.append((player_name, player_info))
+                else:
+                    other_players.append((player_name, player_info))
+            
+            # Process recommended players first
+            for player_name, player_info in recommended_players:
                 player_parts = [f"  {player_name}:"]
                 
                 # Add mental form if available
@@ -126,83 +161,36 @@ class ResponseGenerator:
                     if last_updated:
                         player_parts.append(f"    Last Updated: {last_updated}")
                 
-                # Add personality info if available
-                if player_info.get('nicknames'):
-                    player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
-                
-                if player_info.get('notes'):
-                    player_parts.append(f"    Notes: {player_info.get('notes')}")
-                
-                # Add a sample of insights if available
-                insights = player_info.get('insights', [])
-                if insights:
-                    player_parts.append(f"    Recent Insights ({len(insights)}):")
-                    # Only include first few insights to avoid making the context too long
-                    for i, insight in enumerate(insights[:3]):
-                        player_parts.append(f"      - {insight.get('text', '')[:100]}...")
-                    if len(insights) > 3:
-                        player_parts.append(f"      (plus {len(insights)-3} more insights)")
+                # Add personality info if available and requested
+                if player_info.get('needs_player_personality', False):
+                    if player_info.get('nicknames'):
+                        player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
+                    
+                    if player_info.get('notes'):
+                        player_parts.append(f"    Notes: {player_info.get('notes')}")
                 
                 context_parts.append("\n".join(player_parts))
-        
-        # Add tournament information if available
-        if data.get('tournaments'):
-            context_parts.append("\nTOURNAMENTS:")
-            for tournament_name, tournament_info in data['tournaments'].items():
-                if tournament_info.get('not_found'):
-                    context_parts.append(f"  {tournament_name}: Not found in database")
-                else:
-                    context_parts.append(f"  {tournament_name}")
-        
-        # Add information about future tournament queries
-        if data.get('future_tournament'):
-            future_info = data.get('future_tournament', {})
-            mentioned_tournaments = future_info.get('mentioned', [])
-            if mentioned_tournaments:
-                context_parts.append("\nFUTURE TOURNAMENT QUERY:")
-                context_parts.append(f"  Mentioned tournaments: {', '.join(mentioned_tournaments)}")
-                context_parts.append("  Note: Our model only works for current tournaments, not future ones")
-        
-        # Add odds data if available - focus on the most relevant odds
-        if data.get('odds', {}).get('by_player'):
-            context_parts.append("\nODDS DATA (HIGHLIGHTS):")
             
-            # Get players from the query
-            players = list(data.get('players', {}).keys())
-            
-            # Get the first tournament as default
-            tournaments = list(data.get('tournaments', {}).keys())
-            default_tournament = tournaments[0] if tournaments else None
-            
-            if players and default_tournament:
-                for player_name in players:
-                    if player_name in data['odds']['by_player']:
-                        player_odds = data['odds']['by_player'][player_name]
-                        if default_tournament in player_odds:
-                            context_parts.append(f"  {player_name} at {default_tournament}:")
-                            for market, odds in player_odds[default_tournament].items():
-                                market_display = market.replace('_', ' ').upper()
-                                american_odds = odds.get('american_odds', 'N/A')
-                                adjusted_ev = odds.get('adjusted_ev', 0)
-                                context_parts.append(f"    {market_display}: {american_odds} (EV: {adjusted_ev:.1f}%)")
-        
-        # Add betting recommendations if available
-        if data.get('recommendations'):
-            context_parts.append("\nBETTING RECOMMENDATIONS:")
-            for i, rec in enumerate(data['recommendations'][:5]):  # Only top 5
-                player_name = rec.get('player_display_name', 'Unknown Player')
-                market = rec.get('market', '').replace('_', ' ').upper()
-                tournament = rec.get('tournament', 'Unknown Tournament')
-                odds = rec.get('american_odds', 'N/A')
-                ev = rec.get('adjusted_ev', 0)
+            # Then process other players (limit to avoid context bloat)
+            for player_name, player_info in other_players[:5]:  # Limit to 5 other players
+                player_parts = [f"  {player_name}:"]
                 
-                context_parts.append(f"  {i+1}. {player_name} - {market} at {tournament}")
-                context_parts.append(f"     Odds: {odds}, Adjusted EV: {ev:.1f}%")
+                # Add mental form if available
+                mental_form = player_info.get('mental_form', {})
+                if mental_form:
+                    score = mental_form.get('score')
+                    if score is not None:
+                        player_parts.append(f"    Mental Form Score: {score}")
+                    
+                    justification = mental_form.get('justification')
+                    if justification:
+                        player_parts.append(f"    Mental Form Justification: {justification}")
+                    
+                    last_updated = mental_form.get('last_updated')
+                    if last_updated:
+                        player_parts.append(f"    Last Updated: {last_updated}")
                 
-                # Add mental form context for this recommendation
-                mental_score = rec.get('mental_score')
-                if mental_score is not None:
-                    context_parts.append(f"     Mental Form Score: {mental_score}")
+                context_parts.append("\n".join(player_parts))
         
         return "\n".join(context_parts)
     
@@ -253,31 +241,31 @@ class ResponseGenerator:
 <CURRENT TASK>
 You're currently chatting with a user on the Head Pro website. The date is {current_date}. Please respond directly to the following query:
 
-    <QUERY>
-    {query}
-    <QUERY>
+<QUERY>
+{query}
+<QUERY>
 
-    <CONTEXT>
+<CONTEXT>
 
-        <CONVERSATION>
-        Here's the rest of your conversation up to this point:
-        {conv_history}
-        </CONVERSATION>
+<CONVERSATION>
+Here's the rest of your conversation up to this point:
+{conv_history}
+</CONVERSATION>
 
-        <DATA>
-        Here's relevant data retrieved from your database:
-        {context}
-        </DATA>
+<DATA>
+Here's relevant data retrieved from your database:
+{context}
+</DATA>
 
-    </CONTEXT>
+</CONTEXT>
 
-    <INSTRUCTIONS>
-    1. Keep your response relatively concise and focused directly on answering the query. Remeber your voice: blunt, confident, dryly witty.
-    2. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration.
-    3. For betting recommendations, focus on the psychological angle that statistical models can't quantify. Don't just list the odds and EV numbers - explain WHY you believe there's value based on your read of the player's mental state.
-    4. If the query is about a future tournament, explain that your model doesn't work for future events because players' mental form changes constantly, but you can give a general read on players' current form. Remeber, today is {current_date}. You have an unfortunate tendency to hallucinate information about future tournaments, and you need to avoid doing that at all costs. Just stick to the provided data, please.
-    5. Most important, DON'T MAKE SHIT UP. I can't reiterate this enough.
-    </INSTRUCTIONS>
+<INSTRUCTIONS>
+1. Keep your response relatively concise and focused directly on answering the query. Remeber your voice: blunt, confident, dryly witty.
+2. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration.
+3. For betting recommendations, focus on the psychological angle that statistical models can't quantify. Don't just list the odds and EV numbers - explain WHY you believe there's value based on your read of the player's mental state.
+4. If the query is about a future tournament, explain that your model doesn't work for future events because players' mental form changes constantly, but you can give a general read on players' current form. Remeber, today is {current_date}. You have an unfortunate tendency to hallucinate information about future tournaments, and you need to avoid doing that at all costs. Just stick to the provided data, please.
+5. Most important, DON'T MAKE SHIT UP. I can't reiterate this enough.
+</INSTRUCTIONS>
 
 Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query.
 </CURRENT TASK>

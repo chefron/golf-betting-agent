@@ -116,38 +116,58 @@ class DataRetrievalOrchestrator:
         """
         player_names = query_info.get('players', [])
         
-        # If no specific players but we need player data, get top players
-        if not player_names and (query_info.get('query_type') in ['betting_value', 'tournament_odds']):
-            top_players = self._get_top_ranked_players(conn, limit=20)
-            for player in top_players:
-                player_id = player['id']
-                player_name = player['name']
-                
-                # Format the name for display
-                display_name = self._format_player_name(player_name)
-                
-                # Add basic player info
-                data['players'][display_name] = {
-                    'id': player_id,
-                    'name': player_name,
-                    'display_name': display_name
-                }
-                
-                # Add detailed info if needed
-                if query_info.get('needs_mental_form', False):
-                    self._add_mental_form_data(conn, player_id, data['players'][display_name])
-                
-                # Add personality info if needed
-                if query_info.get('needs_player_personality', False):
-                    self._add_player_personality_data(conn, player_id, data['players'][display_name])
+        # Create sets to track which players to include
+        relevant_players = set()
         
-        # Process specified players
+        # If betting value query, first get players from recommendations
+        if query_info.get('query_type') == 'betting_value':
+            # Get current tournament
+            tournament = self._get_current_tournament(conn)
+            tournament_name = tournament.get('event_name') if tournament else None
+            
+            if tournament_name:
+                # Get markets to analyze
+                markets = query_info.get('markets', ['win', 'top_5', 'top_10', 'top_20'])
+                
+                # Pre-fetch top value bets to identify key players
+                for market in markets:
+                    db_market = market.replace(" ", "_").replace("-", "_").lower()
+                    value_bets = self._get_value_bets(conn, tournament_name, db_market, min_ev=7.0, limit=10)
+                    
+                    # Add these players to our relevant set
+                    for bet in value_bets:
+                        player_id = bet.get('player_id')
+                        # Only include players with mental scores
+                        if player_id and bet.get('mental_score') is not None:
+                            relevant_players.add(player_id)
+        
+        # Add specifically requested players
+        specific_player_ids = []
         for player_name in player_names:
-            # Try to find the player in the database
             player = self._find_player_by_name(conn, player_name)
+            if player:
+                specific_player_ids.append(player['id'])
+                relevant_players.add(player['id'])
+        
+        # If we have recommendations but no specific players requested, just use the relevant set
+        if relevant_players and not player_names:
+            player_ids_to_process = list(relevant_players)
+        # If specific players were requested, prioritize those
+        elif specific_player_ids:
+            player_ids_to_process = specific_player_ids
+        # Fallback: get top ranked players if we have nothing else
+        else:
+            top_players = self._get_top_ranked_players(conn, limit=15)
+            player_ids_to_process = [p['id'] for p in top_players]
+        
+        # Now process all our identified relevant players
+        for player_id in player_ids_to_process:
+            # Get player info
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, name FROM players WHERE id = ?', (player_id,))
+            player = cursor.fetchone()
             
             if player:
-                player_id = player['id']
                 db_player_name = player['name']
                 
                 # Format the name for display
@@ -157,29 +177,20 @@ class DataRetrievalOrchestrator:
                 data['players'][display_name] = {
                     'id': player_id,
                     'name': db_player_name,
-                    'display_name': display_name
+                    'display_name': display_name,
+                    'is_recommendation': player_id in relevant_players
                 }
                 
-                # Add detailed info if needed
+                # Add detailed info based on query needs
                 if query_info.get('needs_mental_form', False):
                     self._add_mental_form_data(conn, player_id, data['players'][display_name])
                 
-                # Add personality info if needed
                 if query_info.get('needs_player_personality', False):
                     self._add_player_personality_data(conn, player_id, data['players'][display_name])
                     
-                # Add recent insights if needed for detailed mental form questions
-                if query_info.get('query_type') == 'mental_form' or query_info.get('query_type') == 'player_info':
-                    self._add_player_insights(conn, player_id, data['players'][display_name], limit=10)
-            else:
-                logger.warning(f"Could not find player: {player_name}")
-                # Still add an entry so we know we looked for this player
-                data['players'][player_name] = {
-                    'id': None,
-                    'name': player_name,
-                    'display_name': player_name,
-                    'not_found': True
-                }
+                # Add insights for certain query types -- currently set to 0 to simplify prompt
+                if query_info.get('query_type') in ['mental_form', 'player_info'] or player_id in relevant_players:
+                    self._add_player_insights(conn, player_id, data['players'][display_name], limit=0)
     
     def _process_tournaments(self, conn: sqlite3.Connection, query_info: Dict[str, Any], data: Dict[str, Any]) -> None:
         """
@@ -358,7 +369,7 @@ class DataRetrievalOrchestrator:
         return formatted_odds
     
     def _get_value_bets(self, conn: sqlite3.Connection, tournament_name: str, market: str, 
-                      min_ev: float = 5.0, limit: int = 5) -> List[Dict[str, Any]]:
+                    min_ev: float = 7.0, limit: int = 5) -> List[Dict[str, Any]]:
         """
         Get value bets for a specific market and tournament.
         Only includes bets where the player has a mental form score.
@@ -377,15 +388,15 @@ class DataRetrievalOrchestrator:
         
         query = '''
         SELECT br.id, br.player_id, p.name as player_name, 
-               br.sportsbook, br.decimal_odds, br.base_ev,
-               br.mental_adjustment, br.adjusted_ev, br.mental_score,
-               br.model_probability, br.timestamp
+            br.sportsbook, br.decimal_odds, br.base_ev,
+            br.mental_adjustment, br.adjusted_ev, br.mental_score,
+            br.model_probability, br.timestamp
         FROM bet_recommendations br
         JOIN players p ON br.player_id = p.id
         WHERE br.event_name = ? 
-              AND br.market = ? 
-              AND br.adjusted_ev >= ?
-              AND br.mental_score IS NOT NULL
+            AND br.market = ? 
+            AND br.adjusted_ev >= ?
+            AND br.mental_score IS NOT NULL  -- Explicitly require mental score
         ORDER BY br.adjusted_ev DESC
         LIMIT ?
         '''
@@ -616,13 +627,17 @@ class DataRetrievalOrchestrator:
         """
         markets = query_info.get('markets', [])
         if not markets:
-            markets = ['win', 'top_5', 'top_10']  # Default markets
+            markets = ['win', 'top_5', 'top_10', 'top_20']  # Default markets
             
         tournament_names = list(data['tournaments'].keys())
         
         if not tournament_names:
             logger.warning("No tournaments for recommendations retrieval")
             return
+        
+        # Use a set to track unique recommendations by (player_id, market, sportsbook)
+        unique_recs = set()
+        recommendations = []
         
         # Get recommendations for each tournament and market
         for tournament_name in tournament_names:
@@ -631,28 +646,40 @@ class DataRetrievalOrchestrator:
                 db_market = market.replace(" ", "_").replace("-", "_").lower()
                 
                 # Get top value bets
-                recommendations = self._get_value_bets(
+                market_recs = self._get_value_bets(
                     conn, tournament_name, db_market, min_ev=5.0, limit=5
                 )
                 
-                # Add to recommendations list
-                for rec in recommendations:
-                    # Add market and tournament info
-                    rec['market'] = db_market
-                    rec['tournament'] = tournament_name
-                    
-                    # Add player display name
+                # Add to recommendations list with deduplication
+                for rec in market_recs:
+                    # Create a unique key for this recommendation
                     player_id = rec.get('player_id')
-                    if player_id:
-                        for player_name, player_info in data['players'].items():
-                            if player_info.get('id') == player_id:
-                                rec['player_display_name'] = player_name
-                                break
+                    sportsbook = rec.get('sportsbook', '')
                     
-                    data['recommendations'].append(rec)
+                    rec_key = (player_id, db_market, sportsbook)
+                    
+                    # Check if we've already added this recommendation
+                    if rec_key not in unique_recs:
+                        unique_recs.add(rec_key)
+                        
+                        # Add market and tournament info
+                        rec['market'] = db_market
+                        rec['tournament'] = tournament_name
+                        
+                        # Add player display name
+                        if player_id:
+                            for player_name, player_info in data['players'].items():
+                                if player_info.get('id') == player_id:
+                                    rec['player_display_name'] = player_name
+                                    break
+                        
+                        recommendations.append(rec)
         
         # Sort recommendations by adjusted EV
-        data['recommendations'].sort(key=lambda x: x.get('adjusted_ev', 0), reverse=True)
+        recommendations.sort(key=lambda x: x.get('adjusted_ev', 0), reverse=True)
+        
+        # Limit to top 5 most valuable recommendations
+        data['recommendations'] = recommendations[:5]
     
     def _format_player_name(self, name: str) -> str:
         """
