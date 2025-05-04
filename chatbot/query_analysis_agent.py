@@ -108,20 +108,27 @@ class QueryAnalysisAgent:
     def _pattern_based_analysis(self, user_message: str) -> Optional[Dict[str, Any]]:
         """
         Try to match common patterns in user queries without calling Claude.
-        This is faster for simple queries.
         
         Args:
-            user_message: The user's message
+            user_message: The user's message/query
             
         Returns:
-            Query info if a pattern was matched, None otherwise
+            Query info dictionary if a pattern was matched, None otherwise
         """
         # Lowercase the message for easier matching
         message = user_message.lower()
-
+        
+        # Detect betting-related terms and phrases
+        betting_terms = ['bet', 'odds', 'value', 'worth', 'like', 'back', 'fade', 'chance', 
+                        'wager', 'play', 'pick', 'punt', 'longshot', 'recommendation']
+        
+        # Check if message contains betting terms
+        is_betting_related = any(term in message for term in betting_terms)
+        
         # Common time qualifiers to strip from player name detection
-        time_qualifiers = ['this week', 'today', 'tomorrow', 'this tournament', 'this event', 'this weekend', 'right now', 'currently']
-
+        time_qualifiers = ['this week', 'today', 'tomorrow', 'this tournament', 
+                        'this event', 'right now', 'currently']
+        
         # Check for simple player mental form questions
         player_mental_form_pattern = r'(what|how).+(think|feel|opinion|thought).+about\s+([A-Za-z\s\.]+)(?:\?)?$'
         match = re.search(player_mental_form_pattern, message)
@@ -141,12 +148,34 @@ class QueryAnalysisAgent:
             return {
                 'query_type': 'mental_form',
                 'players': [player_name],
-                'tournaments': [],
-                'time_period': 'current',
-                'markets': [],
+                'markets': ['win', 'top_5', 'top_10'] if is_betting_related else [],
                 'needs_mental_form': True,
-                'needs_odds_data': False,
+                'is_betting_related': is_betting_related,
+                'analysis_method': 'pattern'
+            }
+        
+        # Add a pattern specifically for betting-related player queries
+        betting_player_pattern = r'(do you|should i|is|are|worth).+(like|back|fade|bet on|value)\s+([A-Za-z\s\.]+)(?:\?)?$'
+        match = re.search(betting_player_pattern, message)
+        if match:
+            player_name_raw = match.group(3).strip()
+            
+            # Clean the player name
+            player_name = player_name_raw
+            for qualifier in time_qualifiers:
+                player_name = player_name.replace(qualifier, '').strip()
+            
+            name_parts = player_name.split()
+            if len(name_parts) > 2:
+                player_name = ' '.join(name_parts[:2])
+            
+            return {
+                'query_type': 'mental_form',
+                'players': [player_name],
+                'markets': ['win', 'top_5', 'top_10'],
+                'needs_mental_form': True,
                 'needs_player_personality': True,
+                'is_betting_related': True,
                 'analysis_method': 'pattern'
             }
         
@@ -155,47 +184,24 @@ class QueryAnalysisAgent:
             return {
                 'query_type': 'greeting',
                 'players': [],
-                'tournaments': [],
-                'time_period': 'current',
                 'markets': [],
                 'needs_mental_form': False,
-                'needs_odds_data': False,
-                'needs_player_personality': False,
+                'is_betting_related': False,
                 'analysis_method': 'pattern'
             }
-        
-        # Check for simple player mental form questions
-        player_mental_form_pattern = r'(what|how).+(think|feel|opinion|thought).+about\s+([A-Za-z\s\.]+)(?:\?)?$'
-        match = re.search(player_mental_form_pattern, message)
-        if match:
-            player_name = match.group(3).strip()
-            return {
-                'query_type': 'mental_form',
-                'players': [player_name],
-                'tournaments': [],
-                'time_period': 'current',
-                'markets': [],
-                'needs_mental_form': True,
-                'needs_odds_data': False,
-                'needs_player_personality': True,
-                'analysis_method': 'pattern'
-            }
-        
+            
         # Check for betting value questions
         betting_pattern = r'(who|which player|any).+(good|value|bet|play|recommendation|pick|like).+(this week|upcoming|tournament|event)'
         if re.search(betting_pattern, message):
             return {
                 'query_type': 'betting_value',
                 'players': [],  # We'll need to get all relevant players
-                'tournaments': ['current'],  # Assume current tournament
-                'time_period': 'current',
                 'markets': ['win', 'top_5', 'top_10'],  # Common markets
                 'needs_mental_form': True,
-                'needs_odds_data': True,
-                'needs_player_personality': False,
+                'is_betting_related': True,
                 'analysis_method': 'pattern'
             }
-            
+        
         # No clear pattern match
         return None
     
@@ -217,55 +223,62 @@ class QueryAnalysisAgent:
         markets_str = ", ".join(self.common_markets)
         
         prompt = f"""
-I need your help analyzing this golf-related query to determine what specific database information we need to retrieve.
+Please analyze this golf-related query to determine what specific database information we need to retrieve.
 
-USER QUERY: "{user_message}"
+QUERY: "{user_message}"
+
+DATE: {current_date}
 
 PREVIOUS CONVERSATION CONTEXT:
 {context}
-
-CURRENT DATE: {current_date}
-
-COMMON BETTING MARKETS: {markets_str}
-
-DATABASE TABLES AVAILABLE:
-1. players - Contains player info (name, id, country, etc.)
-2. mental_form - Contains player mental form scores and justifications
-3. insights - Contains qualitative insights about players' mental state
-4. odds - Contains current betting odds for various markets
-5. bet_recommendations - Contains value betting opportunities based on odds and mental form
-
-IMPORTANT NOTE: Our specialized golf betting model only works for the CURRENT tournament. 
-We do not have odds or ability to make recommendations for future tournaments because:
-1. Players' mental form changes constantly
-2. We don't have odds data for future events
-3. Our model is designed for immediate/current tournament insights
 
 Analyze the query and determine exactly what data we need to retrieve. Output a JSON object with these fields:
 
 ```json
 {{
-  "query_type": "<One of: player_info, mental_form, betting_value, general_chat, future_tournament>",
+  "query_type": "<One of: player_info, mental_form, betting_value, general_chat>",
   "players": ["<List of player names mentioned or implied>"],
-  "tournaments": ["<List of tournaments mentioned or implied>"],
-  "time_period": "<Time period mentioned or implied (current, past, specific date)>",
   "markets": ["<Any betting markets mentioned (win, top_5, etc.)>"],
   "needs_mental_form": <Boolean indicating if mental form analysis is needed>,
-  "needs_odds_data": <Boolean indicating if odds data is needed>,
-  "needs_player_personality": <Boolean indicating if player personality details (nicknames, notes) are needed>,
-  "specifics": "<Any additional specific information needed>"
+  "is_betting_related": <true/false>,
 }}
-```
 
-IMPORTANT GUIDELINES:
-- If no specific player is mentioned but the query is about players in general, leave the "players" array empty
-- If the query mentions a tournament that is NOT the current tournament, set query_type to "future_tournament"
-- For general player personality inquiries (like "tell me about player X"), set needs_player_personality to true
-- If the query is specifically about a player's mental state or form, set needs_mental_form to true
-- For time_period, use "current" if referring to present or upcoming events
-- The "specifics" field should include any other important details needed to answer the query
+GUIDELINES for each field:
 
-Only provide the JSON output, no other text.
+"query_type":
+    - mental_form: Queries specifically about a player's psychological state, confidence, or mental game
+    - betting_value: Queries about betting recommendations, value plays, or who to bet on
+    - player_info: General queries about players that don't fit the other categories
+    - general_chat: Greetings, unrelated questions, or casual conversation
+
+"players":
+    - Include the names of specific players mentioned in the query
+    - Fix mispellings and standardize common nicknames (e.g., "Scottie" → "Scottie Scheffler", "Rory" → "Rory McIlroy")
+    - If no specific player is mentioned but the query is about players in general, leave as empty array []
+
+"markets":
+    - Include any specific betting markets mentioned in the query:
+        - win (outright winner)
+        - top_5 (top 5 finish)
+        - top_10 (top 10 finish)
+        - top_20 (top 20 finish)
+        - make_cut
+        - miss_cut
+        - first_round_leader (FRL)
+    - For betting queries without specific markets mentioned, default to the following: ["win", "top_5", "top_10", "top_20"]
+    - For non-betting queries, leave as empty array []
+
+"needs_mental_form":
+    - true: For queries about players' psychological state, confidence, mental game, etc.
+    - true: For betting-related queries (mental form affects betting recommendations)
+    - false: For general chat or basic player info that doesn't require mental analysis
+
+"is_betting_related":
+    - true: For queries about odds, value, picks, recommendations, backing/fading players
+    - true: For queries like "Do you like [player] this week?" (implicit betting question)
+    - false: For queries like "What's [player]'s mental form?" (purely informational)
+
+Please provide ONLY the JSON output, no other text.
 """
         return prompt
     

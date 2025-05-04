@@ -66,18 +66,16 @@ class DataRetrievalOrchestrator:
             # Process players - either specified in query or get relevant ones
             self._process_players(conn, query_info, data)
             
-            # Only get tournament and odds data for certain query types
-            if query_info.get('query_type') not in ['future_tournament']:
-                # Process tournaments - get current
-                self._process_tournaments(conn, query_info, data)
-                
-                # Get odds data if needed
-                if query_info.get('needs_odds_data', False):
-                    self._retrieve_odds_data(conn, query_info, data)
-                
-                # Get betting recommendations if appropriate
-                if query_info.get('query_type') == 'betting_value':
-                    self._retrieve_betting_recommendations(conn, query_info, data)
+            # Process tournaments - get current tournament info
+            self._process_tournaments(conn, query_info, data)
+            
+            # Get odds data if needed
+            if query_info.get('needs_odds_data', False) or query_info.get('is_betting_related', False):
+                self._retrieve_odds_data(conn, query_info, data)
+            
+            # Get betting recommendations if appropriate
+            if query_info.get('query_type') == 'betting_value':
+                self._retrieve_betting_recommendations(conn, query_info, data)
             
         except Exception as e:
             logger.error(f"Error retrieving data: {e}")
@@ -139,13 +137,10 @@ class DataRetrievalOrchestrator:
                     'in_field': self._is_player_in_tournament(conn, player_id, tournament_name)
                 }
                 
-                # Add mental form if needed
-                if query_info.get('needs_mental_form', False):
-                    self._add_mental_form_data(conn, player_id, data['players'][display_name])
+                # For specific players, always include mental form and personality if available
+                self._add_mental_form_data(conn, player_id, data['players'][display_name])
+                self._add_player_personality_data(conn, player_id, data['players'][display_name])
                 
-                # Add personality if needed
-                if query_info.get('needs_player_personality', False):
-                    self._add_player_personality_data(conn, player_id, data['players'][display_name])
             else:
                 # Track not found players
                 data['players'][player_name] = {
@@ -327,13 +322,6 @@ class DataRetrievalOrchestrator:
             data['tournaments']['unknown'] = {
                 'name': 'Unknown Tournament',
                 'not_found': True
-            }
-
-        # If this is a future tournament query, add that info
-        if query_info.get('query_type') == 'future_tournament':
-            data['future_tournament'] = {
-                'mentioned': query_info.get('tournaments', []),
-                'is_future': True
             }
     
     def _get_top_ranked_players(self, conn: sqlite3.Connection, limit: int = 20) -> List[Dict[str, Any]]:

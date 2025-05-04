@@ -462,8 +462,6 @@ Now please respond to the user as THE HEAD PRO, giving your unfiltered take dire
             
             'player_info': "Can't pull up my full dossier on this player at the moment. My system's on the fritz. Try asking something more specific about their mental form - that part of my brain is still working.",
             
-            'future_tournament': "Listen, kid - I don't have a crystal ball. My model works on current mental form data, and trying to project that months into the future is a fool's errand. A player who's locked in today could be a mental wreck by the time that tournament rolls around. Come back a week or two before the event when I'll have fresh intel.",
-            
             'general_chat': "Listen, my mental database is a bit foggy at the moment. The 19th hole might've been a few too many last night. What else can I help you with?"
         }
         
