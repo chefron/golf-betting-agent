@@ -106,91 +106,206 @@ class DataRetrievalOrchestrator:
             return None
     
     def _process_players(self, conn: sqlite3.Connection, query_info: Dict[str, Any], data: Dict[str, Any]) -> None:
-        """
-        Process players from the query info - either get specified players or relevant ones.
-        
-        Args:
-            conn: Database connection
-            query_info: Query analysis info
-            data: Data structure to populate
-        """
+        """Process players from the query info with improved relevance filtering."""
         player_names = query_info.get('players', [])
         
-        # Create sets to track which players to include
-        relevant_players = set()
+        # Get current tournament
+        tournament = self._get_current_tournament(conn)
+        tournament_name = tournament.get('event_name') if tournament else None
         
-        # If betting value query, first get players from recommendations
-        if query_info.get('query_type') == 'betting_value':
-            # Get current tournament
-            tournament = self._get_current_tournament(conn)
-            tournament_name = tournament.get('event_name') if tournament else None
-            
-            if tournament_name:
-                # Get markets to analyze
-                markets = query_info.get('markets', ['win', 'top_5', 'top_10', 'top_20'])
-                
-                # Pre-fetch top value bets to identify key players
-                for market in markets:
-                    db_market = market.replace(" ", "_").replace("-", "_").lower()
-                    value_bets = self._get_value_bets(conn, tournament_name, db_market, min_ev=7.0, limit=10)
-                    
-                    # Add these players to our relevant set
-                    for bet in value_bets:
-                        player_id = bet.get('player_id')
-                        # Only include players with mental scores
-                        if player_id and bet.get('mental_score') is not None:
-                            relevant_players.add(player_id)
-        
-        # Add specifically requested players
+        # First process specifically requested players
         specific_player_ids = []
         for player_name in player_names:
+            # Try different variations for common players
+            if player_name.lower() == 'scottie':
+                player_name = 'Scottie Scheffler'
+            elif player_name.lower() == 'rory':
+                player_name = 'Rory McIlroy'
+            # Add more common nickname mappings
+            
             player = self._find_player_by_name(conn, player_name)
             if player:
-                specific_player_ids.append(player['id'])
-                relevant_players.add(player['id'])
-        
-        # If we have recommendations but no specific players requested, just use the relevant set
-        if relevant_players and not player_names:
-            player_ids_to_process = list(relevant_players)
-        # If specific players were requested, prioritize those
-        elif specific_player_ids:
-            player_ids_to_process = specific_player_ids
-        # Fallback: get top ranked players if we have nothing else
-        else:
-            top_players = self._get_top_ranked_players(conn, limit=15)
-            player_ids_to_process = [p['id'] for p in top_players]
-        
-        # Now process all our identified relevant players
-        for player_id in player_ids_to_process:
-            # Get player info
-            cursor = conn.cursor()
-            cursor.execute('SELECT id, name FROM players WHERE id = ?', (player_id,))
-            player = cursor.fetchone()
-            
-            if player:
-                db_player_name = player['name']
+                player_id = player['id']
+                specific_player_ids.append(player_id)
                 
-                # Format the name for display
+                db_player_name = player['name']
                 display_name = self._format_player_name(db_player_name)
                 
-                # Add basic player info
+                # Add player info
                 data['players'][display_name] = {
                     'id': player_id,
                     'name': db_player_name,
                     'display_name': display_name,
-                    'is_recommendation': player_id in relevant_players
+                    'in_field': self._is_player_in_tournament(conn, player_id, tournament_name)
                 }
                 
-                # Add detailed info based on query needs
+                # Add mental form if needed
                 if query_info.get('needs_mental_form', False):
                     self._add_mental_form_data(conn, player_id, data['players'][display_name])
                 
+                # Add personality if needed
                 if query_info.get('needs_player_personality', False):
                     self._add_player_personality_data(conn, player_id, data['players'][display_name])
+            else:
+                # Track not found players
+                data['players'][player_name] = {
+                    'id': None,
+                    'name': player_name,
+                    'display_name': player_name,
+                    'not_found': True
+                }
+        
+        # If no specific players or in mental_form/betting_value queries, add relevant context
+        if not specific_player_ids or query_info.get('query_type') in ['mental_form', 'betting_value']:
+            # Get players in the current tournament
+            if tournament_name:
+                tournament_players = self._get_players_in_tournament(conn, tournament_name, limit=10)
+                
+                # Process tournament players
+                for player in tournament_players:
+                    player_id = player['id']
+                    # Skip if already added
+                    if player_id in specific_player_ids:
+                        continue
                     
-                # Add insights for certain query types -- currently set to 0 to simplify prompt
-                if query_info.get('query_type') in ['mental_form', 'player_info'] or player_id in relevant_players:
-                    self._add_player_insights(conn, player_id, data['players'][display_name], limit=0)
+                    db_player_name = player['name']
+                    display_name = self._format_player_name(db_player_name)
+                    
+                    # Add player info
+                    data['players'][display_name] = {
+                        'id': player_id,
+                        'name': db_player_name,
+                        'display_name': display_name,
+                        'in_field': True
+                    }
+                    
+                    # Add mental form if needed
+                    if query_info.get('needs_mental_form', False):
+                        self._add_mental_form_data(conn, player_id, data['players'][display_name])
+
+    def _is_player_in_tournament(self, conn: sqlite3.Connection, player_id: int, tournament_name: str) -> bool:
+        """Check if a player is in the field for the current tournament."""
+        if not tournament_name:
+            return False
+        
+        cursor = conn.cursor()
+        
+        # Check betting recommendations for this player and tournament
+        cursor.execute('''
+        SELECT 1 FROM bet_recommendations 
+        WHERE player_id = ? AND event_name = ? 
+        LIMIT 1
+        ''', (player_id, tournament_name))
+        
+        return cursor.fetchone() is not None
+    
+    def _get_players_in_tournament(self, conn: sqlite3.Connection, tournament_name: str, limit: int = 10) -> List[Dict]:
+        """
+        Get players participating in the current tournament, prioritizing those with high mental
+        scores and strong betting value.
+        
+        Args:
+            conn: Database connection
+            tournament_name: Tournament name
+            limit: Maximum number of players to return
+            
+        Returns:
+            List of player dictionaries
+        """
+        cursor = conn.cursor()
+        
+        # First prioritize players with high mental scores AND high EV
+        cursor.execute('''
+        SELECT DISTINCT p.id, p.name, m.score, MAX(b.adjusted_ev) as max_ev
+        FROM players p
+        JOIN bet_recommendations b ON p.id = b.player_id
+        JOIN mental_form m ON p.id = m.player_id
+        WHERE b.event_name = ? 
+        AND m.score > 0.25 
+        AND b.adjusted_ev > 7.0
+        GROUP BY p.id
+        ORDER BY max_ev DESC
+        LIMIT ?
+        ''', (tournament_name, limit))
+        
+        results = cursor.fetchall()
+        
+        # If we didn't get enough results, add players with high mental scores
+        if len(results) < limit:
+            remaining = limit - len(results)
+            existing_ids = [r['id'] for r in results]
+            
+            # Add players with high mental scores
+            if existing_ids:
+                id_list = ','.join('?' for _ in existing_ids)
+                query = f'''
+                SELECT DISTINCT p.id, p.name, m.score, MAX(b.adjusted_ev) as max_ev
+                FROM players p
+                JOIN bet_recommendations b ON p.id = b.player_id
+                JOIN mental_form m ON p.id = m.player_id
+                WHERE b.event_name = ? 
+                AND m.score > 0.25
+                AND p.id NOT IN ({id_list})
+                GROUP BY p.id
+                ORDER BY m.score DESC
+                LIMIT ?
+                '''
+                params = [tournament_name] + existing_ids + [remaining]
+            else:
+                query = '''
+                SELECT DISTINCT p.id, p.name, m.score, MAX(b.adjusted_ev) as max_ev
+                FROM players p
+                JOIN bet_recommendations b ON p.id = b.player_id
+                JOIN mental_form m ON p.id = m.player_id
+                WHERE b.event_name = ? 
+                AND m.score > 0.25
+                GROUP BY p.id
+                ORDER BY m.score DESC
+                LIMIT ?
+                '''
+                params = [tournament_name, remaining]
+                
+            cursor.execute(query, params)
+            results.extend(cursor.fetchall())
+        
+        # If we still don't have enough, add players with high EVs
+        if len(results) < limit:
+            remaining = limit - len(results)
+            existing_ids = [r['id'] for r in results]
+            
+            if existing_ids:
+                id_list = ','.join('?' for _ in existing_ids)
+                query = f'''
+                SELECT DISTINCT p.id, p.name, m.score, MAX(b.adjusted_ev) as max_ev
+                FROM players p
+                JOIN bet_recommendations b ON p.id = b.player_id
+                LEFT JOIN mental_form m ON p.id = m.player_id
+                WHERE b.event_name = ? 
+                AND b.adjusted_ev > 7.0
+                AND p.id NOT IN ({id_list})
+                GROUP BY p.id
+                ORDER BY max_ev DESC
+                LIMIT ?
+                '''
+                params = [tournament_name] + existing_ids + [remaining]
+            else:
+                query = '''
+                SELECT DISTINCT p.id, p.name, m.score, MAX(b.adjusted_ev) as max_ev
+                FROM players p
+                JOIN bet_recommendations b ON p.id = b.player_id
+                LEFT JOIN mental_form m ON p.id = m.player_id
+                WHERE b.event_name = ? 
+                AND b.adjusted_ev > 7.0
+                GROUP BY p.id
+                ORDER BY max_ev DESC
+                LIMIT ?
+                '''
+                params = [tournament_name, remaining]
+                
+            cursor.execute(query, params)
+            results.extend(cursor.fetchall())
+        
+        return [dict(player) for player in results]
     
     def _process_tournaments(self, conn: sqlite3.Connection, query_info: Dict[str, Any], data: Dict[str, Any]) -> None:
         """

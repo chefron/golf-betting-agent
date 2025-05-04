@@ -118,6 +118,37 @@ class QueryAnalysisAgent:
         """
         # Lowercase the message for easier matching
         message = user_message.lower()
+
+        # Common time qualifiers to strip from player name detection
+        time_qualifiers = ['this week', 'today', 'tomorrow', 'this tournament', 'this event', 'this weekend', 'right now', 'currently']
+
+        # Check for simple player mental form questions
+        player_mental_form_pattern = r'(what|how).+(think|feel|opinion|thought).+about\s+([A-Za-z\s\.]+)(?:\?)?$'
+        match = re.search(player_mental_form_pattern, message)
+        if match:
+            player_name_raw = match.group(3).strip()
+            
+            # Clean the player name by removing time qualifiers
+            player_name = player_name_raw
+            for qualifier in time_qualifiers:
+                player_name = player_name.replace(qualifier, '').strip()
+            
+            # Only use the first 2 words max for player name (first and last)
+            name_parts = player_name.split()
+            if len(name_parts) > 2:
+                player_name = ' '.join(name_parts[:2])
+            
+            return {
+                'query_type': 'mental_form',
+                'players': [player_name],
+                'tournaments': [],
+                'time_period': 'current',
+                'markets': [],
+                'needs_mental_form': True,
+                'needs_odds_data': False,
+                'needs_player_personality': True,
+                'analysis_method': 'pattern'
+            }
         
         # Check for simple greeting/introduction
         if re.match(r'^(hi|hello|hey|what\'s up|sup|yo)\b', message) and len(message) < 20:

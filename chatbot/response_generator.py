@@ -86,7 +86,7 @@ class ResponseGenerator:
     
     def _format_data_as_context(self, data: Dict[str, Any]) -> str:
         """
-        Format retrieved data as context for Claude with improved relevance ranking.
+        Format retrieved data as context for Claude with improved relevance focus.
         
         Args:
             data: Retrieved data structure
@@ -100,16 +100,199 @@ class ResponseGenerator:
         query_type = data.get('query_info', {}).get('query_type', 'unknown')
         context_parts.append(f"QUERY TYPE: {query_type}")
         
-        # Add tournament information first (most critical context)
+        # Add tournament information
         if data.get('tournaments'):
             context_parts.append("\nTOURNAMENTS:")
+            current_year = datetime.now().year  # Get current year
             for tournament_name, tournament_info in data['tournaments'].items():
                 if tournament_info.get('not_found'):
                     context_parts.append(f"  {tournament_name}: Not found in database")
                 else:
-                    context_parts.append(f"  {tournament_name}")
+                    context_parts.append(f"  {tournament_name} ({current_year})")
         
-        # Add betting recommendations next for betting value queries
+        # For mental_form queries about specific players, only include that player
+        if query_type == 'mental_form' and data.get('query_info', {}).get('players'):
+            requested_players = data.get('query_info', {}).get('players', [])
+            
+            context_parts.append("\nPLAYER DATA:")
+            for player_name, player_info in data.get('players', {}).items():
+                # Check if this is the specific requested player
+                is_requested = False
+                for req_player in requested_players:
+                    if req_player.lower() in player_name.lower() or player_name.lower() in req_player.lower():
+                        is_requested = True
+                        break
+                
+                if is_requested:
+                    player_parts = [f"  {player_name}:"]
+                    
+                    # Indicate if player is in the tournament field
+                    if player_info.get('in_field'):
+                        player_parts.append("    [In tournament field]")
+                    else:
+                        player_parts.append("    [Not in tournament field]")
+                    
+                    # Add mental form if available
+                    mental_form = player_info.get('mental_form', {})
+                    if mental_form:
+                        score = mental_form.get('score')
+                        if score is not None:
+                            player_parts.append(f"    Mental Form Score: {score}")
+                        
+                        justification = mental_form.get('justification')
+                        if justification:
+                            player_parts.append(f"    Mental Form Justification: {justification}")
+                        
+                        last_updated = mental_form.get('last_updated')
+                        if last_updated:
+                            player_parts.append(f"    Last Updated: {last_updated}")
+                    
+                    # Add personality info if available
+                    if player_info.get('nicknames'):
+                        player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
+                    
+                    if player_info.get('notes'):
+                        player_parts.append(f"    Notes: {player_info.get('notes')}")
+                    
+                    # Add odds data if available
+                    odds_data = data.get('odds', {}).get('by_player', {}).get(player_name, {})
+                    if odds_data and player_info.get('in_field'):
+                        player_parts.append("    Odds Data:")
+                        
+                        # Get the tournament
+                        tournaments = list(data.get('tournaments', {}).keys())
+                        tournament_name = tournaments[0] if tournaments else "Unknown Tournament"
+                        
+                        if tournament_name in odds_data:
+                            for market, odds in odds_data[tournament_name].items():
+                                market_display = market.replace('_', ' ').upper()
+                                american_odds = odds.get('american_odds', 'N/A')
+                                adjusted_ev = odds.get('adjusted_ev', 0)
+                                player_parts.append(f"      {market_display}: {american_odds} (EV: {adjusted_ev:.1f}%)")
+                    
+                    context_parts.append("\n".join(player_parts))
+        # For betting value queries or other types
+        else:
+            # For other query types, include relevant players
+            if data.get('players'):
+                context_parts.append("\nPLAYER DATA:")
+                
+                # Organize players by relevance
+                requested_players = []
+                recommended_players = []
+                field_players = []
+                
+                for player_name, player_info in data.get('players', {}).items():
+                    # Skip not found players
+                    if player_info.get('not_found'):
+                        context_parts.append(f"  {player_name}: Not found in database")
+                        continue
+                    
+                    # Check if this is a requested player
+                    is_requested = False
+                    for req_player in data.get('query_info', {}).get('players', []):
+                        if req_player.lower() in player_name.lower() or player_name.lower() in req_player.lower():
+                            is_requested = True
+                            break
+                    
+                    if is_requested:
+                        requested_players.append((player_name, player_info))
+                    elif player_info.get('is_recommendation', False):
+                        recommended_players.append((player_name, player_info))
+                    elif player_info.get('in_field', False):
+                        field_players.append((player_name, player_info))
+                
+                # Format requested players first
+                for player_name, player_info in requested_players:
+                    player_parts = [f"  {player_name}:"]
+                    
+                    # Indicate if player is in the tournament field
+                    if player_info.get('in_field'):
+                        player_parts.append("    [In tournament field]")
+                    else:
+                        player_parts.append("    [Not in tournament field]")
+                    
+                    # Add mental form if available
+                    mental_form = player_info.get('mental_form', {})
+                    if mental_form:
+                        score = mental_form.get('score')
+                        if score is not None:
+                            player_parts.append(f"    Mental Form Score: {score}")
+                        
+                        justification = mental_form.get('justification')
+                        if justification:
+                            player_parts.append(f"    Mental Form Justification: {justification}")
+                        
+                        last_updated = mental_form.get('last_updated')
+                        if last_updated:
+                            player_parts.append(f"    Last Updated: {last_updated}")
+                    
+                    # Add personality info if available
+                    if player_info.get('nicknames'):
+                        player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
+                    
+                    if player_info.get('notes'):
+                        player_parts.append(f"    Notes: {player_info.get('notes')}")
+                    
+                    context_parts.append("\n".join(player_parts))
+                
+                # Then format recommended players for betting value queries
+                if query_type == 'betting_value':
+                    for player_name, player_info in recommended_players:
+                        player_parts = [f"  {player_name}:"]
+                        
+                        # Indicate if player is in the tournament field
+                        if player_info.get('in_field'):
+                            player_parts.append("    [In tournament field]")
+                        
+                        # Add mental form if available
+                        mental_form = player_info.get('mental_form', {})
+                        if mental_form:
+                            score = mental_form.get('score')
+                            if score is not None:
+                                player_parts.append(f"    Mental Form Score: {score}")
+                            
+                            justification = mental_form.get('justification')
+                            if justification:
+                                player_parts.append(f"    Mental Form Justification: {justification}")
+                            
+                            last_updated = mental_form.get('last_updated')
+                            if last_updated:
+                                player_parts.append(f"    Last Updated: {last_updated}")
+                        
+                        context_parts.append("\n".join(player_parts))
+                    
+                    # Add a few high-value players from the field
+                    high_value_players = sorted(
+                        field_players, 
+                        key=lambda x: x[1].get('mental_form', {}).get('score', 0), 
+                        reverse=True
+                    )[:3]  # Top 3 by mental form score
+                    
+                    for player_name, player_info in high_value_players:
+                        # Skip if already included in recommended
+                        if player_name in [p[0] for p in recommended_players]:
+                            continue
+                            
+                        player_parts = [f"  {player_name}:"]
+                        
+                        # Indicate player is in the tournament field
+                        player_parts.append("    [In tournament field]")
+                        
+                        # Add mental form if available
+                        mental_form = player_info.get('mental_form', {})
+                        if mental_form:
+                            score = mental_form.get('score')
+                            if score is not None:
+                                player_parts.append(f"    Mental Form Score: {score}")
+                            
+                            justification = mental_form.get('justification')
+                            if justification:
+                                player_parts.append(f"    Mental Form Justification: {justification}")
+                        
+                        context_parts.append("\n".join(player_parts))
+        
+        # Add betting recommendations for betting value queries
         if data.get('recommendations') and query_type == 'betting_value':
             context_parts.append("\nBETTING RECOMMENDATIONS:")
             for i, rec in enumerate(data['recommendations']):
@@ -128,71 +311,49 @@ class ResponseGenerator:
                 if mental_score is not None:
                     context_parts.append(f"     Mental Form Score: {mental_score}")
         
-        # Now add player information, prioritizing recommended players first
-        if data.get('players'):
-            context_parts.append("\nPLAYER DATA:")
-            
-            # Sort players by relevance - recommendations first, then specifically mentioned
-            recommended_players = []
-            other_players = []
-            
-            for player_name, player_info in data['players'].items():
-                if player_info.get('is_recommendation'):
-                    recommended_players.append((player_name, player_info))
-                else:
-                    other_players.append((player_name, player_info))
-            
-            # Process recommended players first
-            for player_name, player_info in recommended_players:
-                player_parts = [f"  {player_name}:"]
-                
-                # Add mental form if available
-                mental_form = player_info.get('mental_form', {})
-                if mental_form:
-                    score = mental_form.get('score')
-                    if score is not None:
-                        player_parts.append(f"    Mental Form Score: {score}")
-                    
-                    justification = mental_form.get('justification')
-                    if justification:
-                        player_parts.append(f"    Mental Form Justification: {justification}")
-                    
-                    last_updated = mental_form.get('last_updated')
-                    if last_updated:
-                        player_parts.append(f"    Last Updated: {last_updated}")
-                
-                # Add personality info if available and requested
-                if player_info.get('needs_player_personality', False):
-                    if player_info.get('nicknames'):
-                        player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
-                    
-                    if player_info.get('notes'):
-                        player_parts.append(f"    Notes: {player_info.get('notes')}")
-                
-                context_parts.append("\n".join(player_parts))
-            
-            # Then process other players (limit to avoid context bloat)
-            for player_name, player_info in other_players[:5]:  # Limit to 5 other players
-                player_parts = [f"  {player_name}:"]
-                
-                # Add mental form if available
-                mental_form = player_info.get('mental_form', {})
-                if mental_form:
-                    score = mental_form.get('score')
-                    if score is not None:
-                        player_parts.append(f"    Mental Form Score: {score}")
-                    
-                    justification = mental_form.get('justification')
-                    if justification:
-                        player_parts.append(f"    Mental Form Justification: {justification}")
-                    
-                    last_updated = mental_form.get('last_updated')
-                    if last_updated:
-                        player_parts.append(f"    Last Updated: {last_updated}")
-                
-                context_parts.append("\n".join(player_parts))
-        
         return "\n".join(context_parts)
+    
+    def _format_player_context(self, player_name: str, player_info: Dict[str, Any]) -> str:
+        """
+        Format player information for context in a consistent way.
+        
+        Args:
+            player_name: Display name of the player
+            player_info: Dictionary of player information
+            
+        Returns:
+            Formatted player information string
+        """
+        player_parts = [f"  {player_name}:"]
+        
+        # Indicate if player is in the field
+        if player_info.get('in_field'):
+            player_parts.append("    [In tournament field]")
+        
+        # Add mental form if available
+        mental_form = player_info.get('mental_form', {})
+        if mental_form:
+            score = mental_form.get('score')
+            if score is not None:
+                player_parts.append(f"    Mental Form Score: {score}")
+            
+            justification = mental_form.get('justification')
+            if justification:
+                player_parts.append(f"    Mental Form Justification: {justification}")
+            
+            last_updated = mental_form.get('last_updated')
+            if last_updated:
+                player_parts.append(f"    Last Updated: {last_updated}")
+        
+        # Add personality info if available
+        if player_info.get('nicknames'):
+            player_parts.append(f"    Nicknames: {player_info.get('nicknames')}")
+        
+        if player_info.get('notes'):
+            player_parts.append(f"    Notes: {player_info.get('notes')}")
+        
+        # Return the formatted player context
+        return "\n".join(player_parts)
     
     def _format_conversation_history(self, history: List[Dict[str, Any]] = None) -> str:
         """
