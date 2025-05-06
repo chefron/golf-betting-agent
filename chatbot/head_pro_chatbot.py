@@ -1,28 +1,19 @@
-"""
-Head Pro Chatbot Application
-
-This module integrates the query analysis, data retrieval, and response generation
-components to create the complete Head Pro chatbot.
-"""
-
 import os
 import logging
 import json
-from dotenv import load_dotenv
-from typing import Dict, List, Any, Optional
-from flask import Flask, request, jsonify
+from typing import Dict, List, Any
 from datetime import datetime
+from dotenv import load_dotenv
 
 from query_analysis_agent import QueryAnalysisAgent
 from data_retrieval_orchestrator import DataRetrievalOrchestrator
 from response_generator import ResponseGenerator
 
-# Load environment variables
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Set to DEBUG for testing to see full prompts
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("head_pro_chatbot.log"),
@@ -33,39 +24,27 @@ logger = logging.getLogger("head_pro.app")
 
 class HeadProChatbot:
     def __init__(self, db_path: str = "../data/db/mental_form.db", persona_file: str = "head_pro_persona.txt"):
-        """
-        Initialize the Head Pro chatbot.
-        
-        Args:
-            db_path: Path to the SQLite database
-            persona_file: Path to the Head Pro persona file
-        """
+        """Initialize the Head Pro chatbot."""
         # Get API key
         self.api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("Anthropic API key is required but not found in environment variables")
         
-        # Initialize components
-        self.query_analyzer = QueryAnalysisAgent(self.api_key)
+        # Initialize data retriever first to get current tournament
         self.data_retriever = DataRetrievalOrchestrator(db_path)
+        self.current_tournament = self.data_retriever.current_tournament
+        
+        # Initialize other components
+        self.query_analyzer = QueryAnalysisAgent(self.api_key, self.current_tournament)
         self.response_generator = ResponseGenerator(self.api_key, persona_file)
         
-        # Conversation history storage - in a production app, this would be in a database
+        # Conversation history storage
         self.conversations = {}
         
-        logger.info("Head Pro chatbot initialized")
+        logger.info(f"Head Pro chatbot initialized with current tournament: {self.current_tournament}")
     
     def process_message(self, user_id: str, message: str) -> Dict[str, Any]:
-        """
-        Process a user message and generate a response.
-        
-        Args:
-            user_id: Unique identifier for the user
-            message: User's message text
-            
-        Returns:
-            Response object with generated text and metadata
-        """
+        """Process a user message and generate a response."""
         logger.info(f"Processing message from user {user_id}: {message}")
         
         start_time = datetime.now()
@@ -77,15 +56,16 @@ class HeadProChatbot:
         conversation_history = self.conversations[user_id]
         
         try:
-            # Step 1: Analyze the query
+            # Step 1: Analyze the query with our simplified decision tree
             logger.info("Analyzing query...")
             query_info = self.query_analyzer.analyze_query(message, conversation_history)
+            logger.info(f"Query analysis result: {json.dumps(query_info)}")
             
-            # Step 2: Retrieve relevant data
+            # Step 2: Retrieve relevant data based on the decision tree result
             logger.info(f"Retrieving data for query type: {query_info.get('query_type', 'unknown')}")
             retrieved_data = self.data_retriever.retrieve_data(query_info)
             
-            # Step 3: Generate response
+            # Step 3: Generate response using the retrieved data
             logger.info("Generating response...")
             response_text = self.response_generator.generate_response(
                 message, retrieved_data, conversation_history
@@ -95,7 +75,7 @@ class HeadProChatbot:
             conversation_history.append({"role": "user", "content": message, "timestamp": datetime.now().isoformat()})
             conversation_history.append({"role": "assistant", "content": response_text, "timestamp": datetime.now().isoformat()})
             
-            # Limit conversation history length to prevent context growth
+            # Limit conversation history length
             if len(conversation_history) > 20:
                 conversation_history = conversation_history[-20:]
             
@@ -121,7 +101,7 @@ class HeadProChatbot:
             # Generate a fallback response
             fallback_response = "I'm on my third whiskey and the neural connections aren't firing like they should. Try asking something else, preferably something that doesn't require me to access my mental database right now."
             
-            # Still update conversation history
+            # Update conversation history
             conversation_history.append({"role": "user", "content": message, "timestamp": datetime.now().isoformat()})
             conversation_history.append({"role": "assistant", "content": fallback_response, "timestamp": datetime.now().isoformat()})
             
@@ -136,87 +116,13 @@ class HeadProChatbot:
             }
     
     def reset_conversation(self, user_id: str) -> Dict[str, Any]:
-        """
-        Reset a user's conversation history.
-        
-        Args:
-            user_id: Unique identifier for the user
-            
-        Returns:
-            Status message
-        """
+        """Reset a user's conversation history."""
         if user_id in self.conversations:
             self.conversations[user_id] = []
             return {"status": "success", "message": "Conversation reset successfully"}
         else:
             return {"status": "success", "message": "No conversation to reset"}
 
-# Flask web application
-app = Flask(__name__)
-chatbot = None
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    """API endpoint for chat messages"""
-    global chatbot
-    
-    # Initialize chatbot if not already done
-    if not chatbot:
-        try:
-            chatbot = HeadProChatbot()
-        except Exception as e:
-            return jsonify({"error": f"Failed to initialize chatbot: {str(e)}"}), 500
-    
-    # Get request data
-    data = request.json
-    
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    user_id = data.get('user_id')
-    message = data.get('message')
-    
-    if not user_id or not message:
-        return jsonify({"error": "Missing required fields: user_id, message"}), 400
-    
-    # Process the message
-    response = chatbot.process_message(user_id, message)
-    
-    return jsonify(response)
-
-@app.route('/api/reset', methods=['POST'])
-def reset():
-    """API endpoint to reset conversation history"""
-    global chatbot
-    
-    # Initialize chatbot if not already done
-    if not chatbot:
-        try:
-            chatbot = HeadProChatbot()
-        except Exception as e:
-            return jsonify({"error": f"Failed to initialize chatbot: {str(e)}"}), 500
-    
-    # Get request data
-    data = request.json
-    
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    user_id = data.get('user_id')
-    
-    if not user_id:
-        return jsonify({"error": "Missing required field: user_id"}), 400
-    
-    # Reset the conversation
-    response = chatbot.reset_conversation(user_id)
-    
-    return jsonify(response)
-
-def main():
-    """Run the Flask application"""
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-# Command-line interface for testing
 def cli():
     """Command-line interface for testing the chatbot"""
     print("=== HEAD PRO CHATBOT CLI ===")
@@ -263,10 +169,80 @@ def cli():
         except Exception as e:
             print(f"\nError: {e}")
 
+# Flask web server implementation
+def create_flask_app():
+    """Create Flask app for the web API"""
+    from flask import Flask, request, jsonify
+    
+    app = Flask(__name__)
+    chatbot = None
+    
+    @app.route('/api/chat', methods=['POST'])
+    def chat():
+        """API endpoint for chat messages"""
+        nonlocal chatbot
+        
+        # Initialize chatbot if not already done
+        if not chatbot:
+            try:
+                chatbot = HeadProChatbot()
+            except Exception as e:
+                return jsonify({"error": f"Failed to initialize chatbot: {str(e)}"}), 500
+        
+        # Get request data
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        user_id = data.get('user_id')
+        message = data.get('message')
+        
+        if not user_id or not message:
+            return jsonify({"error": "Missing required fields: user_id, message"}), 400
+        
+        # Process the message
+        response = chatbot.process_message(user_id, message)
+        
+        return jsonify(response)
+    
+    @app.route('/api/reset', methods=['POST'])
+    def reset():
+        """API endpoint to reset conversation history"""
+        nonlocal chatbot
+        
+        # Initialize chatbot if not already done
+        if not chatbot:
+            try:
+                chatbot = HeadProChatbot()
+            except Exception as e:
+                return jsonify({"error": f"Failed to initialize chatbot: {str(e)}"}), 500
+        
+        # Get request data
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "Missing required field: user_id"}), 400
+        
+        # Reset the conversation
+        response = chatbot.reset_conversation(user_id)
+        
+        return jsonify(response)
+    
+    return app
+
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) > 1 and sys.argv[1] == 'web':
-        main()  # Run the web app
+        # Run the web app
+        app = create_flask_app()
+        app.run(host='0.0.0.0', port=5000, debug=True)
     else:
-        cli()   # Run the CLI
+        # Run the CLI
+        cli()

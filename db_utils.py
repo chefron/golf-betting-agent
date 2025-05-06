@@ -150,7 +150,7 @@ Use the scale below:
 -1.00 to -0.75 → Completely rattled: Mentally imploding; yips likely; big red flags.  
 -0.74 to -0.25 → Fragile headspace: Multiple signs of doubt, frustration, or defensiveness. Not mentally reliable.  
 -0.24 to +0.24 → Neutral: Standard pro mindset, unclear signals, or not enough recent intel. MOST PLAYERS SHOULD FALL HERE. Players without recent insights (within 60 days of today, {today}) should probably fall within this range.
-+0.25 to +0.74 → Locked in: Authentic confidence, clarity under pressure, convincing poise. Not just saying the right things—*believing* them. Don't naturally default to this range (you have annoying habit of scoring everyone +0.35). It requires multiple, recent, and unusual signs of clarity, poise, or resolve.
++0.25 to +0.74 → Locked in: Authentic confidence, clarity under pressure, convincing poise. Not just saying the right things—*believing* them. Don't naturally default to this range (you have an annoying habit of scoring everyone +0.35). It requires multiple, recent, and unusual signs of clarity, poise, or resolve.
 +0.75 to +1.00 → In the zone: Flow state. Rare. Reserve for peak mental clarity and full trust in process.
 
 To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVELY on qualitative intangibles and completely IGNORE recent performance results. You don't give a rat's ass about stats or scores or finishing positions - just mental form. A player who just won could still have a negative mental form if they're showing warning signs. Conversely, someone missing cuts might have excellent mental form if their mindset shows the right indicators.
@@ -164,11 +164,11 @@ To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVE
 
 ---
 
-**STEP 2: Write a standalone justification (3-5 sentences).**  
-This is the hardest part. Your summary must be fully self-contained and make sense WITHOUT reading the insights. Write as if the reader will only see your summary and NOT the insights. Don't summarize the insights—reconstruct the psychology behind them in fresh, standalone language while maintaining the relevant details. The more detailed, the better!
+**STEP 2: Write a detailed standalone justification (3-5 sentences).**  
+This is the hardest part. Your summary must be fully self-contained and make sense WITHOUT reading the insights. Write as if the reader will only see your summary and NOT the insights. Don't summarize the insights—restate the facts and reconstruct the psychology behind them in fresh, standalone language while maintaining the relevant details. Specific details are essential. The more detailed, the better!
 
 To ensure that it's self-contained:  
-- NEVER explicitly reference "the insights" or any source of information.  
+- Use lots of details from the insights (the more details, the better), but NEVER explicitly reference "the insights" or any source of information.  
 - Use indefinite articles (such as "a") instead of definite articles ("the") when introducing new info: "*A* recent swing coach change to Sean Foley" instead of "*THE* recent swing coach change to Sean Foley."
 - Use full names when referring to other players, caddies, coaches, etc.
 - Always give context when mentioning events, but never mention events in the future (e.g. "the upcoming Masters") because it's possible they've already happened. 
@@ -223,7 +223,7 @@ JUSTIFICATION: [3-5 sentence self-contained analysis with no references to sourc
 
 1) If the mental score falls outside the -0.24 to +0.24 range, is it justified by multiple, unusual, and RECENT insights (within 6 weeks of today, {today})? If no, please revise it. If yes, please proceed to step 2.
 
-2) Is the assessment completely self-contained? Would it make sense to a reader who doesn't have access to the insights? Does it avoid explicitly mentioning "the insights"? If no, please revise it. If yes, please post the mental score and assessment again in the correct format:
+2) Is the assessment completely self-contained? Would it make sense to a reader who doesn't have access to the insights? Does it include all pertinent details instead of vaguely referencing them? If no, please revise it to add more details and make it more self-contained. If yes, please post the mental score and assessment again in the correct format:
 
 SCORE: [number between -1 and 1]  
 JUSTIFICATION: [3-5 sentence self-contained assessment]"""
