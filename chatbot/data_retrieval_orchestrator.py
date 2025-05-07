@@ -186,7 +186,7 @@ class DataRetrievalOrchestrator:
             })
     
     def _retrieve_mental_rankings(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
-        """Retrieve mental form rankings (highest and lowest)."""
+        """Retrieve mental form rankings (highest and lowest) with field status."""
         cursor = conn.cursor()
         
         # Get highest mental scores
@@ -196,17 +196,23 @@ class DataRetrievalOrchestrator:
         JOIN mental_form m ON p.id = m.player_id
         WHERE m.score > 0
         ORDER BY m.score DESC
-        LIMIT 10
+        LIMIT 15
         ''')
         
         for player in cursor.fetchall():
             player_dict = dict(player)
+            player_id = player_dict['id']
+            
+            # Check if player is in the field
+            in_field = self._is_player_in_tournament(conn, player_id)
+            
             data['mental_rankings']['highest'].append({
-                'player_id': player_dict['id'],
+                'player_id': player_id,
                 'player_name': self._format_player_name(player_dict['name']),
                 'mental_score': player_dict['score'],
                 'mental_justification': player_dict['justification'],
-                'last_updated': player_dict['last_updated']
+                'last_updated': player_dict['last_updated'],
+                'in_field': in_field
             })
         
         # Get lowest mental scores
@@ -216,17 +222,23 @@ class DataRetrievalOrchestrator:
         JOIN mental_form m ON p.id = m.player_id
         WHERE m.score < 0
         ORDER BY m.score ASC
-        LIMIT 10
+        LIMIT 8
         ''')
         
         for player in cursor.fetchall():
             player_dict = dict(player)
+            player_id = player_dict['id']
+            
+            # Check if player is in the field
+            in_field = self._is_player_in_tournament(conn, player_id)
+            
             data['mental_rankings']['lowest'].append({
-                'player_id': player_dict['id'],
+                'player_id': player_id,
                 'player_name': self._format_player_name(player_dict['name']),
                 'mental_score': player_dict['score'],
                 'mental_justification': player_dict['justification'],
-                'last_updated': player_dict['last_updated']
+                'last_updated': player_dict['last_updated'],
+                'in_field': in_field
             })
     
     def _retrieve_tournament_field(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:

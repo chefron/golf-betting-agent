@@ -1,12 +1,13 @@
 import logging
 import anthropic
+import json
 from typing import Dict, List, Any
 from datetime import datetime
 
 logger = logging.getLogger("head_pro.response_generator")
 
 class ResponseGenerator:
-    def __init__(self, api_key: str, persona_file: str = "head_pro_persona.txt"):
+    def __init__(self, api_key: str, persona_file: str = "head_pro_persona.txt", faqs_file: str = "head_pro_faqs.json"):
         """Initialize the response generator."""
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = "claude-3-7-sonnet-20250219"
@@ -19,11 +20,22 @@ class ResponseGenerator:
         except Exception as e:
             logger.error(f"Error loading persona file: {e}")
             raise ValueError(f"Failed to load Head Pro persona from {persona_file}")
+        
+        # Load FAQs
+        try:
+            with open(faqs_file, 'r', encoding='utf-8') as f:
+                self.faqs = json.load(f)
+            logger.info(f"Loaded {len(self.faqs)} FAQs from {faqs_file}")
+        except Exception as e:
+            logger.error(f"Error loading FAQs file: {e}")
     
     def generate_response(self, query: str, retrieved_data: Dict[str, Any], 
                          conversation_history: List[Dict[str, Any]] = None) -> str:
         """Generate the Head Pro's response based on retrieved data."""
         logger.info(f"Generating response for query: {query}")
+
+        # Get query type directly from retrieved_data
+        query_type = retrieved_data.get('query_info', {}).get('query_type', 'unknown')
         
         # Format the retrieved data as context
         context = self._format_data_as_context(retrieved_data)
@@ -32,7 +44,7 @@ class ResponseGenerator:
         conv_history = self._format_conversation_history(conversation_history)
         
         # Create the prompt
-        prompt = self._create_prompt(query, context, conv_history)
+        prompt = self._create_prompt(query, context, conv_history, query_type)
         
         try:
             # Call Claude to generate response
@@ -100,32 +112,76 @@ class ResponseGenerator:
                     player_parts.append("    Odds Data:")
                     for market, market_data in odds.items():
                         player_parts.append(f"      {market.upper()}: {market_data.get('american_odds')} " +
-                                          f"(EV: {market_data.get('adjusted_ev', 0):.1f}%)")
+                                        f"(EV: {market_data.get('adjusted_ev', 0):.1f}%)")
                 
                 context_parts.append("\n".join(player_parts))
         
-        # Add betting recommendations
+        # Add betting recommendations - MODIFIED TO GROUP BY PLAYER
         if data.get('betting_recommendations'):
-            context_parts.append("\nBETTING RECOMMENDATIONS:")
-            for i, rec in enumerate(data['betting_recommendations']):
-                context_parts.append(f"  {i+1}. {rec['player_name']} - {rec['market'].replace('_', ' ').upper()}")
-                context_parts.append(f"     Odds: {rec['american_odds']} ({rec['sportsbook']})")
-                context_parts.append(f"     Adjusted EV: {rec['adjusted_ev']:.1f}%")
-                context_parts.append(f"     Mental Score: {rec['mental_score']}")
-                context_parts.append(f"     Mental Justification: {rec['mental_justification']}")
+            context_parts.append("\nBETTING RECOMMENDATIONS (organized by player):")
+            
+            # First, group recommendations by player
+            players_recommendations = {}
+            for rec in data['betting_recommendations']:
+                player_name = rec['player_name']
+                if player_name not in players_recommendations:
+                    players_recommendations[player_name] = {
+                        'mental_score': rec['mental_score'],
+                        'mental_justification': rec['mental_justification'],
+                        'bets': []
+                    }
+                
+                players_recommendations[player_name]['bets'].append({
+                    'market': rec['market'],
+                    'american_odds': rec['american_odds'],
+                    'decimal_odds': rec['decimal_odds'],
+                    'sportsbook': rec['sportsbook'],
+                    'adjusted_ev': rec['adjusted_ev']
+                })
+            
+            # Now output the organized recommendations
+            for i, (player_name, player_data) in enumerate(players_recommendations.items(), 1):
+                context_parts.append(f"  {i}. {player_name} (Mental Score: {player_data['mental_score']})")
+                
+                # Group similar bets (same market and odds)
+                market_groups = {}
+                for bet in player_data['bets']:
+                    key = f"{bet['market']}:{bet['american_odds']}"
+                    if key not in market_groups:
+                        market_groups[key] = {
+                            'market': bet['market'],
+                            'american_odds': bet['american_odds'],
+                            'adjusted_ev': bet['adjusted_ev'],
+                            'sportsbooks': []
+                        }
+                    market_groups[key]['sportsbooks'].append(bet['sportsbook'])
+                
+                # Output each bet type
+                for group in market_groups.values():
+                    sportsbooks_str = ", ".join(group['sportsbooks'])
+                    context_parts.append(f"     - {group['market'].upper()}: {group['american_odds']} ({sportsbooks_str}), EV: {group['adjusted_ev']:.1f}%")
+                
+                # Add mental assessment
+                context_parts.append(f"     Mental Assessment: {player_data['mental_justification']}")
+                
+                # Add blank line between players for readability
+                if i < len(players_recommendations):
+                    context_parts.append("")
         
         # Add mental rankings
         if data.get('mental_rankings', {}).get('highest'):
-            context_parts.append("\nMENTALLY STRONGEST PLAYERS:")
+            context_parts.append(f"\nMENTALLY STRONGEST PLAYERS from all tours (please note that only some are playing in the {tournament_name}):")
             for i, player in enumerate(data['mental_rankings']['highest']):
                 context_parts.append(f"  {i+1}. {player['player_name']}")
+                context_parts.append(f"     In the field this week: {'Yes' if player.get('in_field') else 'No'}")
                 context_parts.append(f"     Mental Score: {player['mental_score']}")
                 context_parts.append(f"     Mental Justification: {player['mental_justification']}")
         
         if data.get('mental_rankings', {}).get('lowest'):
-            context_parts.append("\nMENTALLY WEAKEST PLAYERS:")
+            context_parts.append(f"\nMENTALLY WEAKEST PLAYERS from all tours (please note that only some are playing in the {tournament_name}):")
             for i, player in enumerate(data['mental_rankings']['lowest']):
                 context_parts.append(f"  {i+1}. {player['player_name']}")
+                context_parts.append(f"     In the field this week: {'Yes' if player.get('in_field') else 'No'}")
                 context_parts.append(f"     Mental Score: {player['mental_score']}")
                 context_parts.append(f"     Mental Justification: {player['mental_justification']}")
         
@@ -144,8 +200,8 @@ class ResponseGenerator:
         if not history:
             return "No previous conversation."
         
-        # Only include the last few messages to keep the context manageable
-        recent_history = history[-5:] if len(history) > 5 else history
+        # Only include the last ten messages to keep the context manageable
+        recent_history = history[-10:] if len(history) > 10 else history
         
         history_parts = []
         for msg in recent_history:
@@ -159,9 +215,18 @@ class ResponseGenerator:
         
         return "\n".join(history_parts)
     
-    def _create_prompt(self, query: str, context: str, conv_history: str) -> str:
+    def _create_prompt(self, query: str, context: str, conv_history: str, query_type: str) -> str:
         """Create the prompt for generating a response."""
         current_date = datetime.now().strftime("%Y-%m-%d")
+
+        # Create FAQs section only for 'other_question' queries
+        faqs_section = ""
+        if query_type == 'other_question':
+            faqs_section = "\n<FAQS>\n"
+            for faq in self.faqs:
+                faqs_section += f"Q: {faq['question']}\n"
+                faqs_section += f"A: {faq['answer']}\n\n"
+            faqs_section += "</FAQS>\n"
         
         prompt = f"""
 <CURRENT TASK>
@@ -181,15 +246,17 @@ Here's the recent conversation:
 Here's relevant data retrieved from your database:
 {context}
 </DATA>
+{faqs_section}
 </CONTEXT>
 
 <INSTRUCTIONS>
 1. Keep your response relatively concise, focused on answering the query with your blunt, confident, dryly witty tone.
-2. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration. If the scores aren't provided, it's possible something is broken and you should tell the user that you don't have access to your notes at the moment.
-3. For betting recommendations, focus on the psychological angle that statistical models can't quantify.
+2. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration. If the scores aren't provided, it's possible something is broken and you should tell the user that you don't have access to your notes at the moment. Never fabricate data!
+3. For betting recommendations, focus on the psychological angle that statistical models can't quantify. Only recommened bets where the player has a mental score over .2 AND the EV is positive (preferable over +6.0%)! Many players with positive mental scores are still EV-negative because the odds aren't favorable enough.
 4. If the query is about a future tournament, explain that you don't have data for future events.
-5. Today is {current_date}. It's 2025, not 2024. For some reason you always get confused about this.
-6. Most importantly, DON'T MAKE SHIT UP. I can't reiterate this enough. Only analyze players where mental form data is provided. It's better to say "I don't have data on that" rather than filling gaps with your own assumptions.
+5. For general questions an, see if any of the FAQs apply and use that information in your response, but maintain your distinctive voice.
+6. Today is {current_date}. It's 2025, not 2024. For some reason you tend to get confused about this when referring to past and future years. 2024 was last year, 2025 is this year, 2026 is next year.
+7. Most importantly, DON'T MAKE SHIT UP. I can't reiterate this enough. Only analyze players where mental form data is provided. It's better to say "I don't have data on that" rather than filling gaps with your own assumptions.
 </INSTRUCTIONS>
 
 Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query.

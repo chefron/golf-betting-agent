@@ -2,7 +2,7 @@ import logging
 import re
 import json
 import anthropic
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 logger = logging.getLogger("head_pro.query_agent")
@@ -13,9 +13,60 @@ class QueryAnalysisAgent:
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = "claude-3-7-sonnet-20250219"
         self.current_tournament = current_tournament
+
+    def _pattern_based_analysis(self, user_message: str) -> Optional[Dict[str, Any]]:
+        """Perform simple pattern-based analysis for common query types."""
+        # Convert message to lowercase for easier matching
+        message_lower = user_message.lower().strip()
+        
+        # More flexible greeting pattern with common variations and allowing words after
+        greeting_patterns = [
+            # Basic greetings with possible letter repetitions, allowing words after
+            r'^h+[aeiy]+l*l+o+(\s+.*)?$',      # hello, hellooo + optional words after
+            r'^h+[eiy]+y+(\s+.*)?$',           # hey, heyyy + optional words after
+            r'^y+o+(\s+.*)?$',                 # yo, yooo + optional words after
+            r'^s+u+p+(\s+.*)?$',               # sup, suuup + optional words after
+            r'^howdy(\s+.*)?$',
+            r'^greetings(\s+.*)?$',
+            r'^hiya(\s+.*)?$',
+            r'^what\'?s\s+up(\s+.*)?$',        # what's up, whats up + optional words after
+            
+            # Time-based greetings
+            r'^good\s+morning(\s+.*)?$',
+            r'^good\s+afternoon(\s+.*)?$',
+            r'^good\s+evening(\s+.*)?$',
+            r'^good\s+day(\s+.*)?$',
+            r'^morning(\s+.*)?$',
+            r'^afternoon(\s+.*)?$',
+            r'^evening(\s+.*)?$'
+        ]
+        
+        # Check if any greeting pattern matches
+        for pattern in greeting_patterns:
+            if re.match(pattern, message_lower) and len(message_lower) < 25:
+                logger.info(f"Pattern match: simple greeting detected with pattern: {pattern}")
+                return {
+                    'query_type': 'greeting',
+                    'players': [],
+                    'needs_player_data': False,
+                    'needs_betting_recommendations': False,
+                    'needs_mental_rankings': False,
+                    'needs_tournament_field': False,
+                    'analysis_timestamp': datetime.now().isoformat()
+                }
+        
+        # No pattern match found, return None
+        return None
         
     def analyze_query(self, user_message: str, conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Analyze the user query to determine what data needs to be retrieved."""
+
+        # Do a quick pre-check for simple patterns
+        query_info = self._pattern_based_analysis(user_message)
+        if query_info:
+            logger.info(f"Pattern-based analysis successful: {query_info}")
+            return query_info
+        
         # Format conversation history for context
         context = self._format_conversation_history(conversation_history)
         
@@ -99,12 +150,12 @@ Follow this EXACT decision tree - stop at the FIRST YES answer and output the co
 
 5. Is the query about players in the {self.current_tournament} field generally?
    - If YES: Set query_type="tournament_field", needs_tournament_field=true, and players=[]. Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
-   - If NO: Set query_type="general_chat", players=[], and all needs_* fields to false. OUTPUT JSON.
+   - If NO: Set query_type="other_question", players=[], and all needs_* fields to false. OUTPUT JSON.
 
 Output JSON with EXACTLY these fields:
 ```json
 {{
-  "query_type": "<player_info|betting_current|betting_other|mental_rankings|tournament_field|general_chat>",
+  "query_type": "<player_info|betting_current|betting_other|mental_rankings|tournament_field|other_question>",
   "players": ["<List of specific player names mentioned>"],
   "needs_player_data": <true|false>,
   "needs_betting_recommendations": <true|false>,
@@ -135,7 +186,7 @@ CRITICAL: Follow the decision tree in exact order. Stop at the FIRST YES answer 
     def _default_query_info(self) -> Dict[str, Any]:
         """Return default query info when analysis fails."""
         return {
-            'query_type': 'general_chat',
+            'query_type': 'other_question',
             'players': [],
             'needs_player_data': False,
             'needs_betting_recommendations': False,
