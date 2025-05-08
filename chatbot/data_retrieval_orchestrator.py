@@ -151,6 +151,9 @@ class DataRetrievalOrchestrator:
             # Add odds data for current tournament
             self._add_player_odds_data(conn, player_id, data['players'][display_name])
 
+            # Add DFS data for current tournament - ADD THIS LINE
+            self._add_player_dfs_data(conn, player_id, data['players'][display_name])
+
             # Add recent tournament results
             self._add_player_tournament_results(conn, player_id, data['players'][display_name])
     
@@ -422,7 +425,48 @@ class DataRetrievalOrchestrator:
                         'adjusted_ev': best_data['adjusted_ev']
                     }
 
-    # Add this new method to your DataRetrievalOrchestrator class
+    def _add_player_dfs_data(self, conn: sqlite3.Connection, player_id: int, player_data: Dict[str, Any]) -> None:
+        """Add DFS salary and ownership data to player info."""
+        cursor = conn.cursor()
+        
+        # Get the current tournament name
+        event_name = self.current_tournament
+        
+        # Query for DraftKings data
+        cursor.execute('''
+        SELECT salary, proj_ownership
+        FROM dfs_projections
+        WHERE player_id = ? AND event_name = ? AND site = 'draftkings' AND slate = 'main'
+        ''', (player_id, event_name))
+        
+        dk_data = cursor.fetchone()
+        
+        # Query for FanDuel data
+        cursor.execute('''
+        SELECT salary
+        FROM dfs_projections
+        WHERE player_id = ? AND event_name = ? AND site = 'fanduel' AND slate = 'main'
+        ''', (player_id, event_name))
+        
+        fd_data = cursor.fetchone()
+        
+        # Add DFS data if available
+        if dk_data or fd_data:
+            player_data['dfs_data'] = {}
+            
+            # Add salary info
+            salary_parts = []
+            if dk_data and dk_data[0]:
+                salary_parts.append(f"${dk_data[0]} (DraftKings)")
+            if fd_data and fd_data[0]:
+                salary_parts.append(f"${fd_data[0]} (FanDuel)")
+                
+            if salary_parts:
+                player_data['dfs_data']['salary'] = ", ".join(salary_parts)
+            
+            # Add ownership info (only available for DraftKings)
+            if dk_data and dk_data[1]:
+                player_data['dfs_data']['projected_ownership'] = dk_data[1]
 
     def _add_player_tournament_results(self, conn, player_id, data, limit=10):
         """Add recent tournament results to player data"""

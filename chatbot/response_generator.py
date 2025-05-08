@@ -110,6 +110,15 @@ class ResponseGenerator:
 
                         player_parts.append(f"      {market_display}: {market_data.get('american_odds')}{sportsbook_display}, " +
                                         f"EV: {market_data.get('adjusted_ev', 0):.1f}%")
+                        
+                # Add DFS data
+                dfs_data = player_info.get('dfs_data')
+                if dfs_data and player_info.get('in_field'):
+                    player_parts.append("    DFS Data:")
+                    if dfs_data.get('salary'):
+                        player_parts.append(f"      Salary: {dfs_data.get('salary')}")
+                    if dfs_data.get('projected_ownership'):
+                        player_parts.append(f"      Projected ownership: {dfs_data.get('projected_ownership'):.2f}%")
                 
                 # Add mental form
                 mental_form = player_info.get('mental_form')
