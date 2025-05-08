@@ -150,6 +150,9 @@ class DataRetrievalOrchestrator:
             
             # Add odds data for current tournament
             self._add_player_odds_data(conn, player_id, data['players'][display_name])
+
+            # Add recent tournament results
+            self._add_player_tournament_results(conn, player_id, data['players'][display_name])
     
     def _retrieve_betting_recommendations(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
         """Retrieve betting recommendations for the current tournament."""
@@ -163,7 +166,7 @@ class DataRetrievalOrchestrator:
         JOIN mental_form m ON p.id = m.player_id
         WHERE br.event_name = ? 
         AND br.adjusted_ev >= 7.0
-        AND m.score >= 0.10
+        AND m.score >= 0.25
         ORDER BY br.adjusted_ev DESC
         LIMIT 15
         ''', (self.current_tournament,))
@@ -376,18 +379,76 @@ class DataRetrievalOrchestrator:
             FROM bet_recommendations
             WHERE player_id = ? AND event_name = ? AND market = ?
             ORDER BY adjusted_ev DESC
-            LIMIT 1
             ''', (player_id, self.current_tournament, market))
             
-            best_odds = cursor.fetchone()
-            if best_odds:
-                best_odds_dict = dict(best_odds)
-                player_data['odds'][market] = {
-                    'sportsbook': best_odds_dict['sportsbook'],
-                    'decimal_odds': best_odds_dict['decimal_odds'],
-                    'american_odds': self._format_american_odds(best_odds_dict['decimal_odds']),
-                    'adjusted_ev': best_odds_dict['adjusted_ev']
-                }
+            odds_results = cursor.fetchall()
+            
+            if odds_results:
+                # Group by decimal odds to find all sportsbooks offering the same price
+                odds_by_price = {}
+                best_ev = -100  # Track best EV
+                best_odds = None
+                
+                for odds_data in odds_results:
+                    odds_dict = dict(odds_data)
+                    decimal_odds = odds_dict['decimal_odds']
+                    ev = odds_dict['adjusted_ev']
+                    
+                    # Use rounded decimal odds as key to group similar prices
+                    key = round(decimal_odds, 2)
+                    
+                    if key not in odds_by_price:
+                        odds_by_price[key] = {
+                            'decimal_odds': decimal_odds,
+                            'american_odds': self._format_american_odds(decimal_odds),
+                            'adjusted_ev': ev,
+                            'sportsbooks': []
+                        }
+                    
+                    odds_by_price[key]['sportsbooks'].append(odds_dict['sportsbook'])
+                    
+                    # Track best EV
+                    if ev > best_ev:
+                        best_ev = ev
+                        best_odds = key
+                
+                # Use odds with best EV
+                if best_odds is not None:
+                    best_data = odds_by_price[best_odds]
+                    player_data['odds'][market] = {
+                        'sportsbook': ', '.join(best_data['sportsbooks']),
+                        'decimal_odds': best_data['decimal_odds'],
+                        'american_odds': best_data['american_odds'],
+                        'adjusted_ev': best_data['adjusted_ev']
+                    }
+
+    # Add this new method to your DataRetrievalOrchestrator class
+
+    def _add_player_tournament_results(self, conn, player_id, data, limit=10):
+        """Add recent tournament results to player data"""
+        cursor = conn.cursor()
+        
+        # Get recent tournament results
+        cursor.execute('''
+        SELECT event_name, tour, year, finish_position, event_date, course_name
+        FROM tournament_results
+        WHERE player_id = ?
+        ORDER BY event_date DESC
+        LIMIT ?
+        ''', (player_id, limit))
+        
+        results = cursor.fetchall()
+        
+        if results:
+            tournaments = []
+            for result in results:
+                result_dict = dict(result)
+                # Format tour to uppercase
+                result_dict['tour'] = result_dict.get('tour', '').upper()
+                tournaments.append(result_dict)
+            
+            # Add to player data
+            data['recent_tournaments'] = tournaments
     
     def _format_player_name(self, name: str) -> str:
         """Format player name from 'Last, First' to 'First Last'."""
@@ -421,5 +482,59 @@ class DataRetrievalOrchestrator:
             "jordan": "Spieth, Jordan",
             "viktor": "Hovland, Viktor",
             "hovland": "Hovland, Viktor",
-            # Add more common nicknames and variations
+            "JT POSTON": "Poston, J.T.",
+            "VICTOR HOVLAND": "Hovland, Viktor",
+            "NICOLAI HØJGAARD": "Hojgaard, Nicolai",
+            "NIKOLAI HØJGAARD": "Hojgaard, Nicolai",
+            "NIKOLAI HOJGAARD": "Hojgaard, Nicolai",
+            "RASMUS HØJGAARD": "Hojgaard, Rasmus",
+            "AILANO GRILLO": "Grillo, Emiliano",
+            "AILANO GRIO": "Grillo, Emiliano",
+            "EMILIANO GRIO": "Grillo, Emiliano",
+            "CRISTOBAL DEL SOLAR": "Del Solar, Cristobal",
+            "WINDHAM CLARK": "Clark, Wyndham",
+            "MEN WOO LEE": "Lee, Min Woo",
+            "MENWOO LEE": "Lee, Min Woo",
+            "MINWOO LEE": "Lee, Min Woo",
+            "MINU LEE": "Lee, Min Woo",
+            "LUDVIG ÅBERG": "Aberg, Ludvig",
+            "LUDVIG OBERG": "Aberg, Ludvig",
+            "LUDVIG ÄBERG": "Aberg, Ludvig",
+            "STEPHEN JAEGER": "Jaeger, Stephan",
+            "STEVEN Jaeger": "Jaeger, Stephan",
+            "JJ SPAUN": "Spaun, J.J.",
+            "JJ SPAWN": "Spaun, J.J.",
+            "CHARLIE HOFFMAN": "Hoffman, Charley",
+            "TOM MCKIBBEN": "McKibbin, Tom",
+            "ROY MCILROY": "McIlroy, Rory",
+            "JOHN RAHM": "Rahm, Jon",
+            "JOHN ROM": "Rahm, Jon",
+            "HOWTON LEE": "Li, Haotong", 
+            "RICKY FOWLER": "Fowler, Rickie",
+            "THOMAS DIETRY": "Detry, Thomas",
+            "ADRIEN MERONK": "Meronk, Adrian",
+            "MAVERICK MCNEELY": "McNealy, Maverick",
+            "COLIN MORIKAWA": "Morikawa, Collin",
+            "PATRICK ROGERS": "Rodgers, Patrick",
+            "WINDAM CLARK": "Clark, Wyndham",
+            "ALDRI POTGATER": "Potgieter, Aldrich",
+            "JUSTIN SU": "Suh, Justin",
+            "RYAN PEAK": "PEAKE, RYAN",
+            "JOE HEITH": "Highsmith, Joe",
+            "CALLUM HILL": "Hill, Calum",
+            "CARL VILIPS": "Vilips, Karl",
+            "CARL VILLIPS": "Vilips, Karl",
+            "NEIL SHIPLEY": "Shipley, Neal",
+            "JOHNNY VEGAS": "Vegas, Jhonattan",
+            "BRIAN HARMON": "Harman, Brian",
+            "MARK LEISHMAN": "Leishman, Marc",
+            "THORBJØRN OLESEN": "Olesen, Thorbjorn",
+            "SEBASTIAN MUÑOZ": "Munoz, Sebastian",
+            "JOAQUÍN NIEMANN": "Niemann, Joaquin",
+            "JOSE LUIS BALLESTER": "Ballester Barrio, Jose Luis",
+            "JOSÉ LUIS BALLESTER": "Ballester Barrio, Jose Luis",
+            "SCOTTY SCHEFFLER": "Scheffler, Scottie",
+            "EMILIO GONZÁLEZ": "Gonzalez, Emilio",
+            "JULIÁN ETULAIN": "Etulain, Julian",
+            "JORGE FERNÁNDEZ VALDÉS": "Fernandez Valdes, Jorge"
         }

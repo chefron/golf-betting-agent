@@ -81,6 +81,9 @@ class ResponseGenerator:
         if data.get('players'):
             context_parts.append("\nPLAYER DATA:")
             for player_name, player_info in data['players'].items():
+                # Add blank line before each player for readability
+                context_parts.append("")
+
                 if player_info.get('not_found'):
                     context_parts.append(f"  {player_name}: Not found in database")
                     continue
@@ -92,27 +95,53 @@ class ResponseGenerator:
                     player_parts.append("    In the field this week: Yes")
                 else:
                     player_parts.append("    In the field this week: No")
+
+                # Add odds data
+                odds = player_info.get('odds')
+                if odds and player_info.get('in_field'):
+                    player_parts.append("    Odds Data:")
+                    for market, market_data in odds.items():
+                        # Format market name properly
+                        market_display = market.replace('_', ' ').title() if '_' in market else market.capitalize()
+                        
+                        # Add sportsbook(s) to odds display (change #4)
+                        sportsbook = market_data.get('sportsbook', '')
+                        sportsbook_display = f" ({sportsbook})" if sportsbook else ""
+
+                        player_parts.append(f"      {market_display}: {market_data.get('american_odds')}{sportsbook_display}, " +
+                                        f"EV: {market_data.get('adjusted_ev', 0):.1f}%")
                 
                 # Add mental form
                 mental_form = player_info.get('mental_form')
                 if mental_form:
                     player_parts.append(f"    Mental Form Score: {mental_form.get('score')}")
                     player_parts.append(f"    Mental Form Justification: {mental_form.get('justification')}")
-                    player_parts.append(f"    Last Updated: {mental_form.get('last_updated')}")
+                    # Show last updated date (remove time for readability)
+                    last_updated = mental_form.get('last_updated', '')
+                    if last_updated and ' ' in last_updated:
+                        last_updated = last_updated.split(' ')[0]
+                    player_parts.append(f"    Last Updated: {last_updated}")
+
+                # Add recent tournament Results
+                recent_tournaments = player_info.get('recent_tournaments')
+                if recent_tournaments:
+                    player_parts.append("    Recent Tournament Results:")
+                    for tournament in recent_tournaments:
+                        event_name = tournament.get('event_name', 'Unknown')
+                        tour = tournament.get('tour', '').upper()
+                        finish = tournament.get('finish_position', '')
+                        date = tournament.get('event_date', '')
+                        # Format the date to just show year-month-day
+                        if date and ' ' in date:
+                            date = date.split(' ')[0]
+                        
+                        player_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")
                 
                 # Add personality data
                 if player_info.get('nicknames'):
                     player_parts.append(f"    Nicknames: {player_info['nicknames']}")
                 if player_info.get('notes'):
                     player_parts.append(f"    Notes: {player_info['notes']}")
-                
-                # Add odds data
-                odds = player_info.get('odds')
-                if odds and player_info.get('in_field'):
-                    player_parts.append("    Odds Data:")
-                    for market, market_data in odds.items():
-                        player_parts.append(f"      {market.upper()}: {market_data.get('american_odds')} " +
-                                        f"(EV: {market_data.get('adjusted_ev', 0):.1f}%)")
                 
                 context_parts.append("\n".join(player_parts))
         
@@ -238,12 +267,12 @@ You're currently chatting with a user on the Head Pro website. The date is {curr
 
 <CONTEXT>
 <CONVERSATION>
-Here's the recent conversation:
+Here's your conversation with them up to this point:
 {conv_history}
 </CONVERSATION>
 
 <DATA>
-Here's relevant data retrieved from your database:
+Here's some potentially relevant data retrieved from your database:
 {context}
 </DATA>
 {faqs_section}
