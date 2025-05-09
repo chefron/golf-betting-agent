@@ -22,6 +22,7 @@ class DataRetrievalOrchestrator:
             'players': {},
             'tournament': {'name': self.current_tournament},
             'betting_recommendations': [],
+            'dfs_recommendations': [],
             'mental_rankings': {'highest': [], 'lowest': []},
             'tournament_field': {'strongest': [], 'weakest': []},
             'metadata': {
@@ -43,6 +44,9 @@ class DataRetrievalOrchestrator:
             
             if query_info.get('needs_betting_recommendations', False):
                 self._retrieve_betting_recommendations(conn, data)
+
+            if query_info.get('needs_dfs_recommendations', False):  # Add this condition
+                self._retrieve_dfs_recommendations(conn, data)
             
             if query_info.get('needs_mental_rankings', False):
                 self._retrieve_mental_rankings(conn, data)
@@ -190,6 +194,61 @@ class DataRetrievalOrchestrator:
                 'mental_score': rec_dict['mental_score'],
                 'mental_justification': rec_dict['mental_justification']
             })
+
+    def _retrieve_dfs_recommendations(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
+        """Retrieve DFS recommendations for the current tournament."""
+        cursor = conn.cursor()
+        
+        # Get players in current tournament with good mental form, ordered by DK salary
+        cursor.execute('''
+        SELECT 
+            p.id, p.name, 
+            m.score as mental_score, m.justification as mental_justification,
+            dk.salary as dk_salary, fd.salary as fd_salary,
+            dk.proj_ownership as projected_ownership
+        FROM players p
+        JOIN mental_form m ON p.id = m.player_id
+        LEFT JOIN (
+            SELECT player_id, salary, proj_ownership
+            FROM dfs_projections
+            WHERE event_name = ? AND site = 'draftkings' AND slate = 'main'
+        ) dk ON p.id = dk.player_id
+        LEFT JOIN (
+            SELECT player_id, salary
+            FROM dfs_projections
+            WHERE event_name = ? AND site = 'fanduel' AND slate = 'main'
+        ) fd ON p.id = fd.player_id
+        WHERE m.score >= 0.25
+        AND dk.salary IS NOT NULL
+        ORDER BY dk.salary DESC
+        ''', (self.current_tournament, self.current_tournament))
+        
+        dfs_recommendations = []
+        
+        # Process each player
+        for player in cursor.fetchall():
+            player_dict = dict(player)
+            player_id = player_dict['id']
+            
+            # Create player recommendation data
+            player_data = {
+                'player_id': player_id,
+                'player_name': self._format_player_name(player_dict['name']),
+                'mental_score': player_dict['mental_score'],
+                'mental_justification': player_dict['mental_justification'],
+                'dk_salary': player_dict['dk_salary'],
+                'fd_salary': player_dict['fd_salary'],
+                'projected_ownership': player_dict['projected_ownership'],
+                'recent_tournaments': []
+            }
+            
+            # Add recent tournament results (limit to 5)
+            self._add_player_tournament_results(conn, player_id, player_data, limit=5)
+            
+            dfs_recommendations.append(player_data)
+        
+        # Add to data structure
+        data['dfs_recommendations'] = dfs_recommendations
     
     def _retrieve_mental_rankings(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
         """Retrieve mental form rankings (highest and lowest) with field status."""

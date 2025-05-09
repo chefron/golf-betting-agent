@@ -197,7 +197,8 @@ class ResponseGenerator:
                 # Output each bet type
                 for group in market_groups.values():
                     sportsbooks_str = ", ".join(group['sportsbooks'])
-                    context_parts.append(f"     - {group['market'].upper()}: {group['american_odds']} ({sportsbooks_str}), EV: {group['adjusted_ev']:.1f}%")
+                    market_display = group['market'].replace('_', ' ').title() if '_' in group['market'] else group['market'].capitalize()
+                    context_parts.append(f"     - {market_display}: {group['american_odds']} ({sportsbooks_str}), EV: {group['adjusted_ev']:.1f}%")
                 
                 # Add mental assessment
                 context_parts.append(f"     Mental Assessment: {player_data['mental_justification']}")
@@ -205,6 +206,46 @@ class ResponseGenerator:
                 # Add blank line between players for readability
                 if i < len(players_recommendations):
                     context_parts.append("")
+
+        # Add DFS recommendations
+        if data.get('dfs_recommendations'):
+            context_parts.append(f"\nDFS RECOMMENDATIONS for {tournament_name}:")
+            
+            for i, player in enumerate(data['dfs_recommendations']):
+                context_parts.append(f"\n {player['player_name']}:")
+                
+                # Add salary information
+                salary_parts = []
+                if player.get('dk_salary'):
+                    salary_parts.append(f"${player['dk_salary']} (DraftKings)")
+                if player.get('fd_salary'):
+                    salary_parts.append(f"${player['fd_salary']} (FanDuel)")
+                    
+                if salary_parts:
+                    context_parts.append(f"    Salary: {', '.join(salary_parts)}")
+                
+                # Add ownership projection if available
+                if player.get('projected_ownership') is not None:
+                    context_parts.append(f"    Projected ownership: {player['projected_ownership']:.2f}%")
+                
+                # Add mental form data
+                context_parts.append(f"    Mental Form Score: {player['mental_score']}")
+                context_parts.append(f"    Mental Form Justification: {player['mental_justification']}")
+                
+                # Add recent tournament results
+                recent_tournaments = player.get('recent_tournaments')
+                if recent_tournaments:
+                    context_parts.append("    Recent Tournament Results:")
+                    for tournament in recent_tournaments:
+                        event_name = tournament.get('event_name', 'Unknown')
+                        tour = tournament.get('tour', '').upper()
+                        finish = tournament.get('finish_position', '')
+                        date = tournament.get('event_date', '')
+                        # Format the date to just show year-month-day
+                        if date and ' ' in date:
+                            date = date.split(' ')[0]
+                        
+                        context_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")            
         
         # Add mental rankings
         if data.get('mental_rankings', {}).get('highest'):
@@ -315,7 +356,7 @@ You're currently chatting with a user on the Head Pro website. The date is {curr
 
 <CONTEXT>
 <CONVERSATION>
-Here's your conversation with them up to this point:
+Here's your conversation history with this user:
 {conv_history}
 </CONVERSATION>
 
