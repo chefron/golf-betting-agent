@@ -136,20 +136,22 @@ Follow this EXACT decision tree - stop at the FIRST YES answer and output the co
    - If YES: Set query_type="player_info", needs_player_data=true, and include the player names in the players list (fix misspellings and standardize common nicknames like "Rory" → "Rory McIlroy"). Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 2.
 
-2. Is the query about betting recommendations for {self.current_tournament}?
+2. Is the query about DFS (Daily Fantasy Sports) recommendations for {self.current_tournament}?
+   - If YES: Set query_type="dfs_current", needs_dfs_recommendations=true, and players=[] (empty list). Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
+   - If NO: Continue to step 3.
+
+3. Is the query about betting recommendations (non-DFS-related) for {self.current_tournament}? This includes explicit betting queries (about outright winners, placement bets, matchups, etc.) as well as questions like "Who do you like this week?" or "Give me your picks for this tournament."
    - If YES: Set query_type="betting_current", needs_betting_recommendations=true, and players=[] (empty list). Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 3.
 
-3. Is the query about betting recommendations for a tournament other than {self.current_tournament}?
+4. Is the query about betting or DFS recommendations for a tournament OTHER than {self.current_tournament} (such as a LIV Golf event, a DP World Tour Event, or a different PGA event)?
    - If YES: Set query_type="betting_other", players=[], and all needs_* fields to false. STOP HERE AND OUTPUT JSON.
-   - If NO: Continue to step 4.
-
-4. Is the query about mental rankings (strongest/weakest players mentally)?
-   - If YES: Set query_type="mental_rankings", needs_mental_rankings=true, and players=[]. Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 5.
 
-5. Is the query about players in the {self.current_tournament} field generally?
-   - If YES: Set query_type="tournament_field", needs_tournament_field=true, and players=[]. Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
+5. Is the query about the {self.current_tournament} field from a non-betting perspective? For example, "Who looks strongest/weakest in the {self.current_tournament}?" or "Who do you like this week?" (mental assessment without explicit betting intent).
+
+6. Is the query about mental rankings or the mental states of players in general (not specific to {self.current_tournament})? This includes questions about who are the mentally strongest/weakest players overall, who are our favorite and least favorite players, and who we like or not like in general.
+   - If YES: Set query_type="mental_rankings", needs_mental_rankings=true, and players=[]. Set all other needs_* fields to false. STOP HERE AND OUTPUT JSON.
    - If NO: Set query_type="other_question", players=[], and all needs_* fields to false. OUTPUT JSON.
 
 Output JSON with EXACTLY these fields:
