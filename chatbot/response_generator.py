@@ -224,13 +224,52 @@ class ResponseGenerator:
                 context_parts.append(f"     Mental Justification: {player['mental_justification']}")
         
         # Add tournament field data
-        if data.get('tournament_field'):
-            context_parts.append(f"\nPLAYERS IN {tournament_name} FIELD:")
-            for i, player in enumerate(data['tournament_field']):
+        if data.get('tournament_field', {}).get('strongest'):
+            context_parts.append(f"\nMENTALLY STRONGEST PLAYERS in the {tournament_name} field:")
+            for i, player in enumerate(data['tournament_field']['strongest']):
+                    context_parts.append(f"  {i+1}. {player['player_name']}")
+                    context_parts.append(f"     Mental Score: {player['mental_score']}")
+                    context_parts.append(f"     Mental Justification: {player['mental_justification']}")
+                    
+                    # Add recent tournament results
+                    recent_tournaments = player.get('recent_tournaments')
+                    if recent_tournaments:
+                        context_parts.append("     Recent Tournament Results:")
+                        for tournament in recent_tournaments:
+                            event_name = tournament.get('event_name', 'Unknown')
+                            tour = tournament.get('tour', '').upper()
+                            finish = tournament.get('finish_position', '')
+                            date = tournament.get('event_date', '')
+                            # Format the date to just show year-month-day
+                            if date and ' ' in date:
+                                date = date.split(' ')[0]
+                            
+                            context_parts.append(f"       • {date} | {tour} | {event_name}: {finish}")
+            
+        # Handle weakest players - explicitly debug count here
+        if data.get('tournament_field', {}).get('weakest'):
+            context_parts.append(f"\nMENTALLY WEAKEST PLAYERS in the {tournament_name} field:")
+            for i, player in enumerate(data['tournament_field']['weakest']):
+                print(f"DEBUG FORMAT: Processing weakest player {i+1}: {player.get('player_name')}")
                 context_parts.append(f"  {i+1}. {player['player_name']}")
                 context_parts.append(f"     Mental Score: {player['mental_score']}")
                 context_parts.append(f"     Mental Justification: {player['mental_justification']}")
-        
+                
+                # Add recent tournament results
+                recent_tournaments = player.get('recent_tournaments')
+                if recent_tournaments:
+                    context_parts.append("     Recent Tournament Results:")
+                    for tournament in recent_tournaments:
+                        event_name = tournament.get('event_name', 'Unknown')
+                        tour = tournament.get('tour', '').upper()
+                        finish = tournament.get('finish_position', '')
+                        date = tournament.get('event_date', '')
+                        # Format the date to just show year-month-day
+                        if date and ' ' in date:
+                            date = date.split(' ')[0]
+                        
+                        context_parts.append(f"       • {date} | {tour} | {event_name}: {finish}")
+                
         return "\n".join(context_parts)
     
     def _format_conversation_history(self, history: List[Dict[str, Any]] = None) -> str:

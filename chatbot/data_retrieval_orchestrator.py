@@ -23,7 +23,7 @@ class DataRetrievalOrchestrator:
             'tournament': {'name': self.current_tournament},
             'betting_recommendations': [],
             'mental_rankings': {'highest': [], 'lowest': []},
-            'tournament_field': [],
+            'tournament_field': {'strongest': [], 'weakest': []},
             'metadata': {
                 'retrieval_timestamp': datetime.now().isoformat()
             }
@@ -248,30 +248,92 @@ class DataRetrievalOrchestrator:
             })
     
     def _retrieve_tournament_field(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
-        """Retrieve data about players in the current tournament field with strong mental form."""
+        """Retrieve data about players in the current tournament field with strong and weak mental form."""
         cursor = conn.cursor()
         
-        # Get players in the tournament with high mental scores
+        # Initialize the tournament field structure
+        data['tournament_field'] = {'strongest': [], 'weakest': []}
+        
+        # Get players in the current tournament (distinct player_ids)
         cursor.execute('''
-        SELECT DISTINCT p.id, p.name, m.score, m.justification
-        FROM players p
-        JOIN mental_form m ON p.id = m.player_id
-        JOIN bet_recommendations br ON p.id = br.player_id
-        WHERE br.event_name = ?
-        ORDER BY m.score DESC
-        LIMIT 10
+        SELECT DISTINCT player_id
+        FROM bet_recommendations
+        WHERE event_name = ?
         ''', (self.current_tournament,))
         
+        tournament_players = [row[0] for row in cursor.fetchall()]
+        print(f"DEBUG: Found {len(tournament_players)} distinct players in the tournament")
+        
+        if not tournament_players:
+            print(f"DEBUG: No players found for tournament: {self.current_tournament}")
+            return
+        
+        # Use a tuple for the IN clause
+        player_ids_str = ', '.join('?' for _ in tournament_players)
+        
+        # Get players with positive mental scores
+        cursor.execute(f'''
+        SELECT p.id, p.name, m.score, m.justification
+        FROM players p
+        JOIN mental_form m ON p.id = m.player_id
+        WHERE p.id IN ({player_ids_str})
+        AND m.score > 0
+        ORDER BY m.score DESC
+        LIMIT 10
+        ''', tournament_players)
+        
+        # Add strongest players
         for player in cursor.fetchall():
             player_dict = dict(player)
-            data['tournament_field'].append({
-                'player_id': player_dict['id'],
+            player_id = player_dict['id']
+            player_data = {
+                'player_id': player_id,
                 'player_name': self._format_player_name(player_dict['name']),
                 'mental_score': player_dict['score'],
                 'mental_justification': player_dict['justification'],
-                'in_field': True
-            })
-    
+                'in_field': True,
+                'recent_tournaments': []
+            }
+            
+            # Add recent tournament results (limit to 5)
+            self._add_player_tournament_results(conn, player_id, player_data, limit=5)
+            
+            data['tournament_field']['strongest'].append(player_data)
+        
+        # Get players with negative mental scores
+        cursor.execute(f'''
+        SELECT p.id, p.name, m.score, m.justification
+        FROM players p
+        JOIN mental_form m ON p.id = m.player_id
+        WHERE p.id IN ({player_ids_str})
+        AND m.score < 0
+        ORDER BY m.score ASC
+        LIMIT 5
+        ''', tournament_players)
+        
+        weak_results = cursor.fetchall()
+        print(f"DEBUG: Found {len(weak_results)} players with negative mental scores")
+        
+        # Add weakest players
+        for player in weak_results:
+            player_dict = dict(player)
+            player_id = player_dict['id']
+            player_data = {
+                'player_id': player_id,
+                'player_name': self._format_player_name(player_dict['name']),
+                'mental_score': player_dict['score'],
+                'mental_justification': player_dict['justification'],
+                'in_field': True,
+                'recent_tournaments': []
+            }
+            
+            # Add recent tournament results (limit to 5)
+            self._add_player_tournament_results(conn, player_id, player_data, limit=5)
+            
+            data['tournament_field']['weakest'].append(player_data)
+        
+        print(f"DEBUG: Added {len(data['tournament_field']['strongest'])} strongest and {len(data['tournament_field']['weakest'])} weakest players")
+
     def _find_player_by_name(self, conn: sqlite3.Connection, name: str) -> Optional[Dict]:
         """Find a player by name using fuzzy matching."""
         cursor = conn.cursor()
