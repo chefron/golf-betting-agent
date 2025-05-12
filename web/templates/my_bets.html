@@ -45,6 +45,12 @@
     .stat-card:hover {
         transform: translateY(-5px);
     }
+
+    .badge {
+        font-size: 60%;
+        vertical-align: middle;
+    }
+
 </style>
 {% endblock %}
 
@@ -204,7 +210,7 @@
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- Settled Bets Tab -->
         <div class="tab-pane fade" id="settled" role="tabpanel" aria-labelledby="settled-tab">
             {% if settled_bets %}
@@ -219,8 +225,10 @@
                                 <th>Odds</th>
                                 <th>Stake</th>
                                 <th>Result</th>
+                                <th>Payout</th>
                                 <th>Profit/Loss</th>
                                 <th>Settled</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -248,11 +256,33 @@
                                     <td>${{ "%.2f"|format(bet.stake) }}</td>
                                     <td>
                                         {% if bet.outcome == 'win' %}
-                                            <span class="status-badge status-win">WIN</span>
+                                            <span class="status-badge status-win">
+                                                WIN
+                                                {% if bet.is_dead_heat %}
+                                                    <span class="badge bg-warning text-dark ms-1" 
+                                                        data-bs-toggle="tooltip" 
+                                                        data-bs-placement="top" 
+                                                        title="Dead heat rule applied">DH</span>
+                                                {% endif %}
+                                            </span>
                                         {% elif bet.outcome == 'loss' %}
                                             <span class="status-badge status-loss">LOSS</span>
                                         {% elif bet.outcome == 'void' %}
                                             <span class="status-badge status-void">VOID</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if bet.actual_payout is not none %}
+                                            ${{ "%.2f"|format(bet.actual_payout) }}
+                                        {% else %}
+                                            <!-- Fallback to calculated payout for old bets -->
+                                            {% if bet.outcome == 'win' %}
+                                                ${{ "%.2f"|format(bet.stake + bet.profit_loss) }}
+                                            {% elif bet.outcome == 'void' %}
+                                                ${{ "%.2f"|format(bet.stake) }}
+                                            {% else %}
+                                                $0.00
+                                            {% endif %}
                                         {% endif %}
                                     </td>
                                     <td>
@@ -265,6 +295,11 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ bet.settled_date|default('', true) }}</td>
+                                    <td>
+                                        {% if bet.notes %}
+                                            <small>{{ bet.notes }}</small>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -508,6 +543,25 @@
                     <input type="hidden" id="outcomeInput" name="outcome">
                     
                     <p>Are you sure you want to mark this bet as <span id="outcomeDisplay" class="fw-bold"></span>?</p>
+                    
+                    <!-- Dead Heat Section - Only shown for wins -->
+                    <div id="deadHeatSection" style="display: none;">
+                        <hr>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="deadHeatCheckbox" name="is_dead_heat">
+                            <label class="form-check-label" for="deadHeatCheckbox">
+                                Dead heat rule applied?
+                            </label>
+                        </div>
+                        
+                        <div id="deadHeatPayoutSection" style="display: none;">
+                            <div class="mb-3">
+                                <label for="actualPayoutInput" class="form-label">Actual payout received ($)</label>
+                                <input type="number" class="form-control" id="actualPayoutInput" name="actual_payout" step="0.01">
+                                <div class="form-text">Enter the amount the sportsbook actually paid out</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -563,19 +617,43 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.querySelector('#betIdInput').value = betId;
             modal.querySelector('#outcomeInput').value = outcome;
             
-            // Format outcome display
+            // Reset dead heat checkbox
+            const deadHeatCheckbox = modal.querySelector('#deadHeatCheckbox');
+            const deadHeatSection = modal.querySelector('#deadHeatSection');
+            const deadHeatPayoutSection = modal.querySelector('#deadHeatPayoutSection');
+            
+            deadHeatCheckbox.checked = false;
+            deadHeatPayoutSection.style.display = 'none';
+            
+            // Format outcome display and show/hide dead heat section
             const outcomeDisplay = modal.querySelector('#outcomeDisplay');
             if (outcome === 'win') {
                 outcomeDisplay.textContent = 'WON';
                 outcomeDisplay.className = 'fw-bold text-success';
+                deadHeatSection.style.display = 'block';
             } else if (outcome === 'loss') {
                 outcomeDisplay.textContent = 'LOST';
                 outcomeDisplay.className = 'fw-bold text-danger';
+                deadHeatSection.style.display = 'none';
             } else {
                 outcomeDisplay.textContent = 'VOID';
                 outcomeDisplay.className = 'fw-bold text-secondary';
+                deadHeatSection.style.display = 'none';
             }
         });
+        
+        // Handle dead heat checkbox change
+        const deadHeatCheckbox = document.getElementById('deadHeatCheckbox');
+        if (deadHeatCheckbox) {
+            deadHeatCheckbox.addEventListener('change', function() {
+                const deadHeatPayoutSection = document.getElementById('deadHeatPayoutSection');
+                if (this.checked) {
+                    deadHeatPayoutSection.style.display = 'block';
+                } else {
+                    deadHeatPayoutSection.style.display = 'none';
+                }
+            });
+        }
     }
     
     // Handle delete bet modal
@@ -600,6 +678,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
 });
 </script>
 {% endblock %}

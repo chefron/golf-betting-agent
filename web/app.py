@@ -1123,11 +1123,15 @@ def settle_bet():
         flash('Invalid bet settlement data', 'error')
         return redirect(url_for('my_bets'))
     
+    # Get dead heat data
+    is_dead_heat = request.form.get('is_dead_heat') == 'on'  # Checkbox returns 'on' when checked
+    actual_payout = request.form.get('actual_payout')
+    
     conn = get_db_connection(DB_PATH)
     cursor = conn.cursor()
     
     # Get bet details
-    cursor.execute('SELECT stake, odds, player_name, bet_market FROM bets WHERE bet_id = ?', (bet_id,))
+    cursor.execute('SELECT stake, odds, player_name, bet_market, potential_return FROM bets WHERE bet_id = ?', (bet_id,))
     bet = cursor.fetchone()
     
     if not bet:
@@ -1139,28 +1143,59 @@ def settle_bet():
     odds = bet['odds']
     player_name = bet['player_name']
     market = bet['bet_market']
+    original_potential_return = bet['potential_return']
     
     # Calculate profit/loss
     if outcome == 'win':
-        profit_loss = stake * (odds - 1)
+        if is_dead_heat and actual_payout:
+            # Dead heat case - use actual payout
+            actual_payout = float(actual_payout)
+            profit_loss = actual_payout - stake
+            
+            # Update the notes field to include original potential return
+            cursor.execute('''
+            UPDATE bets 
+            SET notes = CASE 
+                WHEN notes IS NULL OR notes = '' THEN ?
+                ELSE notes || ' | ' || ?
+            END
+            WHERE bet_id = ?
+            ''', (
+                f"Original potential return: ${original_potential_return:.2f} (dead heat adjusted)",
+                f"Original potential return: ${original_potential_return:.2f} (dead heat adjusted)",
+                bet_id
+            ))
+        else:
+            # Normal win - calculate standard profit
+            profit_loss = stake * (odds - 1)
+            actual_payout = stake + profit_loss  # Total return
     elif outcome == 'loss':
         profit_loss = -stake
+        actual_payout = 0
     else:  # void
         profit_loss = 0
+        actual_payout = stake  # Stake returned
     
-    # Update the bet
+    # Update the bet with dead heat fields
     cursor.execute('''
     UPDATE bets 
-    SET outcome = ?, settled_date = ?, profit_loss = ?
+    SET outcome = ?, 
+        settled_date = ?, 
+        profit_loss = ?,
+        is_dead_heat = ?,
+        actual_payout = ?
     WHERE bet_id = ?
-    ''', (outcome, datetime.now(), profit_loss, bet_id))
+    ''', (outcome, datetime.now(), profit_loss, 1 if is_dead_heat else 0, actual_payout, bet_id))
     
     conn.commit()
     conn.close()
     
     # Show appropriate message
     if outcome == 'win':
-        flash(f'Bet on {player_name} marked as won! Profit: ${profit_loss:.2f}', 'success')
+        if is_dead_heat:
+            flash(f'Bet on {player_name} marked as won with dead heat adjustment! Net profit: ${profit_loss:.2f}', 'success')
+        else:
+            flash(f'Bet on {player_name} marked as won! Profit: ${profit_loss:.2f}', 'success')
     elif outcome == 'loss':
         flash(f'Bet on {player_name} marked as lost. Loss: ${abs(profit_loss):.2f}', 'danger')
     else:
