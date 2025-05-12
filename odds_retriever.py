@@ -210,6 +210,9 @@ class OddsRetriever:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+
+        # CLEAN UP OLD ODDS BEFORE PROCESSING NEW ONES
+        self._cleanup_old_odds(conn, event_name, self.current_batch_timestamp)
         
         cursor.execute('''
         SELECT p.id, p.name, p.dg_id, m.score
@@ -473,7 +476,26 @@ class OddsRetriever:
             
         except Exception as e:
             logger.error(f"Error storing odds data: {e}")
-    
+
+    def _cleanup_old_odds(self, conn, event_name, current_timestamp):
+        """Remove old odds for the current event before inserting new ones"""
+        cursor = conn.cursor()
+        
+        try:
+            # Delete old odds for this event
+            cursor.execute('''
+            DELETE FROM odds 
+            WHERE event_name = ? 
+            AND timestamp < ?
+            ''', (event_name, current_timestamp))
+            
+            deleted_count = cursor.rowcount
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} old odds records for {event_name}")
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up old odds: {e}")
+        
     def decimal_to_american(self, decimal_odds):
         """Convert decimal odds to American format with proper +/- prefix."""
         if decimal_odds >= 2.0:
