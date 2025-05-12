@@ -19,6 +19,9 @@ from db_utils import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_for_testing")
 
+# Add abs function to Jinja2 globals
+app.jinja_env.globals.update(abs=abs)
+
 app.config['ANTHROPIC_API_KEY'] = os.environ.get('ANTHROPIC_API_KEY')
 app.config['DATAGOLF_API_KEY'] = os.environ.get('DATAGOLF_API_KEY')
 
