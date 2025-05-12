@@ -310,6 +310,37 @@ class ResponseGenerator:
                             date = date.split(' ')[0]
                         
                         context_parts.append(f"       • {date} | {tour} | {event_name}: {finish}")
+
+        # Add model performance data (in _format_data_as_context method)
+        if data.get('model_performance'):
+            model_perf = data['model_performance']
+            
+            # Add overview statistics
+            if model_perf.get('overview'):
+                overview = model_perf['overview']
+                context_parts.append("\nMODEL PERFORMANCE OVERVIEW:")
+                context_parts.append(f"  Total Bets: {overview.get('total_bets', 0)}")
+                context_parts.append(f"  Win Rate: {overview.get('win_rate', 0)}%")
+                context_parts.append(f"  ROI: {overview.get('roi', 0)}%")
+                context_parts.append(f"  Profit/Loss: {overview.get('profit_loss_units', 0)} units")
+                context_parts.append(f"  Average Stake: {overview.get('avg_stake_units', 0)} units")
+                context_parts.append(f"  Average Odds: {overview.get('avg_odds', 0)}")
+            
+            # Add bet history
+            if model_perf.get('bet_history'):
+                context_parts.append("\nBETTING HISTORY (Most Recent First):")
+                for i, bet in enumerate(model_perf['bet_history']):
+                    context_parts.append(f"\n  Bet #{len(model_perf['bet_history']) - i}:")
+                    context_parts.append(f"    Event: {bet['event_name']}")
+                    context_parts.append(f"    Player: {bet['player_name']}")
+                    context_parts.append(f"    Market: {bet['bet_market']}")
+                    context_parts.append(f"    Stake: {bet['stake_units']} units")
+                    context_parts.append(f"    Odds: {bet['american_odds']}")
+                    context_parts.append(f"    Result: {bet['outcome'].upper()}")
+                    context_parts.append(f"    Profit/Loss: {bet['profit_loss_units']}")
+                    context_parts.append(f"    Mental Score at time of bet: {bet['mental_form_score']}")
+                    context_parts.append(f"    EV: {bet['ev']}%")
+                    context_parts.append(f"    Settled: {bet['settled_date']}")
                 
         return "\n".join(context_parts)
     
@@ -370,11 +401,12 @@ Here's some potentially relevant data retrieved from your database:
 <INSTRUCTIONS>
 1. Keep your response relatively concise, focused on answering the query with your blunt, confident, dryly witty tone.
 2. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, but add your own colorful elaboration. If the scores aren't provided, it's possible something is broken and you should tell the user that you don't have access to your notes at the moment. Never fabricate data!
-3. For betting recommendations, focus on the psychological angle that statistical models can't quantify. Only recommened bets where the player has a mental score over .2 AND the EV is positive (preferable over +6.0%)! Many players with positive mental scores are still EV-negative because the odds aren't favorable enough.
-4. If the query is about a future tournament, explain that you don't have data for future events.
-5. For general questions an, see if any of the FAQs apply and use that information in your response, but maintain your distinctive voice.
-6. Today is {current_date}. It's 2025, not 2024. For some reason you tend to get confused about this when referring to past and future years. 2024 was last year, 2025 is this year, 2026 is next year.
-7. Most importantly, DON'T MAKE SHIT UP. I can't reiterate this enough. Only analyze players where mental form data is provided. It's better to say "I don't have data on that" rather than filling gaps with your own assumptions.
+3. For betting recommendations, focus on the psychological angle that statistical models can't quantify. Only recommend bets where the player has a mental score over .2 AND the EV is positive (preferable over +6.0%)! Many players with positive mental scores are still EV-negative because the odds aren't favorable enough.
+4. For model performance questions, explain how your approach works: you combine traditional strokes-gained models with mental form assessments to find edges. Discuss the results with confidence but acknowledge variance exists in betting. Use the actual performance data provided to back up your claims.
+5. If the query is about a future tournament, explain that you don't have data for future events.
+6. For general questions, see if any of the FAQs apply and use that information in your response, but maintain your distinctive voice.
+7. Today is {current_date}. It's 2025, not 2024. For some reason you tend to get confused about this when referring to past and future years. 2024 was last year, 2025 is this year, 2026 is next year.
+8. Most importantly, DON'T MAKE SHIT UP. I can't reiterate this enough. Only analyze players where mental form data is provided. It's better to say "I don't have data on that" rather than filling gaps with your own assumptions.
 </INSTRUCTIONS>
 
 Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query.
@@ -404,7 +436,9 @@ Now please respond to the user as THE HEAD PRO, giving your unfiltered take dire
             
             'mental_rankings': "The mental leaderboard is undergoing maintenance at the moment. The intern spilled bourbon on my psychological evaluation files. Try asking about a specific player or betting recommendations instead.",
             
-            'tournament_field': "I could tell you who's playing this week, but my tournament roster seems to have gone missing. Probably left it at the 19th hole last night. Ask me something specific about a player you're interested in."
+            'tournament_field': "I could tell you who's playing this week, but my tournament roster seems to have gone missing. Probably left it at the 19th hole last night. Ask me something specific about a player you're interested in.",
+            
+            'model_performance': "My betting ledger seems to have gone missing - probably left it at the clubhouse bar. Can't show you the numbers right now, but trust me when I say the model's been printing money when we catch the right mental edges. Try again in a bit."
         }
         
         return fallbacks.get(query_type, 

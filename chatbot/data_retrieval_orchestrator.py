@@ -25,6 +25,7 @@ class DataRetrievalOrchestrator:
             'dfs_recommendations': [],
             'mental_rankings': {'highest': [], 'lowest': []},
             'tournament_field': {'strongest': [], 'weakest': []},
+            'model_performance': {},
             'metadata': {
                 'retrieval_timestamp': datetime.now().isoformat()
             }
@@ -53,6 +54,9 @@ class DataRetrievalOrchestrator:
             
             if query_info.get('needs_tournament_field', False):
                 self._retrieve_tournament_field(conn, data)
+
+            if query_info.get('needs_model_performance', False):  # Add this
+                self._retrieve_model_performance(conn, data)
             
         except Exception as e:
             logger.error(f"Error retrieving data: {e}")
@@ -614,6 +618,133 @@ class DataRetrievalOrchestrator:
             
             # Add to player data
             data['recent_tournaments'] = tournaments
+
+    def _retrieve_model_performance(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
+        """Retrieve betting model performance statistics and bet history."""
+        cursor = conn.cursor()
+        
+        # Initialize model_performance structure
+        data['model_performance'] = {
+            'overview': {},
+            'bet_history': []
+        }
+        
+        # Get overall statistics
+        cursor.execute('''
+        SELECT 
+            COUNT(*) as total_bets,
+            SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as winning_bets,
+            SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losing_bets,
+            SUM(stake) as total_staked,
+            SUM(CASE WHEN outcome IN ('win', 'loss') THEN profit_loss ELSE 0 END) as total_profit_loss,
+            AVG(stake) as avg_stake,
+            AVG(odds) as avg_odds
+        FROM bets
+        WHERE outcome IN ('win', 'loss')
+        ''')
+        
+        stats = cursor.fetchone()
+        
+        if stats:
+            stats_dict = dict(stats)
+            total_bets = stats_dict['total_bets'] or 0
+            winning_bets = stats_dict['winning_bets'] or 0
+            total_staked = stats_dict['total_staked'] or 0
+            total_profit_loss = stats_dict['total_profit_loss'] or 0
+            
+            # Calculate ROI and Win Rate
+            roi = (total_profit_loss / total_staked * 100) if total_staked > 0 else 0
+            win_rate = (winning_bets / total_bets * 100) if total_bets > 0 else 0
+            
+            # Convert to units (1 unit = $10)
+            profit_loss_units = total_profit_loss / 10
+            avg_stake_units = (stats_dict['avg_stake'] or 0) / 10
+            
+            data['model_performance']['overview'] = {
+                'total_bets': total_bets,
+                'winning_bets': winning_bets,
+                'losing_bets': stats_dict['losing_bets'] or 0,
+                'roi': round(roi, 2),
+                'win_rate': round(win_rate, 2),
+                'profit_loss_units': round(profit_loss_units, 2),
+                'avg_stake_units': round(avg_stake_units, 2),
+                'avg_odds': round(stats_dict['avg_odds'] or 0, 2)
+            }
+        
+        # Get individual bet history
+        cursor.execute('''
+        SELECT 
+            b.event_name,
+            b.player_name,
+            b.bet_market,
+            b.stake,
+            b.odds,
+            b.profit_loss,
+            b.mental_form_score,
+            b.expected_value,
+            b.placed_date,
+            b.settled_date,
+            b.is_dead_heat,
+            b.outcome
+        FROM bets b
+        WHERE b.outcome IN ('win', 'loss')
+        ORDER BY b.settled_date DESC
+        ''')
+        
+        bet_history = cursor.fetchall()
+        
+        for bet in bet_history:
+            bet_dict = dict(bet)
+            
+            # Convert stake and profit/loss to units
+            stake_units = bet_dict['stake'] / 10
+            profit_loss_units = bet_dict['profit_loss'] / 10
+            
+            # Format American odds
+            decimal_odds = bet_dict['odds']
+            if decimal_odds >= 2.0:
+                american_odds = f"+{int((decimal_odds - 1) * 100)}"
+            else:
+                american_odds = f"{int(-100 / (decimal_odds - 1))}"
+            
+            # Format market name
+            market = bet_dict['bet_market']
+            if market:
+                market_display = market.replace('_', ' ').title()
+            else:
+                market_display = market
+                
+            # Format profit/loss with proper sign and dead heat notation
+            profit_loss_str = f"{profit_loss_units:.2f}"
+            if bet_dict['is_dead_heat'] and bet_dict['outcome'] == 'win':
+                if profit_loss_units >= 0:
+                    profit_loss_display = f"+{profit_loss_str} units (dead heat reduction)"
+                else:
+                    profit_loss_display = f"{profit_loss_str} units (dead heat reduction)"
+            else:
+                if profit_loss_units >= 0:
+                    profit_loss_display = f"+{profit_loss_str} units"
+                else:
+                    profit_loss_display = f"{profit_loss_str} units"
+            
+            # Format date to just year-month-day
+            settled_date = bet_dict['settled_date']
+            if settled_date and ' ' in settled_date:
+                settled_date = settled_date.split(' ')[0]
+            
+            data['model_performance']['bet_history'].append({
+                'event_name': bet_dict['event_name'],
+                'player_name': bet_dict['player_name'],
+                'bet_market': market_display,
+                'stake_units': round(stake_units, 2),
+                'american_odds': american_odds,
+                'profit_loss_units': profit_loss_display,
+                'mental_form_score': bet_dict['mental_form_score'],
+                'ev': round(bet_dict['expected_value'] or 0, 2),  # Changed from adjusted_ev to ev
+                'placed_date': bet_dict['placed_date'],
+                'settled_date': settled_date,
+                'outcome': bet_dict['outcome']
+            })
     
     def _format_player_name(self, name: str) -> str:
         """Format player name from 'Last, First' to 'First Last'."""

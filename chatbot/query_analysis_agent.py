@@ -164,14 +164,18 @@ Follow this EXACT decision tree - stop at the FIRST YES answer and output the co
    - If YES: Set query_type="mental_rankings" and players=[]. STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 7.
 
-7. Is the query a simple greeting or introduction? This includes any brief conversational opener that doesn't ask for specific information.
+7. Is the query about our betting model's performance, profitability, or how it works? This includes questions like "How does your model work?", "How profitable are you?", "What's your ROI?", "Show me your betting history", etc.
+   - If YES: Set query_type="model_performance" and players=[]. STOP HERE AND OUTPUT JSON.
+   - If NO: Continue to step 8.
+
+8. Is the query a simple greeting or introduction? This includes any brief conversational opener that doesn't ask for specific information.
    - If YES: Set query_type="greeting" and players=[]. STOP HERE AND OUTPUT JSON.
    - If NO: Set query_type="other_question" and players=[]. OUTPUT JSON.
 
 Output JSON with EXACTLY these fields:
 ```json
 {{
-  "query_type": "<player_info|dfs_current|betting_current|betting_other|mental_rankings|tournament_field|greeting|other_question>",
+  "query_type": "<player_info|dfs_current|betting_current|betting_other|mental_rankings|tournament_field|model_performance|greeting|other_question>",
   "players": ["<List of specific player names mentioned>"]
 }}
 
@@ -187,6 +191,7 @@ CRITICAL: Follow the decision tree in exact order. Stop at the FIRST YES answer 
         query_info['needs_dfs_recommendations'] = False
         query_info['needs_mental_rankings'] = False
         query_info['needs_tournament_field'] = False
+        query_info['needs_model_performance'] = False
         
         # Set appropriate field based on query_type
         query_type = query_info.get('query_type', 'other_question')
@@ -201,6 +206,8 @@ CRITICAL: Follow the decision tree in exact order. Stop at the FIRST YES answer 
             query_info['needs_mental_rankings'] = True
         elif query_type == 'tournament_field':
             query_info['needs_tournament_field'] = True
+        elif query_type == 'model_performance':
+            query_info['needs_model_performance'] = True 
         
         # Other query types (greeting, betting_other, other_question) don't need any specific data
         
