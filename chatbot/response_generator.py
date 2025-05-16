@@ -116,6 +116,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
         # Get query type and tournament name from retrieved_data
         query_type = retrieved_data.get('query_info', {}).get('query_type', 'unknown')
         tournament_name = retrieved_data.get('tournament', {}).get('name', 'Unknown Tournament')
+        course_name = retrieved_data.get('tournament', {}).get('course', 'Unknown Course')
         
         # Format the retrieved data as context
         context = self._format_data_as_context(retrieved_data)
@@ -123,8 +124,8 @@ Explain these limitations concisely but colorfully in your response. Be apologet
         # Format conversation history
         conv_history = self._format_conversation_history(conversation_history)
         
-        # Create the prompt with new structure
-        prompt = self._create_prompt(query, context, conv_history, query_type, tournament_name)
+        # Create the prompt
+        prompt = self._create_prompt(query, context, conv_history, query_type, tournament_name, course_name)
         
         try:
             # Call Claude to generate response
@@ -145,7 +146,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
             logger.error(f"Error generating response: {e}")
             return self._generate_fallback_response(query, retrieved_data)
     
-    def _create_prompt(self, query: str, context: str, conv_history: str, query_type: str, tournament_name: str) -> str:
+    def _create_prompt(self, query: str, context: str, conv_history: str, query_type: str, tournament_name: str, course_name: str) -> str:
         """Create the prompt for generating a response with new structure."""
         current_date = datetime.now().strftime("%Y-%m-%d")
         
@@ -154,6 +155,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
         
         # Replace placeholders
         instructions = instructions.replace('{tournament_name}', tournament_name)
+        instructions = instructions.replace('{course_name}', course_name)
         instructions = instructions.replace('{current_date}', current_date)
         
         # Create FAQs section only for 'other_question' queries
@@ -205,13 +207,11 @@ Now please respond to the user as THE HEAD PRO, giving your unfiltered take dire
         """Format retrieved data as context for Claude."""
         context_parts = []
         
-        # Add query type
-        query_type = data.get('query_info', {}).get('query_type', 'unknown')
-        context_parts.append(f"QUERY TYPE: {query_type}")
-        
         # Add current tournament
         tournament_name = data.get('tournament', {}).get('name', 'Unknown Tournament')
+        course_name = data.get('tournament', {}).get('course', 'Unknown Course')
         context_parts.append(f"\nCURRENT TOURNAMENT: {tournament_name}")
+        context_parts.append(f"COURSE: {course_name}")
         
         # Add player data if present
         if data.get('players'):

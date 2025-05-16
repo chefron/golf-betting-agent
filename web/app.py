@@ -130,7 +130,7 @@ def players():
         query += " DESC"
     
     # Add limit to avoid loading too many players at once
-    query += " LIMIT 100"
+    query += " LIMIT 350"
     
     cursor.execute(query, params)
     player_list = cursor.fetchall()

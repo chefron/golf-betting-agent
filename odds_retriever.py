@@ -168,6 +168,40 @@ class OddsRetriever:
         adjusted_ev = self.calculate_ev(adjusted_probability, decimal_odds)
         
         return adjusted_ev, adjustment_factor * 100
+
+    def _update_tournament_info(self, event_name, course_name):
+        """Store or update tournament information in the database"""
+        # Only proceed if we have an event name
+        if not event_name:
+            return
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Check if tournaments table exists, if not create it
+        cursor.execute('''
+        SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('''
+            CREATE TABLE tournaments (
+                id INTEGER PRIMARY KEY,
+                event_name TEXT UNIQUE,
+                course_name TEXT,
+                last_updated TEXT
+            )
+            ''')
+        
+        # Update or insert tournament info
+        cursor.execute('''
+        INSERT OR REPLACE INTO tournaments
+        (event_name, course_name, last_updated)
+        VALUES (?, ?, ?)
+        ''', (event_name, course_name, self.current_batch_timestamp))
+        
+        conn.commit()
+        conn.close()
+        logger.info(f"Updated tournament info for {event_name} at {course_name}")
     
     def update_odds_data(self, markets=None):
         """
@@ -185,6 +219,7 @@ class OddsRetriever:
         
         result = {
             "event_name": None,
+            "course_name": None,
             "last_updated": None,
             "markets": {market: [] for market in markets}
         }
@@ -205,6 +240,40 @@ class OddsRetriever:
         event_name = first_market_data["event_name"]
         result["event_name"] = event_name
         result["last_updated"] = self.current_batch_timestamp
+
+        # Get course name from field-updates API - UPDATED APPROACH
+        field_data = self.fetch_api_data("field-updates", {"tour": "pga"})
+        course_name = None
+        
+        if field_data and "field" in field_data and len(field_data["field"]) > 0:
+            # Course name is in the player entries, not in the top level
+            # Get it from the first player entry
+            course_name = field_data["field"][0].get("course")
+            
+            if course_name:
+                # Store in database
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournaments (
+                    id INTEGER PRIMARY KEY,
+                    event_name TEXT UNIQUE,
+                    course_name TEXT,
+                    last_updated TEXT
+                )
+                ''')
+                
+                cursor.execute('''
+                INSERT OR REPLACE INTO tournaments
+                (event_name, course_name, last_updated)
+                VALUES (?, ?, ?)
+                ''', (event_name, course_name, self.current_batch_timestamp))
+                
+                conn.commit()
+                conn.close()
+
+            # Store tournament info in database
+            self._update_tournament_info(event_name, course_name)
         
         # Fetch all players from database with their mental scores
         conn = sqlite3.connect(self.db_path)

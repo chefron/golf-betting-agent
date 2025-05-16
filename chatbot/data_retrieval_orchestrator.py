@@ -9,8 +9,12 @@ class DataRetrievalOrchestrator:
     def __init__(self, db_path: str = "data/db/mental_form.db"):
         """Initialize the data retrieval orchestrator."""
         self.db_path = db_path
-        self.current_tournament = self._get_current_tournament_name()
         logger.info(f"Initialized data retrieval orchestrator with database: {db_path}")
+        tournament_info = self._get_current_tournament_info()
+        self.current_tournament = tournament_info["name"]
+        self.current_course = tournament_info["course"]
+        logger.info(f"Initialized data retrieval orchestrator with tournament: {self.current_tournament} at {self.current_course}")
+        
     
     def retrieve_data(self, query_info: Dict[str, Any]) -> Dict[str, Any]:
         """Orchestrate retrieval of necessary data based on query analysis."""
@@ -20,7 +24,10 @@ class DataRetrievalOrchestrator:
         data = {
             'query_info': query_info,
             'players': {},
-            'tournament': {'name': self.current_tournament},
+            'tournament': {
+                'name': self.current_tournament,
+                'course': self.current_course
+            },
             'betting_recommendations': [],
             'dfs_recommendations': [],
             'mental_rankings': {'highest': [], 'lowest': []},
@@ -69,14 +76,28 @@ class DataRetrievalOrchestrator:
         
         return data
     
-    def _get_current_tournament_name(self) -> str:
-        """Get the name of the current tournament."""
+    def _get_current_tournament_info(self) -> Dict[str, str]:
+        """Get information about the current tournament, including course name."""
         conn = self._get_db_connection()
         if not conn:
-            return "Unknown Tournament"
+            return {"name": "Unknown Tournament", "course": "Unknown Course"}
         
         try:
             cursor = conn.cursor()
+            
+            # First try to get info from tournaments table
+            cursor.execute('''
+            SELECT event_name, course_name
+            FROM tournaments
+            ORDER BY last_updated DESC
+            LIMIT 1
+            ''')
+            result = cursor.fetchone()
+            
+            if result and result[0]:
+                return {"name": result[0], "course": result[1] or "Unknown Course"}
+            
+            # Fallback to just getting the name from bet_recommendations
             cursor.execute('''
             SELECT event_name
             FROM bet_recommendations
@@ -88,12 +109,14 @@ class DataRetrievalOrchestrator:
             conn.close()
             
             if result:
-                return result[0]
-            return "Unknown Tournament"
+                return {"name": result[0], "course": "Unknown Course"}
+                
+            return {"name": "Unknown Tournament", "course": "Unknown Course"}
         except Exception as e:
-            logger.error(f"Error getting current tournament: {e}")
-            conn.close()
-            return "Unknown Tournament"
+            logger.error(f"Error getting tournament info: {e}")
+            if conn:
+                conn.close()
+            return {"name": "Unknown Tournament", "course": "Unknown Course"}
     
     def _get_db_connection(self) -> Optional[sqlite3.Connection]:
         """Get a connection to the database with better error reporting."""

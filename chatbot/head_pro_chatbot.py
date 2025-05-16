@@ -33,6 +33,7 @@ class HeadProChatbot:
         # Initialize data retriever first to get current tournament
         self.data_retriever = DataRetrievalOrchestrator(db_path)
         self.current_tournament = self.data_retriever.current_tournament
+        self.current_course = self.data_retriever.current_course
         
         # Initialize other components
         self.query_analyzer = QueryAnalysisAgent(self.api_key, self.current_tournament)
@@ -41,7 +42,7 @@ class HeadProChatbot:
         # Conversation history storage
         self.conversations = {}
         
-        logger.info(f"Head Pro chatbot initialized with current tournament: {self.current_tournament}")
+        logger.info(f"Head Pro chatbot initialized with current tournament: {self.current_tournament} at {self.current_course}")
     
     def process_message(self, user_id: str, message: str) -> Dict[str, Any]:
         """Process a user message and generate a response."""
