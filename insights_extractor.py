@@ -226,7 +226,12 @@ def get_player_by_name(conn, name, fuzzy=True):
         "SCOTTY SCHEFFLER": "Scheffler, Scottie",
         "EMILIO GONZÁLEZ": "Gonzalez, Emilio",
         "JULIÁN ETULAIN": "Etulain, Julian",
-        "JORGE FERNÁNDEZ VALDÉS": "Fernandez Valdes, Jorge"
+        "JORGE FERNÁNDEZ VALDÉS": "Fernandez Valdes, Jorge",
+        "TYRELL HATTON": "Hatton, Tyrrell",
+        "STEVEN YEAGER": "Jaeger, Stephan",
+        "NICO ECHEVARRIA": "Echavarria, Nico",
+        "JHONNY VEGAS": "Vegas, Jhonattan"
+        
 
     }
     

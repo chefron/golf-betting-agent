@@ -158,7 +158,7 @@ To arrive at {player_display_name}'s mental form score, you must focus EXCLUSIVE
 **Important Reminders:**
 - Your job is to be **predictive**, not reactive. Look for clues that contradict public perception. Spot a slump forming before it hits the scorecard. Identify a breakout brewing before it becomes obvious.
 - **Default to the neutral range (-0.24 to +0.24)** unless you have strong recent evidence to move the needle. Most golfers should be neutral! Those with only a few insights should probably recieve a score of 0. 0 is the default score!
-- If the golfer's only insights are older than 60 days, the score should never be above +0.24. Today is {today}). Prioritize insights from the past 30 days.
+- If the golfer's only insights are older than 60 days, the score should never be above +0.24. Today is {today}). Prioritize insights from the past 30 days (but don't let a single recent insight override the broader psychological pattern shown across all available data).
 - Don't be afraid to be negative or contrarian. Standard press conference confidence is noise unless unusually authentic or revealing. Vague optimism and cliches are totally meaningless. 
 - **Do not overweight repeated themes.** Ten similar comments don't carry more weight than one—look for unique or revealing signals. More insights doesn't equal a higher score!
 
