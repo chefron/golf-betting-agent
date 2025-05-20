@@ -4,8 +4,12 @@ from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import sys
 
-# Add parent directory to Python path to import chatbot
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add parent directory to path to find the modules
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)  # Add the root directory
+sys.path.append(os.path.join(project_root, 'chatbot'))  # Add the chatbot directory specifically
+
+# Then import using the absolute path
 from chatbot.head_pro_chatbot import HeadProChatbot
 
 # Load environment variables

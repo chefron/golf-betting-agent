@@ -1,0 +1,348 @@
+/* Base Styles */
+:root {
+    --dark-green: #1a4429;
+    --mid-green: #256941;
+    --light-green: #75c095;
+    --black: #121212;
+    --dark-gray: #1e1e1e;
+    --mid-gray: #333333;
+    --light-gray: #bbbbbb;
+    --white: #ffffff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background: url('../images/golf-cup-bg.jpg') center/cover no-repeat;
+    background-color: var(--dark-green); /* Fallback */
+    color: var(--white);
+}
+
+/* Navigation */
+.top-nav, .bottom-nav {
+    position: fixed;
+    width: 100%;
+    text-align: center;
+    z-index: 100;
+    padding: 15px 20px;
+}
+
+.top-nav {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+}
+
+.bottom-nav {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.top-nav h1 {
+    font-size: 1.8rem;
+    letter-spacing: 3px;
+    font-weight: 700;
+    color: var(--white);
+}
+
+.bottom-nav a, .bottom-nav span {
+    color: var(--light-gray);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+}
+
+.bottom-nav a:hover {
+    color: var(--white);
+}
+
+/* Main Chat Area */
+.golf-cup {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-container {
+    width: 90%;
+    max-width: 450px;
+    height: 80vh;
+    max-height: 700px;
+    background: rgba(0,0,0,0.85);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+}
+
+.welcome-message {
+    text-align: center;
+    margin-bottom: 20px;
+    opacity: 0.8;
+}
+
+.welcome-message h2 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    color: var(--light-green);
+}
+
+.welcome-message p {
+    font-size: 0.9rem;
+    color: var(--light-gray);
+}
+
+/* Messages */
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding-right: 10px;
+    /* Hide scrollbar for Chrome/Safari/Opera */
+    scrollbar-width: thin;
+    scrollbar-color: var(--mid-gray) transparent;
+}
+
+.messages::-webkit-scrollbar {
+    width: 5px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background-color: var(--mid-gray);
+    border-radius: 10px;
+}
+
+.message {
+    margin: 10px 0;
+    padding: 12px 16px;
+    border-radius: 18px;
+    max-width: 85%;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.message.user {
+    background: var(--mid-green);
+    color: var(--white);
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+}
+
+.message.assistant {
+    background: var(--mid-gray);
+    color: var(--white);
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+}
+
+.message.typing {
+    opacity: 0.6;
+}
+
+.typing-indicator {
+    display: inline-block;
+}
+
+.typing-indicator span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--light-gray);
+    margin-right: 3px;
+    animation: typing 1.2s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+    margin-right: 0;
+}
+
+@keyframes typing {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Input Area */
+.input-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#message-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+    font-size: 0.95rem;
+    outline: none;
+    transition: background 0.2s ease;
+}
+
+#message-input:focus {
+    background: rgba(255,255,255,0.15);
+}
+
+#message-input::placeholder {
+    color: var(--light-gray);
+    opacity: 0.8;
+}
+
+#send-btn {
+    padding: 0 20px;
+    border: none;
+    border-radius: 20px;
+    background: var(--mid-green);
+    color: var(--white);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+#send-btn:hover {
+    background: var(--light-green);
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    justify-content: center;
+}
+
+#reset-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--light-gray);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+#reset-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+}
+
+#reset-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 200;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: var(--dark-gray);
+    margin: 15% auto;
+    padding: 25px;
+    border: 1px solid var(--mid-gray);
+    border-radius: 15px;
+    width: 80%;
+    max-width: 500px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+}
+
+.modal-content h2 {
+    color: var(--light-green);
+    margin-bottom: 15px;
+}
+
+.modal-content p {
+    margin-bottom: 15px;
+    line-height: 1.5;
+    color: var(--light-gray);
+}
+
+.close {
+    color: var(--light-gray);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--white);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .top-nav h1 {
+        font-size: 1.5rem;
+    }
+    
+    .chat-container {
+        width: 95%;
+        height: 85vh;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+}
+
+@media (max-width: 480px) {
+    .top-nav {
+        padding: 10px;
+    }
+    
+    .top-nav h1 {
+        font-size: 1.2rem;
+    }
+    
+    .chat-container {
+        width: 100%;
+        height: 90vh;
+        border-radius: 0;
+    }
+    
+    .message {
+        max-width: 95%;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+}

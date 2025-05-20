@@ -231,7 +231,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "STEVEN YEAGER": "Jaeger, Stephan",
         "NICO ECHEVARRIA": "Echavarria, Nico",
         "JHONNY VEGAS": "Vegas, Jhonattan",
-        "RYAN GERRARD": "Gerard, Ryan"
+        "RYAN GERRARD": "Gerard, Ryan",
+        "JOHN RAM": "Rahm, Jon"
 
     }
     
