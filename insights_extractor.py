@@ -58,7 +58,7 @@ EXTRACTION GUIDELINES:
 3. QUALITY CONTROLS:
    - Only extract genuine qualitative insights - quality over quantity!
    - DO NOT evaluate or interpret the insight - simply extract and lightly polish the information as presented. Be objective!
-   - Specify the source if mentioned (player, coach, analyst), as well as any tournaments. Context is important.
+   - Specify the source if mentioned (player, coach, analyst), as well as any tournaments and rounds. Context is important!
    - You may lightly polish the language for clarity and readability
    - When time references are ambiguous, interpret them relative to today's date ({today})
 
@@ -71,7 +71,7 @@ For each substantive qualitative insight, format your response exactly as follow
 [DETAILED QUALITATIVE INSIGHT INCLUDING RELEVANT CONTEXT]
 </insight>
 
-While this transcript may discuss the {event_name}, extract all substantive qualitative player insights regardless of whether they relate to this specific event. Each insight may only be assigned to one golfer. When possible, include specific details for each insight such as the tournament names, timing information (e.g., "last week at the 2025 Masters," "during Valspar's final round"), golfers' full names, and any other relevant context. This timeline information will help another LLM establish patterns in the player's mental state, physical health, and other intangibles over time.
+While this transcript may discuss the {event_name}, extract all substantive qualitative player insights regardless of whether they relate to this specific event. Each insight may only be assigned to one golfer. When possible, INCLUDE CONTEXT DETAILS FOR EACH INSIGHT such as the tournament name, timing information (e.g., "this week at the 2025 Masters," "during Valspar's final round"), golfers' full names, and any other relevant context. This timeline information will help another LLM establish patterns in the player's mental state, physical health, and other intangibles over time.
 
 Remember, QUALITY OVER QUANTITY! Be selective, and don't infer anything from performance results!
 
@@ -230,8 +230,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "TYRELL HATTON": "Hatton, Tyrrell",
         "STEVEN YEAGER": "Jaeger, Stephan",
         "NICO ECHEVARRIA": "Echavarria, Nico",
-        "JHONNY VEGAS": "Vegas, Jhonattan"
-        
+        "JHONNY VEGAS": "Vegas, Jhonattan",
+        "RYAN GERRARD": "Gerard, Ryan"
 
     }
     

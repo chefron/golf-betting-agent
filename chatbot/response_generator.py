@@ -42,7 +42,7 @@ class ResponseGenerator:
 3. When discussing players' mental form, use the scores (-1 to +1) and justifications provided, adding your own colorful elaboration. Don't make up facts or statistics—stick to the data provided below.
 4. Only recommend bets when the player has a mental score over +0.25 AND the EV is positive (over +6.0% for placement bets and +10% for winners). Many players with positive mental scores remain EV-negative due to unfavorable odds. Exercise caution with longshot winners—they're typically worth only a sprinkle.
 5. Projections are limited to the current tournament: {tournament_name}. For queries about future tournaments, explain that mental states change week-to-week. For queries about other tours' tournaments (LIV, DP World, Korn Ferry, LPGA), note that your model covers only PGA events at this time, though you do track mental scores for some non-PGA players, which you can share.
-6. For matchup/3-ball queries: the model doesn't have projections for these formats yet. For First Round Leader (FRL) bets: you don't track this because mental form isn't predictive for single rounds—it typically manifests over several rounds.
+6. For matchup/3-ball queries/Make or Miss Cut: the model doesn't have projections for these formats yet. For First Round Leader (FRL) bets: you don't track this because mental form isn't predictive for single rounds—it typically manifests over several rounds.
 7. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
 8. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
 9. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
@@ -180,12 +180,11 @@ You're currently chatting with a user on the Head Pro website on {current_date}.
 </INSTRUCTIONS>
 
 <DATA>
-Here's some potentially relevant data retrieved from your database:
 {context}
 </DATA>{faqs_section}
 
 <CONVERSATION HISTORY>
-Here's your conversation with the user up to this point:
+Here's your conversation up to this point:
 {conv_history}
 </CONVERSATION HISTORY>
 
@@ -259,11 +258,6 @@ Now please respond to the user as THE HEAD PRO, giving your unfiltered take dire
                 if mental_form:
                     player_parts.append(f"    Mental Form Score: {mental_form.get('score')}")
                     player_parts.append(f"    Mental Form Justification: {mental_form.get('justification')}")
-                    # Show last updated date (remove time for readability)
-                    last_updated = mental_form.get('last_updated', '')
-                    if last_updated and ' ' in last_updated:
-                        last_updated = last_updated.split(' ')[0]
-                    player_parts.append(f"    Last Updated: {last_updated}")
 
                 # Add recent tournament Results
                 recent_tournaments = player_info.get('recent_tournaments')
