@@ -188,7 +188,7 @@ Here's your conversation up to this point:
 {conv_history}
 </CONVERSATION HISTORY>
 
-Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query.
+Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query. Use short paragraphs for easy readability.
 </CURRENT TASK>
 """
         # Print full prompt for debugging

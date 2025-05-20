@@ -1,100 +1,99 @@
 document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
-    const messagesDiv = document.getElementById('messages');
+    const initialView = document.getElementById('initial-view');
+    const answerView = document.getElementById('answer-view');
+    const initialInput = document.getElementById('initial-input');
+    const initialSendBtn = document.getElementById('initial-send-btn');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const resetBtn = document.getElementById('reset-btn');
-    const aboutLink = document.getElementById('about-link');
-    const aboutModal = document.getElementById('about-modal');
-    const closeModal = document.querySelector('.close');
-    const welcomeMessage = document.querySelector('.welcome-message');
+    const userQuestion = document.getElementById('user-question');
+    const headProAnswer = document.getElementById('head-pro-answer');
     
     // Generate/retrieve user ID
     const userId = localStorage.getItem('userId') || 
         `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     localStorage.setItem('userId', userId);
     
-    // Load previous messages from localStorage
-    function loadMessages() {
+    // Load previous message if exists
+    function loadLastMessage() {
         const savedMessages = localStorage.getItem(`headpro_messages_${userId}`);
         
         if (savedMessages) {
             try {
                 const messages = JSON.parse(savedMessages);
                 if (messages && messages.length > 0) {
-                    // If we have saved messages, hide welcome message
-                    welcomeMessage.style.display = 'none';
-                    
-                    messages.forEach(msg => {
-                        addMessage(msg.text, msg.sender, false, false);
-                    });
-                    
-                    // Auto-scroll to bottom
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    // Show the last question and answer
+                    showAnswerView(
+                        messages[messages.length - 2]?.text || "", // Last user message
+                        messages[messages.length - 1]?.text || ""  // Last assistant message
+                    );
                 }
             } catch (e) {
                 console.error('Error loading saved messages:', e);
-                // Clear corrupt data
                 localStorage.removeItem(`headpro_messages_${userId}`);
             }
         }
     }
     
-    // Save messages to localStorage
-    function saveMessages() {
-        const messageElements = messagesDiv.querySelectorAll('.message:not(.typing)');
-        const messages = Array.from(messageElements).map(el => ({
-            text: el.textContent,
-            sender: el.classList.contains('user') ? 'user' : 'assistant'
-        }));
+    // Switch to answer view
+    function showAnswerView(question, answer) {
+        userQuestion.textContent = question;
+        headProAnswer.textContent = answer;
         
+        initialView.classList.remove('active');
+        answerView.classList.add('active');
+        
+        // Focus on the input
+        messageInput.focus();
+    }
+    
+    // Switch to initial view
+    function showInitialView() {
+        initialView.classList.add('active');
+        answerView.classList.remove('active');
+        
+        // Clear inputs
+        initialInput.value = '';
+        messageInput.value = '';
+        
+        // Focus on the initial input
+        initialInput.focus();
+    }
+    
+    // Save messages to localStorage
+    function saveMessages(question, answer) {
+        const messages = [];
+        
+        // Add previous messages if available
+        try {
+            const savedMessages = localStorage.getItem(`headpro_messages_${userId}`);
+            if (savedMessages) {
+                messages.push(...JSON.parse(savedMessages));
+            }
+        } catch (e) {
+            console.error('Error loading previous messages:', e);
+        }
+        
+        // Add new messages
+        messages.push(
+            { text: question, sender: 'user' },
+            { text: answer, sender: 'assistant' }
+        );
+        
+        // Save to localStorage
         localStorage.setItem(`headpro_messages_${userId}`, JSON.stringify(messages));
     }
     
-    // Add a message to the chat
-    function addMessage(text, sender, isTyping = false, save = true) {
-        // Hide welcome message when first message is added
-        if (welcomeMessage.style.display !== 'none') {
-            welcomeMessage.style.display = 'none';
-        }
-        
-        const messageDiv = document.createElement('div');
-        const id = `msg-${Date.now()}`;
-        messageDiv.id = id;
-        messageDiv.className = `message ${sender} ${isTyping ? 'typing' : ''}`;
-        
-        if (isTyping) {
-            // Create typing indicator
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'typing-indicator';
-            typingIndicator.innerHTML = '<span></span><span></span><span></span>';
-            messageDiv.appendChild(typingIndicator);
-        } else {
-            messageDiv.textContent = text;
-        }
-        
-        messagesDiv.appendChild(messageDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        
-        // Save messages to localStorage (if not a typing indicator)
-        if (save && !isTyping) {
-            saveMessages();
-        }
-        
-        return id;
-    }
-    
     // Send message to API
-    async function sendMessage() {
-        const message = messageInput.value.trim();
-        if (!message) return;
+    async function sendMessage(message, isInitial = false) {
+        if (!message.trim()) return;
         
-        // Add user message
-        addMessage(message, 'user');
-        messageInput.value = '';
-        
-        // Show typing indicator
-        const typingId = addMessage('', 'assistant', true, false);
+        // Show loading state
+        const targetElement = isInitial ? initialSendBtn : sendBtn;
+        const originalText = targetElement.textContent;
+        targetElement.textContent = "Thinking...";
+        targetElement.disabled = true;
         
         try {
             const response = await fetch('/api/chat', {
@@ -108,20 +107,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const data = await response.json();
+
+            console.log(JSON.stringify(data.response));
             
-            // Remove typing indicator
-            document.getElementById(typingId)?.remove();
+            // Save messages
+            saveMessages(message, data.response);
             
-            // Add Head Pro response
-            addMessage(data.response, 'assistant');
+            // Show answer view
+            showAnswerView(message, data.response);
         } catch (error) {
             console.error('Error sending message:', error);
             
-            // Remove typing indicator
-            document.getElementById(typingId)?.remove();
-            
-            // Add error message
-            addMessage("The Head Pro seems to have wandered off to the 19th hole. Try again in a moment.", 'assistant');
+            // Show error in answer view
+            showAnswerView(
+                message, 
+                "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
+            );
+        } finally {
+            // Reset button state
+            targetElement.textContent = originalText;
+            targetElement.disabled = false;
         }
     }
     
@@ -135,46 +140,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ user_id: userId })
             });
             
-            // Clear messages from UI
-            messagesDiv.innerHTML = '';
-            
             // Clear saved messages
             localStorage.removeItem(`headpro_messages_${userId}`);
             
-            // Show welcome message
-            welcomeMessage.style.display = 'block';
+            // Show initial view
+            showInitialView();
         } catch (error) {
             console.error('Error resetting conversation:', error);
-            addMessage("Couldn't reset the conversation. The Head Pro might be having technical difficulties.", 'assistant');
+            headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
         }
     }
     
     // Event Listeners
-    sendBtn.addEventListener('click', sendMessage);
+    initialSendBtn.addEventListener('click', () => {
+        sendMessage(initialInput.value, true);
+    });
+    
+    initialInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage(initialInput.value, true);
+    });
+    
+    sendBtn.addEventListener('click', () => {
+        sendMessage(messageInput.value);
+        messageInput.value = '';
+    });
     
     messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+            sendMessage(messageInput.value);
+            messageInput.value = '';
+        }
     });
     
     resetBtn.addEventListener('click', resetConversation);
     
-    // Modal controls
-    aboutLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        aboutModal.style.display = 'block';
-    });
-    
-    closeModal.addEventListener('click', () => {
-        aboutModal.style.display = 'none';
-    });
-    
-    window.addEventListener('click', (e) => {
-        if (e.target === aboutModal) {
-            aboutModal.style.display = 'none';
-        }
-    });
-    
     // Initialize
-    loadMessages();
-    messageInput.focus();
+    loadLastMessage();
+    
+    // If no saved message, focus on initial input
+    if (initialView.classList.contains('active')) {
+        initialInput.focus();
+    }
 });

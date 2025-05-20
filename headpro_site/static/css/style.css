@@ -14,14 +14,13 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
     height: 100vh;
     width: 100vw;
     overflow: hidden;
-    background: url('../images/golf-cup-bg.jpg') center/cover no-repeat;
+    background: url('../images/golf-cup-bg.png') center/cover no-repeat;
     background-color: var(--dark-green); /* Fallback */
     color: var(--white);
 }
@@ -30,9 +29,9 @@ body {
 .top-nav, .bottom-nav {
     position: fixed;
     width: 100%;
-    text-align: center;
     z-index: 100;
     padding: 15px 20px;
+    
 }
 
 .top-nav {
@@ -49,10 +48,13 @@ body {
 }
 
 .top-nav h1 {
-    font-size: 1.8rem;
-    letter-spacing: 3px;
-    font-weight: 700;
+    font-size: 4rem;
+    font-weight: 200;
     color: var(--white);
+    font-family: "Aleo", serif;
+    font-optical-sizing: auto;
+    text-shadow: 1px 1px 1px rgb(69, 69, 69);
+    font-style: italic;
 }
 
 .bottom-nav a, .bottom-nav span {
@@ -75,18 +77,131 @@ body {
 }
 
 .chat-container {
-    width: 90%;
-    max-width: 450px;
-    height: 80vh;
-    max-height: 700px;
+    width: 80vmin;
+    height: 80vmin;
+    max-width: 600px;
+    max-height: 600px;
     background: rgba(0,0,0,0.85);
-    border-radius: 20px;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.chat-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
-    border: 1px solid rgba(255,255,255,0.1);
-    overflow: hidden;
+    justify-content: center;
+    padding: 8%;
+}
+
+/* View state handling */
+.view-state {
+    display: none;
+    width: 100%;
+    height: 100%;
+}
+
+.view-state.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Initial view styling */
+#initial-view {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.centered-input-area {
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+#initial-input {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 25px;
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+    font-size: 1rem;
+    text-align: center;
+}
+
+#initial-send-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 25px;
+    background: var(--mid-green);
+    color: var(--white);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Answer view styling */
+#answer-view {
+    justify-content: space-between;
+}
+
+.user-question {
+    font-size: 0.9rem;
+    color: var(--light-gray);
+    text-align: center;
+    margin-bottom: 10px;
+    font-style: italic;
+}
+
+.head-pro-answer {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 40px 0 20px 0;
+    color: #e8e6e6;
+    font-size: 1.1rem;
+    line-height: 1.8; /* Increased from 1.4 */
+    letter-spacing: 0.01em; /* Slight letter spacing */
+    text-indent: 1.5em; /* Adds tab to first line */
+    position: relative;
+    white-space: pre-line;
+    font-family: Georgia, 'Times New Roman', Times, serif; 
+    scrollbar-width: thin;
+    scrollbar-color: var(--mid-gray) transparent;
+}
+
+/* For WebKit browsers */
+.head-pro-answer::-webkit-scrollbar {
+    width: 5px;
+}
+
+.head-pro-answer::-webkit-scrollbar-track {
+    background: transparent;
+    /* Add invisible borders to create space */
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+}
+
+.head-pro-answer::-webkit-scrollbar-thumb {
+    background-color: var(--mid-gray);
+    border-radius: 10px;
+    /* Reduce height of thumb */
+    min-height: 30px;
+    /* Add invisible borders to create space */
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    background-clip: padding-box;
 }
 
 .welcome-message {
@@ -143,14 +258,11 @@ body {
     background: var(--mid-green);
     color: var(--white);
     margin-left: auto;
-    border-bottom-right-radius: 4px;
 }
 
 .message.assistant {
-    background: var(--mid-gray);
-    color: var(--white);
+    color: #F2F2F2;
     margin-right: auto;
-    border-bottom-left-radius: 4px;
 }
 
 .message.typing {
@@ -199,9 +311,6 @@ body {
     border-radius: 20px;
     background: rgba(255,255,255,0.1);
     color: var(--white);
-    font-size: 0.95rem;
-    outline: none;
-    transition: background 0.2s ease;
 }
 
 #message-input:focus {

@@ -7,6 +7,9 @@
     <meta name="description" content="The Head Pro offers unfiltered golf mental form analysis and betting insights. Ask any question about golf players' current mental states.">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav class="top-nav">
@@ -14,26 +17,40 @@
     </nav>
     
     <main class="golf-cup">
-        <div class="chat-container">
-            <div class="welcome-message">
-                <h2>The Head Pro</h2>
-                <p>Unfiltered mental form analysis and golf betting insights.</p>
-            </div>
-            <div id="messages" class="messages"></div>
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="Ask the Head Pro about players, betting, or mental form...">
-                <button id="send-btn">Send</button>
-            </div>
-            <div class="controls">
-                <button id="reset-btn" title="New conversation">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12a9 9 0 0 1-9 9"></path>
-                        <path d="M3 12a9 9 0 0 1 9-9"></path>
-                        <path d="M21 12H3"></path>
-                        <path d="M12 3v6"></path>
-                    </svg>
-                    New Chat
-                </button>
+       <div class="chat-container">
+            <div class="chat-content">
+                <!-- Initial state - just shows input -->
+                <div id="initial-view" class="view-state active">
+                    <div class="welcome-message">
+                        <h2>The Head Pro</h2>
+                        <p>Ask about golf players' mental form or betting insights</p>
+                    </div>
+                    <div class="centered-input-area">
+                        <input type="text" id="initial-input" placeholder="What's your question?">
+                        <button id="initial-send-btn">Ask</button>
+                    </div>
+                </div>
+                
+                <!-- Answer state - shows question, answer, and new input -->
+                <div id="answer-view" class="view-state">
+                    <div id="user-question" class="user-question"></div>
+                    <div id="head-pro-answer" class="head-pro-answer"></div>
+                    <div class="input-area">
+                        <input type="text" id="message-input" placeholder="Ask another question...">
+                        <button id="send-btn">Ask</button>
+                    </div>
+                    <div class="controls">
+                        <button id="reset-btn" title="New conversation">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 12a9 9 0 0 1-9 9"></path>
+                                <path d="M3 12a9 9 0 0 1 9-9"></path>
+                                <path d="M21 12H3"></path>
+                                <path d="M12 3v6"></path>
+                            </svg>
+                            New Question
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
