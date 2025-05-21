@@ -21,8 +21,54 @@ body {
     width: 100vw;
     overflow: hidden;
     background: url('../images/golf-cup-bg.png') center/cover no-repeat;
-    background-color: var(--dark-green); /* Fallback */
+    background-color: var(--dark-green);
     color: var(--white);
+    transition: background-size 0.3s ease;
+}
+
+body.pre-zoom {
+    background-size: 100% auto;
+    transition: none;
+}
+
+body.zooming {
+    background-size: 135% auto;
+    transition: background-size 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+}
+
+body.zoomed {
+    background-size: 135% auto;
+}
+
+body.unzooming {
+    background-size: 100% auto;
+    transition: background-size 1s ease-out;
+}
+
+#cinematic-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0);
+    pointer-events: none;
+    z-index: -1; /* Place it below all content */
+    transition: background-color 0.3s ease;
+}
+
+body.zooming #cinematic-overlay {
+    background-color: rgba(0, 0, 0, 0.4);
+    transition: background-color 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+}
+
+body.zoomed #cinematic-overlay {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+body.unzooming #cinematic-overlay {
+    background-color: rgba(0, 0, 0, 0);
+    transition: background-color 1s ease-out;
 }
 
 /* Navigation */
@@ -31,7 +77,6 @@ body {
     width: 100%;
     z-index: 100;
     padding: 15px 20px;
-    
 }
 
 .top-nav {
@@ -76,16 +121,13 @@ body {
     justify-content: center;
 }
 
+/* Ensuring a perfect circle for the chat container */
 .chat-container {
-    width: 80vmin;
-    height: 80vmin;
-    max-width: 600px;
-    max-height: 600px;
-    background: rgba(0,0,0,0.85);
-    border-radius: 50%;
+    aspect-ratio: 1 / 1; /* Forces a 1:1 aspect ratio (perfect circle) */
+    width: min(80vmin, 800px); /* Use the smaller of 80% viewport min or 800px */
+    max-height: 90vh; /* Prevent overflow on very tall/narrow screens */
+    border-radius: 50%; /* Makes it a circle */
     position: relative;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
-    overflow: hidden;
     margin: 0 auto;
 }
 
@@ -120,33 +162,98 @@ body {
     text-align: center;
 }
 
+/* Initial view input area */
 .centered-input-area {
-    width: 90%;
+    width: 75%;
     display: flex;
-    flex-direction: column;
-    gap: 15px;
     margin-top: 20px;
+    margin-bottom: 15px;
 }
 
-#initial-input {
+/* Answer view input area */
+.input-area {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+/* Container for input and send button */
+.input-container {
+    position: relative;
     width: 100%;
-    padding: 15px;
+    display: flex;
+}
+
+/* Input fields - shared styles */
+#message-input, #initial-input {
+    flex: 1;
+    width: 100%;
+    padding: 12px 16px;
+    padding-right: 50px; /* Make room for the send icon */
     border: none;
-    border-radius: 25px;
+    border-radius: 20px;
     background: rgba(255,255,255,0.1);
     color: var(--white);
-    font-size: 1rem;
-    text-align: center;
 }
 
-#initial-send-btn {
-    padding: 12px;
+/* Input focus states */
+#message-input:focus, #initial-input:focus {
+    background: rgba(255,255,255,0.15);
+    outline: none;
+}
+
+/* Input placeholders */
+#message-input::placeholder, #initial-input::placeholder {
+    color: var(--light-gray);
+    opacity: 0.8;
+}
+
+/* Send icon buttons - fixed size and positioning */
+.send-icon-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px; /* Fixed width */
+    height: 36px; /* Fixed height - equal to width for perfect circle */
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
-    border-radius: 25px;
+    border-radius: 50%;
     background: var(--mid-green);
     color: var(--white);
-    font-weight: 600;
     cursor: pointer;
+    transition: background 0.2s ease;
+    z-index: 10;
+    font-size: 16px; /* Consistent font size for spinner character */
+    padding: 0; /* Remove any padding */
+    outline: none; /* Remove outline */
+}
+
+.send-icon-btn:hover {
+    background: var(--light-green);
+}
+
+.send-icon-btn svg {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+}
+
+/* Hide old buttons */
+button#send-btn:not(.send-icon-btn), 
+button#initial-send-btn:not(.send-icon-btn) {
+    display: none;
+}
+
+/* Improved spinner animation */
+.send-icon-btn.loading {
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
 }
 
 /* Answer view styling */
@@ -171,12 +278,12 @@ body {
     margin: 40px 0 20px 0;
     color: #e8e6e6;
     font-size: 1.1rem;
-    line-height: 1.8; /* Increased from 1.4 */
-    letter-spacing: 0.01em; /* Slight letter spacing */
-    text-indent: 1.5em; /* Adds tab to first line */
+    line-height: 1.8;
+    letter-spacing: 0.01em;
+    text-indent: 1.5em;
     position: relative;
     white-space: pre-line;
-    font-family: Georgia, 'Times New Roman', Times, serif; 
+    font-family: "Aleo", serif;
     scrollbar-width: thin;
     scrollbar-color: var(--mid-gray) transparent;
 }
@@ -188,7 +295,6 @@ body {
 
 .head-pro-answer::-webkit-scrollbar-track {
     background: transparent;
-    /* Add invisible borders to create space */
     border-top: 10px solid transparent;
     border-bottom: 10px solid transparent;
 }
@@ -196,9 +302,7 @@ body {
 .head-pro-answer::-webkit-scrollbar-thumb {
     background-color: var(--mid-gray);
     border-radius: 10px;
-    /* Reduce height of thumb */
     min-height: 30px;
-    /* Add invisible borders to create space */
     border-top: 5px solid transparent;
     border-bottom: 5px solid transparent;
     background-clip: padding-box;
@@ -219,122 +323,6 @@ body {
 .welcome-message p {
     font-size: 0.9rem;
     color: var(--light-gray);
-}
-
-/* Messages */
-.messages {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 15px;
-    padding-right: 10px;
-    /* Hide scrollbar for Chrome/Safari/Opera */
-    scrollbar-width: thin;
-    scrollbar-color: var(--mid-gray) transparent;
-}
-
-.messages::-webkit-scrollbar {
-    width: 5px;
-}
-
-.messages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.messages::-webkit-scrollbar-thumb {
-    background-color: var(--mid-gray);
-    border-radius: 10px;
-}
-
-.message {
-    margin: 10px 0;
-    padding: 12px 16px;
-    border-radius: 18px;
-    max-width: 85%;
-    line-height: 1.4;
-    word-wrap: break-word;
-}
-
-.message.user {
-    background: var(--mid-green);
-    color: var(--white);
-    margin-left: auto;
-}
-
-.message.assistant {
-    color: #F2F2F2;
-    margin-right: auto;
-}
-
-.message.typing {
-    opacity: 0.6;
-}
-
-.typing-indicator {
-    display: inline-block;
-}
-
-.typing-indicator span {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--light-gray);
-    margin-right: 3px;
-    animation: typing 1.2s infinite ease-in-out;
-}
-
-.typing-indicator span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.typing-indicator span:nth-child(3) {
-    animation-delay: 0.4s;
-    margin-right: 0;
-}
-
-@keyframes typing {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-}
-
-/* Input Area */
-.input-area {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-#message-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: none;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.1);
-    color: var(--white);
-}
-
-#message-input:focus {
-    background: rgba(255,255,255,0.15);
-}
-
-#message-input::placeholder {
-    color: var(--light-gray);
-    opacity: 0.8;
-}
-
-#send-btn {
-    padding: 0 20px;
-    border: none;
-    border-radius: 20px;
-    background: var(--mid-green);
-    color: var(--white);
-    cursor: pointer;
-    font-weight: 600;
-    transition: background 0.2s ease;
-}
-
-#send-btn:hover {
-    background: var(--light-green);
 }
 
 /* Controls */
@@ -421,12 +409,8 @@ body {
     }
     
     .chat-container {
-        width: 95%;
-        height: 85vh;
-    }
-    
-    .message {
-        max-width: 90%;
+        width: min(90vmin, 600px);
+        max-height: 85vh;
     }
 }
 
@@ -440,13 +424,16 @@ body {
     }
     
     .chat-container {
-        width: 100%;
-        height: 90vh;
-        border-radius: 0;
+        width: min(95vmin, 400px);
+        max-height: 80vh;
     }
     
-    .message {
-        max-width: 95%;
+    .welcome-message h2 {
+        font-size: 1.3rem;
+    }
+    
+    .welcome-message p {
+        font-size: 0.8rem;
     }
     
     .modal-content {

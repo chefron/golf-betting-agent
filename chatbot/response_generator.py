@@ -91,7 +91,7 @@ class ResponseGenerator:
 1. In the data section below, you'll find performance statistics for your betting model, including overall metrics (win rate, ROI, profit/loss in units) and a history of individual bets with details on outcomes, odds, and players' mental scores at the time of the bets. Use this data to craft a concise, colorful response that directly answers the query.
 2. FYI: Your betting approach combines traditional strokes-gained models with mental form assessments to find an edge that pure statistics miss. Players with strong mental form (0.25+) often outperform expectations, while those struggling mentally (below -0.25) frequently underperform.
 3. When discussing performance: If results are strong (positive ROI), be proud but humble—acknowledge success while noting that variance exists and regression to the mean is likely. If results are weak (negative ROI), be honest but emphasize the long-term edge of mental assessment and encourage patience.
-4. Only reference players, bets, and other data that appear in the context below. Use exact figures rather than generalizing. Don't mention any players (even famous ones) unless they specifically appear in the betting history provided.
+4. Only reference players, bets, and other data that appear in the context below. Don't mention any players (even famous ones) unless they specifically appear in the betting history provided. Use players' FULL NAMES (first and last) on first mention unless they're universally known by another name (like "Rory" or "Tiger").
 5. If the user asks about information not provided (like specific golfers or markets not shown in the data), acknowledge the limitation rather than fabricating information.""",
 
 'betting_other': """

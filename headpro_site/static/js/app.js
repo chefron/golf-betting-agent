@@ -9,6 +9,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const resetBtn = document.getElementById('reset-btn');
     const userQuestion = document.getElementById('user-question');
     const headProAnswer = document.getElementById('head-pro-answer');
+    const aboutLink = document.getElementById('about-link');
+    const aboutModal = document.getElementById('about-modal');
+    const closeModal = document.querySelector('.close');
+    
+    // Define SVG content as constants to ensure consistency when restoring
+    const SEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>`;
+    
+    const LOADING_ICON = '⟳';
     
     // Generate/retrieve user ID
     const userId = localStorage.getItem('userId') || 
@@ -28,6 +39,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         messages[messages.length - 2]?.text || "", // Last user message
                         messages[messages.length - 1]?.text || ""  // Last assistant message
                     );
+                    
+                    // If returning to an existing conversation, already be zoomed
+                    document.body.classList.add('zoomed');
                 }
             } catch (e) {
                 console.error('Error loading saved messages:', e);
@@ -39,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Switch to answer view
     function showAnswerView(question, answer) {
         userQuestion.textContent = question;
-        headProAnswer.textContent = answer;
+        headProAnswer.innerHTML = answer;
         
         initialView.classList.remove('active');
         answerView.classList.add('active');
@@ -57,8 +71,24 @@ document.addEventListener('DOMContentLoaded', function() {
         initialInput.value = '';
         messageInput.value = '';
         
+        // Reset button states explicitly
+        resetSendButtons();
+        
         // Focus on the initial input
         initialInput.focus();
+    }
+    
+    // Helper function to ensure send buttons are in their correct state
+    function resetSendButtons() {
+        // Reset initial send button
+        initialSendBtn.innerHTML = SEND_SVG;
+        initialSendBtn.classList.remove('loading');
+        initialSendBtn.disabled = false;
+        
+        // Reset main send button
+        sendBtn.innerHTML = SEND_SVG;
+        sendBtn.classList.remove('loading');
+        sendBtn.disabled = false;
     }
     
     // Save messages to localStorage
@@ -81,6 +111,12 @@ document.addEventListener('DOMContentLoaded', function() {
             { text: answer, sender: 'assistant' }
         );
         
+        // Limit number of saved messages to prevent localStorage overflow
+        const maxMessages = 50; // 25 exchanges
+        if (messages.length > maxMessages) {
+            messages.splice(0, messages.length - maxMessages);
+        }
+        
         // Save to localStorage
         localStorage.setItem(`headpro_messages_${userId}`, JSON.stringify(messages));
     }
@@ -89,11 +125,23 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
         
-        // Show loading state
-        const targetElement = isInitial ? initialSendBtn : sendBtn;
-        const originalText = targetElement.textContent;
-        targetElement.textContent = "Thinking...";
-        targetElement.disabled = true;
+        // Get the correct button
+        const targetBtn = isInitial ? initialSendBtn : sendBtn;
+        
+        // Set to loading state
+        targetBtn.innerHTML = LOADING_ICON;
+        targetBtn.classList.add('loading');
+        targetBtn.disabled = true;
+        
+        // Begin cinematic zoom when sending first message
+        if (isInitial) {
+            document.body.classList.add('pre-zoom');
+            void document.body.offsetHeight; // Force reflow
+            setTimeout(() => {
+                document.body.classList.remove('pre-zoom');
+                document.body.classList.add('zooming');
+            }, 20);
+        }
         
         try {
             const response = await fetch('/api/chat', {
@@ -107,7 +155,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const data = await response.json();
-
+            
+            // Debug formatting
             console.log(JSON.stringify(data.response));
             
             // Save messages
@@ -115,6 +164,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show answer view
             showAnswerView(message, data.response);
+            
+            // After zoom animation completes, switch to the static zoomed class
+            if (isInitial) {
+                setTimeout(() => {
+                    document.body.classList.remove('zooming');
+                    document.body.classList.add('zoomed');
+                }, 5000);
+            }
+            
         } catch (error) {
             console.error('Error sending message:', error);
             
@@ -123,14 +181,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 message, 
                 "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
             );
+            
+            // Complete the zoom even on error
+            if (isInitial) {
+                setTimeout(() => {
+                    document.body.classList.remove('zooming');
+                    document.body.classList.add('zoomed');
+                }, 5000);
+            }
         } finally {
-            // Reset button state
-            targetElement.textContent = originalText;
-            targetElement.disabled = false;
+            // Reset UI state
+            setTimeout(() => {
+                // Restore the original SVG content
+                targetBtn.innerHTML = SEND_SVG;
+                targetBtn.classList.remove('loading');
+                targetBtn.disabled = false;
+                
+                // Clear the input field
+                if (!isInitial) {
+                    messageInput.value = '';
+                }
+            }, 300); // Slightly longer delay to ensure transitions complete
         }
     }
-    
-    // Reset conversation
+
     async function resetConversation() {
         try {
             // Send reset request to API
@@ -143,8 +217,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clear saved messages
             localStorage.removeItem(`headpro_messages_${userId}`);
             
-            // Show initial view
-            showInitialView();
+            // Reset zoom with a smooth transition back
+            document.body.classList.add('unzooming');
+            
+            // Reset button states explicitly
+            resetSendButtons();
+            
+            // After transition, remove all zoom classes
+            setTimeout(() => {
+                document.body.classList.remove('zoomed', 'zooming', 'unzooming');
+                // Show initial view
+                showInitialView();
+            }, 1000);
+            
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
@@ -162,17 +247,34 @@ document.addEventListener('DOMContentLoaded', function() {
     
     sendBtn.addEventListener('click', () => {
         sendMessage(messageInput.value);
-        messageInput.value = '';
     });
     
     messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             sendMessage(messageInput.value);
-            messageInput.value = '';
         }
     });
     
     resetBtn.addEventListener('click', resetConversation);
+    
+    // Modal controls
+    aboutLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        aboutModal.style.display = 'block';
+    });
+    
+    closeModal.addEventListener('click', () => {
+        aboutModal.style.display = 'none';
+    });
+    
+    window.addEventListener('click', (e) => {
+        if (e.target === aboutModal) {
+            aboutModal.style.display = 'none';
+        }
+    });
+    
+    // Ensure buttons are in their correct initial state
+    resetSendButtons();
     
     // Initialize
     loadLastMessage();
