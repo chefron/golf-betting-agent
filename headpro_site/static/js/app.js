@@ -25,6 +25,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const userId = localStorage.getItem('userId') || 
         `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     localStorage.setItem('userId', userId);
+
+
+    // Get video element
+    const headProVideo = document.querySelector('.head-pro-video');
+    const headProImgContainer = document.querySelector('.head-pro-img-container');
+    console.log('Video element found:', headProVideo !== null);
+
+    if (headProVideo) {
+        // Set to first frame and pause
+        headProVideo.currentTime = 0;
+        headProVideo.pause();
+        
+        // Add event listener for when the video ends
+        headProVideo.addEventListener('ended', function() {
+            // Add fade-out class to container
+            if (headProImgContainer) {
+                headProImgContainer.classList.add('fade-out');
+                
+                // After fade completes, hide completely and adjust layout
+                setTimeout(() => {
+                    headProImgContainer.classList.add('hidden');
+                    document.querySelector('.chat-content').classList.add('conversation-started');
+                }, 1000); // Match this to your CSS transition time
+            }
+        });
+    }
     
     // Load previous message if exists
     function loadLastMessage() {
@@ -124,6 +150,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Send message to API
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
+
+        document.body.classList.add('loading')
         
         // Get the correct button
         const targetBtn = isInitial ? initialSendBtn : sendBtn;
@@ -230,6 +258,40 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset button states explicitly
             resetSendButtons();
             
+            // Reset the Head Pro container
+            const headProImgContainer = document.querySelector('.head-pro-img-container');
+            if (headProImgContainer) {
+                headProImgContainer.classList.remove('fade-out', 'hidden');
+            }
+            
+            // Reset video
+            if (headProVideo) {
+                headProVideo.currentTime = 0;
+                headProVideo.pause();
+            }
+
+            // Reset welcome message visibility
+            const welcomeTagline = document.querySelector('.welcome-tagline');
+            const welcomePrompt = document.querySelector('.welcome-prompt');
+
+            if (welcomeTagline && welcomePrompt) {
+                // Set opacity back to 1 (will be visible because we removed conversation-started class)
+                welcomeTagline.style.opacity = '1';
+                welcomePrompt.style.opacity = '1';
+                
+                // Remove any inline styles after transition completes
+                setTimeout(() => {
+                    welcomeTagline.style.opacity = '';
+                    welcomePrompt.style.opacity = '';
+                }, 100);
+            }
+            
+            // Remove the conversation-started class
+            const chatContent = document.querySelector('.chat-content');
+            if (chatContent) {
+                chatContent.classList.remove('conversation-started');
+            }
+            
             // After transition, remove all zoom classes
             setTimeout(() => {
                 document.body.classList.remove('zoomed', 'zooming', 'unzooming');
@@ -243,25 +305,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Get reference to the video element
-    const headProVideo = document.querySelector('.head-pro-video');
-
     // Function to start video when loading begins
     function startLoadingVideo() {
-        // Add loading class to body
-        document.body.classList.add('loading');
-        
-        // Play the video if it exists
         if (headProVideo) {
             headProVideo.currentTime = 0; // Start from beginning
             headProVideo.play().catch(e => {
-                console.log("Video autoplay prevented:", e);
-                // This can happen due to browser autoplay policies
+                // Handle autoplay prevention (unlikely since this is user-initiated)
+                console.error("Video play failed:", e);
             });
         }
     }
 
-    // Function to stop video when loading ends
+    // Function to stop video when loading ends (if LLM responds quicker than video duratio)
     function stopLoadingVideo() {
         // Remove loading class from body
         document.body.classList.remove('loading');

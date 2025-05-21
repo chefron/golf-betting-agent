@@ -26,11 +26,10 @@
                     <div class="welcome-message">
                         <div class="head-pro-img-container">
                             <div class="head-pro-img-wrapper">
-                                <img src="{{ url_for('static', filename='images/open-hat.png') }}" alt="The Head Pro" class="head-pro-img">
-                                            <!-- Video (hidden by default, shown during loading) -->
-                                <video class="head-pro-video" muted>
+                                <!-- Only the video element - no image -->
+                                <video class="head-pro-video" muted preload="auto" playsinline>
                                     <source src="{{ url_for('static', filename='videos/open-hat-whiskey.mp4') }}" type="video/mp4">
-                                    <!-- Fallback to image if video cannot be played -->
+                                    <!-- Poster attribute as fallback if video fails to load -->
                                 </video>
                             </div>
                         </div>

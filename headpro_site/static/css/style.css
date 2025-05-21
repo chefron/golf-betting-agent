@@ -322,7 +322,6 @@ button#initial-send-btn:not(.send-icon-btn) {
 .welcome-message {
     text-align: center;
     margin-bottom: 20px;
-    margin-top: -5%;
     opacity: 0.8;
 }
 
@@ -333,45 +332,40 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .head-pro-img-container {
+    margin-bottom: 15px;
     position: relative;
+    opacity: 1;
+    transition: opacity 1s ease-out, margin 0.5s ease-out;
+    overflow: hidden;
+}
+
+/* Fade out animation for entire container */
+.head-pro-img-container.fade-out {
+    opacity: 0;
+    margin-bottom: 0;
+}
+
+/* Completely hide the element after fade completes */
+.head-pro-img-container.hidden {
+    display: none;
 }
 
 .head-pro-img-wrapper {
     position: relative;
-    width: 180px;
-    height: 180px;
+    width: 220px;
+    height: 220px;
     margin: 0 auto;
     overflow: hidden;
     border-radius: 50%;
 }
 
-.head-pro-img, .head-pro-video {
-    position: absolute;
-    top: 0;
-    left: 0;
+.head-pro-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
-    -webkit-mask-image: radial-gradient(circle, black 15%, transparent 100%);
-    mask-image: radial-gradient(circle, black 15%, transparent 100%);
-}
-
-/* Video is hidden by default */
-.head-pro-video {
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 2;
-}
-
-/* Video is visible when body has 'loading' class */
-body.loading .head-pro-video {
-    opacity: 1;
-}
-
-/* Image is hidden when body has 'loading' class */
-body.loading .head-pro-img {
-    opacity: 0;
+    -webkit-mask-image: radial-gradient(circle, black 25%, transparent 750%);
+    mask-image: radial-gradient(circle, black 25%, transparent 75%);
 }
 
 .welcome-tagline {
@@ -389,6 +383,47 @@ body.loading .head-pro-img {
 .welcome-message p {
     font-size: 1.1rem;
     color: #d1d1d1;
+}
+
+/* Add transition to welcome message text elements */
+.welcome-tagline, .welcome-prompt {
+    opacity: 1;
+    transition: opacity 0.8s ease-out;
+}
+
+/* Add a loading class to body during API call */
+body.loading .welcome-tagline, 
+body.loading .welcome-prompt {
+    opacity: 0;
+}
+
+/* When conversation has started, keep them hidden */
+.conversation-started .welcome-tagline,
+.conversation-started .welcome-prompt {
+    display: none;
+}
+
+/* Adjust welcome message when conversation starts */
+.conversation-started .welcome-message .welcome-tagline,
+.conversation-started .welcome-message .welcome-prompt {
+    display: none;
+}
+
+/* Add some extra space to the top of the chat content when conversation started */
+.conversation-started {
+    /* Adjust padding or margins as needed */
+    padding-top: 10%;
+}
+
+/* Add special styling for the answer view head pro answer when first shown */
+.conversation-started #head-pro-answer {
+    /* Optional animation for the answer appearing */
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Controls */
