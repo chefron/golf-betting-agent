@@ -12,8 +12,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div id="cinematic-overlay"></div>
     <nav class="top-nav">
         <h1>HEAD PRO</h1>
+        <h3>BETA</h3>
     </nav>
     
     <main class="golf-cup">
@@ -22,22 +24,42 @@
                 <!-- Initial state - just shows input -->
                 <div id="initial-view" class="view-state active">
                     <div class="welcome-message">
-                        <h2>The Head Pro</h2>
-                        <p>Ask about golf players' mental form or betting insights</p>
+                        <div class="head-pro-img-container">
+                            <div class="head-pro-img-wrapper">
+                                <img src="{{ url_for('static', filename='images/open-hat.png') }}" alt="The Head Pro" class="head-pro-img">
+                            </div>
+                        </div>
+                        <p class="welcome-tagline">I'm the Head Pro. I track pro goflers' mental states to find edges that traditional strokes gained betting models miss.</p>
+                        <p class="welcome-prompt">Ask me about players' mental games or betting recommendations.</p>
                     </div>
                     <div class="centered-input-area">
-                        <input type="text" id="initial-input" placeholder="What's your question?">
-                        <button id="initial-send-btn">Ask</button>
+                        <div class="input-container">
+                            <input type="text" id="initial-input" placeholder="How can I help you?">
+                            <button class="send-icon-btn" id="initial-send-btn" aria-label="Send message">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Answer state - shows question, answer, and new input -->
+                
+                <!-- Answer view with input and send icon -->
                 <div id="answer-view" class="view-state">
                     <div id="user-question" class="user-question"></div>
                     <div id="head-pro-answer" class="head-pro-answer"></div>
                     <div class="input-area">
-                        <input type="text" id="message-input" placeholder="Ask another question...">
-                        <button id="send-btn">Ask</button>
+                        <div class="input-container">
+                            <input type="text" id="message-input" placeholder="Ask another question...">
+                            <button class="send-icon-btn" id="send-btn" aria-label="Send message">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="controls">
                         <button id="reset-btn" title="New conversation">
@@ -47,10 +69,12 @@
                                 <path d="M21 12H3"></path>
                                 <path d="M12 3v6"></path>
                             </svg>
-                            New Question
+                            New Convo
                         </button>
                     </div>
                 </div>
+
+
             </div>
         </div>
     </main>
@@ -73,5 +97,6 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
 </body>
 </html>

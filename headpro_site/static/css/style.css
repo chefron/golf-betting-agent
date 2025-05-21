@@ -102,6 +102,17 @@ body.unzooming #cinematic-overlay {
     font-style: italic;
 }
 
+.top-nav h3 {
+    font-size: 1.5rem;
+    font-weight: 200;
+    color: var(--white);
+    font-family: "Aleo", serif;
+    font-optical-sizing: auto;
+    text-shadow: 1px 1px 1px rgb(69, 69, 69);
+    font-style: italic;
+    margin: -.5rem 0  0 16.4rem;
+}
+
 .bottom-nav a, .bottom-nav span {
     color: var(--light-gray);
     text-decoration: none;
@@ -124,8 +135,8 @@ body.unzooming #cinematic-overlay {
 /* Ensuring a perfect circle for the chat container */
 .chat-container {
     aspect-ratio: 1 / 1; /* Forces a 1:1 aspect ratio (perfect circle) */
-    width: min(80vmin, 800px); /* Use the smaller of 80% viewport min or 800px */
-    max-height: 90vh; /* Prevent overflow on very tall/narrow screens */
+    width: min(70vmin); /* Use the smaller of 80% viewport min or 800px */
+    max-height: 70vh; /* Prevent overflow on very tall/narrow screens */
     border-radius: 50%; /* Makes it a circle */
     position: relative;
     margin: 0 auto;
@@ -311,6 +322,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 .welcome-message {
     text-align: center;
     margin-bottom: 20px;
+    margin-top: -5%;
     opacity: 0.8;
 }
 
@@ -320,9 +332,42 @@ button#initial-send-btn:not(.send-icon-btn) {
     color: var(--light-green);
 }
 
+.head-pro-img-container {
+    position: relative;
+}
+
+.head-pro-img-wrapper {
+    position: relative;
+    width: 70%;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 50%;
+}
+
+.head-pro-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    -webkit-mask-image: radial-gradient(circle, black 15%, transparent 100%);
+    mask-image: radial-gradient(circle, black 15%, transparent 100%);
+}
+
+.welcome-tagline {
+    margin-bottom: 6px;
+    line-height: 1.4;
+    font-weight: 500;
+    font-family: "Aleo", serif;
+}
+
+.welcome-prompt {
+    line-height: 1.4;
+    font-family: "Aleo", serif;
+}
+
 .welcome-message p {
-    font-size: 0.9rem;
-    color: var(--light-gray);
+    font-size: 1.1rem;
+    color: #d1d1d1;
 }
 
 /* Controls */
@@ -412,6 +457,10 @@ button#initial-send-btn:not(.send-icon-btn) {
         width: min(90vmin, 600px);
         max-height: 85vh;
     }
+
+    .head-pro-img {
+        max-width: 150px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -426,6 +475,10 @@ button#initial-send-btn:not(.send-icon-btn) {
     .chat-container {
         width: min(95vmin, 400px);
         max-height: 80vh;
+    }
+
+    .head-pro-img {
+        max-width: 120px;
     }
     
     .welcome-message h2 {
