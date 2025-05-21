@@ -132,6 +132,9 @@ document.addEventListener('DOMContentLoaded', function() {
         targetBtn.innerHTML = LOADING_ICON;
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
+
+        // BEGIN MODIFICATION: Start the loading video
+        startLoadingVideo();
         
         // Begin cinematic zoom when sending first message
         if (isInitial) {
@@ -189,6 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.body.classList.add('zoomed');
                 }, 5000);
             }
+
         } finally {
             // Reset UI state
             setTimeout(() => {
@@ -196,6 +200,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 targetBtn.innerHTML = SEND_SVG;
                 targetBtn.classList.remove('loading');
                 targetBtn.disabled = false;
+
+                // Stop the loading video
+                stopLoadingVideo();
                 
                 // Clear the input field
                 if (!isInitial) {
@@ -233,6 +240,38 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
+        }
+    }
+
+    // Get reference to the video element
+    const headProVideo = document.querySelector('.head-pro-video');
+
+    // Function to start video when loading begins
+    function startLoadingVideo() {
+        // Add loading class to body
+        document.body.classList.add('loading');
+        
+        // Play the video if it exists
+        if (headProVideo) {
+            headProVideo.currentTime = 0; // Start from beginning
+            headProVideo.play().catch(e => {
+                console.log("Video autoplay prevented:", e);
+                // This can happen due to browser autoplay policies
+            });
+        }
+    }
+
+    // Function to stop video when loading ends
+    function stopLoadingVideo() {
+        // Remove loading class from body
+        document.body.classList.remove('loading');
+        
+        // Pause the video if it exists
+        if (headProVideo) {
+            // Wait a bit for the fade-out transition to complete
+            setTimeout(() => {
+                headProVideo.pause();
+            }, 300);
         }
     }
     

@@ -338,19 +338,40 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-wrapper {
     position: relative;
-    width: 70%;
+    width: 180px;
+    height: 180px;
     margin: 0 auto;
     overflow: hidden;
     border-radius: 50%;
 }
 
-.head-pro-img {
+.head-pro-img, .head-pro-video {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    border-radius: 50%;
     object-fit: cover;
+    border-radius: 50%;
     -webkit-mask-image: radial-gradient(circle, black 15%, transparent 100%);
     mask-image: radial-gradient(circle, black 15%, transparent 100%);
+}
+
+/* Video is hidden by default */
+.head-pro-video {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+}
+
+/* Video is visible when body has 'loading' class */
+body.loading .head-pro-video {
+    opacity: 1;
+}
+
+/* Image is hidden when body has 'loading' class */
+body.loading .head-pro-img {
+    opacity: 0;
 }
 
 .welcome-tagline {

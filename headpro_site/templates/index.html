@@ -27,10 +27,15 @@
                         <div class="head-pro-img-container">
                             <div class="head-pro-img-wrapper">
                                 <img src="{{ url_for('static', filename='images/open-hat.png') }}" alt="The Head Pro" class="head-pro-img">
+                                            <!-- Video (hidden by default, shown during loading) -->
+                                <video class="head-pro-video" muted>
+                                    <source src="{{ url_for('static', filename='videos/open-hat-whiskey.mp4') }}" type="video/mp4">
+                                    <!-- Fallback to image if video cannot be played -->
+                                </video>
                             </div>
                         </div>
-                        <p class="welcome-tagline">I'm the Head Pro. I track pro goflers' mental states to find edges that traditional strokes gained betting models miss.</p>
-                        <p class="welcome-prompt">Ask me about players' mental games or betting recommendations.</p>
+                        <p class="welcome-tagline">I'm the Head Pro. I track pro goflers' mental states to find edges that traditional strokes-gained betting models miss.</p>
+                        <p class="welcome-prompt">Ask me about players' mental games or betting recommendations for this week.</p>
                     </div>
                     <div class="centered-input-area">
                         <div class="input-container">
