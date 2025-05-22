@@ -361,6 +361,12 @@ button#initial-send-btn:not(.send-icon-btn) {
     margin-bottom: 0;
     opacity: 0.85;
     font-size: 1.1rem;
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .head-pro-img-container {
@@ -397,6 +403,30 @@ button#initial-send-btn:not(.send-icon-btn) {
     border-radius: 50%;
     -webkit-mask-image: radial-gradient(circle, black 25%, transparent 750%);
     mask-image: radial-gradient(circle, black 25%, transparent 75%);
+}
+
+/* Thinking message styling */
+.thinking-message {
+    text-align: center;
+    color: var(--light-gray);
+    font-size: 1rem;
+    font-family: "Aleo", serif;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    margin-top: 1rem;
+    position: fixed;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    min-width: 200px;
+    white-space: nowrap;
+    z-index: 50;
+}
+
+.thinking-message.show {
+    opacity: 1;
 }
 
 .welcome-tagline {
@@ -486,6 +516,52 @@ body.loading #initial-view .centered-input-area {
 #reset-btn svg {
     width: 14px;
     height: 14px;
+}
+
+/* Simple hole suction animation - scale down to center */
+@keyframes suckIntoHole {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* Classes to trigger the animations - with higher specificity */
+#answer-view.sucking .user-question {
+    animation: suckIntoHole 0.6s ease-in forwards !important;
+    transform-origin: center center !important;
+}
+
+#answer-view.sucking .head-pro-answer {
+    animation: suckIntoHole 0.7s ease-in forwards !important;
+    animation-delay: 0.1s !important;
+    transform-origin: center center !important;
+}
+
+#answer-view.sucking .input-area {
+    animation: suckIntoHole 0.6s ease-in forwards !important;
+    animation-delay: 0.2s !important;
+    transform-origin: center center !important;
+}
+
+#answer-view.sucking .controls {
+    animation: suckIntoHole 0.5s ease-in forwards !important;
+    animation-delay: 0.3s !important;
+    transform-origin: center center !important;
+}
+
+/* Ensure elements are hidden after animation completes */
+#answer-view.sucked .user-question,
+#answer-view.sucked .head-pro-answer,
+#answer-view.sucked .input-area,
+#answer-view.sucked .controls {
+    transform: scale(0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 /* Modal */

@@ -58,7 +58,7 @@ class ResponseGenerator:
 
 'dfs_current': """
 1. In the data section below, you'll find DFS-relevant data for players with a mental score +0.25 who playing in the {tournament_name}, including DraftKings/FanDuel salaries, projected ownership percentages, mental form scores with detailed justifications, and more. Use this data to craft a concise, colorful response that directly answers the query.
-2. If the user asks for lineup advice, consider players at different salary tiers: high ($9,000+), mid ($7,500-$8,900), and value (below $7,500) on DraftKings. Most DFS lineups need a mix of these tiers to fit under the $50K salary cap ($60K for FanDuel).
+2. If the user asks for lineup advice, consider players at different salary tiers: high ($9,000+), mid ($7,500-$8,900), and value (below $7,500) on DraftKings. Most DFS lineups need a mix of these tiers to fit under the $50K salary cap ($60K for FanDuel). Lineups are composed of six players.
 3. For tournaments (GPPs), suggest lower-owned players (under 12%) with upside. For cash games (50/50s, double-ups), you can recommend more widely-owned players with consistent performance. 
 4. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
 5. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
@@ -188,7 +188,7 @@ Here's your conversation up to this point:
 {conv_history}
 </CONVERSATION HISTORY>
 
-Now please respond to the user as THE HEAD PRO, giving your unfiltered take directly addressing their query. Don't use tags or titles -- keep it conversational. Be concise. Use short paragraphs for easy readability.
+Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing their query. Don't use tags or titles -- keep it conversational. Be concise. Use short paragraphs for easy readability.
 </CURRENT TASK>
 """
         # Print full prompt for debugging

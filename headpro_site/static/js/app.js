@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const aboutLink = document.getElementById('about-link');
     const aboutModal = document.getElementById('about-modal');
     const closeModal = document.querySelector('.close');
+    const thinkingMessage = document.getElementById('thinking-message');
     
     // Define SVG content as constants to ensure consistency when restoring
     const SEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -150,6 +151,31 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem(`headpro_messages_${userId}`, JSON.stringify(messages));
     }
     
+    // Function to start video when loading begins
+    function startLoadingVideo() {
+        if (headProVideo) {
+            headProVideo.currentTime = 0; // Start from beginning
+            headProVideo.play().catch(e => {
+                // Handle autoplay prevention (unlikely since this is user-initiated)
+                console.error("Video play failed:", e);
+            });
+        }
+    }
+
+    // Function to stop video when loading ends (if LLM responds quicker than video duration)
+    function stopLoadingVideo() {
+        // Remove loading class from body
+        document.body.classList.remove('loading');
+        
+        // Pause the video if it exists
+        if (headProVideo) {
+            // Wait a bit for the fade-out transition to complete
+            setTimeout(() => {
+                headProVideo.pause();
+            }, 300);
+        }
+    }
+    
     // Send message to API
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
@@ -164,7 +190,12 @@ document.addEventListener('DOMContentLoaded', function() {
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
 
-        // BEGIN MODIFICATION: Start the loading video
+        // Show thinking message when starting to load
+        if (isInitial && thinkingMessage) {
+            thinkingMessage.classList.add('show');
+        }
+
+        // START the loading video
         startLoadingVideo();
         
         // Begin cinematic zoom when sending first message
@@ -227,6 +258,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             // Reset UI state
             setTimeout(() => {
+                // Hide thinking message
+                if (thinkingMessage) {
+                    thinkingMessage.classList.remove('show');
+                }
+                
                 // Restore the original SVG content
                 targetBtn.innerHTML = SEND_SVG;
                 targetBtn.classList.remove('loading');
@@ -245,8 +281,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function resetConversation() {
         try {
-            // Send reset request to API
-            await fetch('/api/reset', {
+            // Start the suction animation if we're in answer view
+            if (answerView.classList.contains('active')) {
+                answerView.classList.add('sucking');
+            }
+            
+            // Start unzooming immediately (don't wait for suction)
+            document.body.classList.add('unzooming');
+            
+            // Start API reset and other cleanup in parallel
+            const resetPromise = fetch('/api/reset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId })
@@ -255,11 +299,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clear saved messages
             localStorage.removeItem(`headpro_messages_${userId}`);
             
-            // Reset zoom with a smooth transition back
-            document.body.classList.add('unzooming');
-            
             // Reset button states explicitly
             resetSendButtons();
+            
+            // Reset thinking message
+            if (thinkingMessage) {
+                thinkingMessage.classList.remove('show');
+            }
             
             // Reset the Head Pro container
             const headProImgContainer = document.querySelector('.head-pro-img-container');
@@ -295,9 +341,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 chatContent.classList.remove('conversation-started');
             }
             
-            // After transition, remove all zoom classes
+            // Wait for suction animation to complete
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Mark as completely sucked
+            if (answerView.classList.contains('active')) {
+                answerView.classList.add('sucked');
+            }
+            
+            // Wait for API reset to complete
+            await resetPromise;
+            
+            // After transition, remove all zoom classes and reset answer view
             setTimeout(() => {
                 document.body.classList.remove('zoomed', 'zooming', 'unzooming');
+                
+                // Clean up the answer view classes
+                answerView.classList.remove('sucking', 'sucked');
+                
                 // Show initial view
                 showInitialView();
             }, 1000);
@@ -305,31 +366,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
-        }
-    }
-
-    // Function to start video when loading begins
-    function startLoadingVideo() {
-        if (headProVideo) {
-            headProVideo.currentTime = 0; // Start from beginning
-            headProVideo.play().catch(e => {
-                // Handle autoplay prevention (unlikely since this is user-initiated)
-                console.error("Video play failed:", e);
-            });
-        }
-    }
-
-    // Function to stop video when loading ends (if LLM responds quicker than video duratio)
-    function stopLoadingVideo() {
-        // Remove loading class from body
-        document.body.classList.remove('loading');
-        
-        // Pause the video if it exists
-        if (headProVideo) {
-            // Wait a bit for the fade-out transition to complete
-            setTimeout(() => {
-                headProVideo.pause();
-            }, 300);
         }
     }
     
