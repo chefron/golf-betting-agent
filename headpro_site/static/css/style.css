@@ -32,12 +32,12 @@ body.pre-zoom {
 }
 
 body.zooming {
-    background-size: 135% auto;
+    background-size: 145% auto;
     transition: background-size 3s cubic-bezier(0.1, 0.7, 0.6, 1);
 }
 
 body.zoomed {
-    background-size: 135% auto;
+    background-size: 145% auto;
 }
 
 body.unzooming {
@@ -88,7 +88,7 @@ body.unzooming #cinematic-overlay {
     bottom: 0;
     background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 15px;
 }
 
@@ -135,8 +135,8 @@ body.unzooming #cinematic-overlay {
 /* Ensuring a perfect circle for the chat container */
 .chat-container {
     aspect-ratio: 1 / 1; /* Forces a 1:1 aspect ratio (perfect circle) */
-    width: min(70vmin); /* Use the smaller of 80% viewport min or 800px */
-    max-height: 70vh; /* Prevent overflow on very tall/narrow screens */
+    width: min(96vmin);
+    max-height: 96vh; /* Prevent overflow on very tall/narrow screens */
     border-radius: 50%; /* Makes it a circle */
     position: relative;
     margin: 0 auto;
@@ -150,8 +150,8 @@ body.unzooming #cinematic-overlay {
     bottom: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 8%;
+    justify-content: space-between;
+    padding: 3%;
 }
 
 /* View state handling */
@@ -168,23 +168,41 @@ body.unzooming #cinematic-overlay {
 
 /* Initial view styling */
 #initial-view {
+    justify-content: space-between;
+    align-items: center;
+    width: 75%;
+    height: 75%;
+    margin: auto;
+    gap: 0;
+}
+
+#initial-view .welcome-message {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    text-align: center;
+}
+
+#initial-view .centered-input-area {
+    width: 75%;
+    display: flex;
+    margin: 0;
+    transform: translateY(-1rem);
+    opacity: 1;
+    transition: opacity 0.8s ease-out;
 }
 
 /* Initial view input area */
 .centered-input-area {
     width: 75%;
     display: flex;
-    margin-top: 20px;
-    margin-bottom: 15px;
 }
 
 /* Answer view input area */
 .input-area {
     display: flex;
-    margin-bottom: 15px;
+    margin-bottom: 25px;
 }
 
 /* Container for input and send button */
@@ -203,6 +221,7 @@ body.unzooming #cinematic-overlay {
     border: none;
     border-radius: 20px;
     background: rgba(255,255,255,0.1);
+    font-family: "Aleo", serif;
     color: var(--white);
 }
 
@@ -272,11 +291,30 @@ button#initial-send-btn:not(.send-icon-btn) {
     justify-content: space-between;
 }
 
+#answer-view .user-question {
+    margin-bottom: 10px;
+}
+
+#answer-view .head-pro-answer {
+    flex: 1;
+    overflow-y: auto;
+    margin: 10px 0 0;
+}
+
+#answer-view .input-area {
+    margin: 5% auto 2%;
+    width: 75%;
+}
+
+#answer-view .controls {
+    margin-top: 10px;
+}
+
 .user-question {
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--light-gray);
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 2%;
     font-style: italic;
 }
 
@@ -284,19 +322,18 @@ button#initial-send-btn:not(.send-icon-btn) {
     flex: 1;
     overflow-y: auto;
     overflow-x: visible;
-    padding: 15px;
+    padding: 3%;
     border-radius: 5px;
-    margin: 40px 0 20px 0;
+    margin: 20px 0 20px 0;
     color: #e8e6e6;
     font-size: 1.1rem;
-    line-height: 1.8;
+    line-height: 1.7;
     letter-spacing: 0.01em;
-    text-indent: 1.5em;
     position: relative;
     white-space: pre-line;
     font-family: "Aleo", serif;
     scrollbar-width: thin;
-    scrollbar-color: var(--mid-gray) transparent;
+    scrollbar-color: var(--mid-gray) transparent;;
 }
 
 /* For WebKit browsers */
@@ -321,14 +358,9 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .welcome-message {
     text-align: center;
-    margin-bottom: 20px;
-    opacity: 0.8;
-}
-
-.welcome-message h2 {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-    color: var(--light-green);
+    margin-bottom: 0;
+    opacity: 0.85;
+    font-size: 1.1rem;
 }
 
 .head-pro-img-container {
@@ -342,7 +374,6 @@ button#initial-send-btn:not(.send-icon-btn) {
 /* Fade out animation for entire container */
 .head-pro-img-container.fade-out {
     opacity: 0;
-    margin-bottom: 0;
 }
 
 /* Completely hide the element after fade completes */
@@ -352,8 +383,8 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-wrapper {
     position: relative;
-    width: 220px;
-    height: 220px;
+    width: 210px;
+    height: 210px;
     margin: 0 auto;
     overflow: hidden;
     border-radius: 50%;
@@ -369,19 +400,18 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .welcome-tagline {
-    margin-bottom: 6px;
-    line-height: 1.4;
-    font-weight: 500;
+    margin-bottom: 1rem;
+    font-weight: 700;
     font-family: "Aleo", serif;
 }
 
 .welcome-prompt {
-    line-height: 1.4;
     font-family: "Aleo", serif;
+    margin-top: .5rem;
+    font-weight: 300;
 }
 
 .welcome-message p {
-    font-size: 1.1rem;
     color: #d1d1d1;
 }
 
@@ -393,7 +423,8 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 /* Add a loading class to body during API call */
 body.loading .welcome-tagline, 
-body.loading .welcome-prompt {
+body.loading .welcome-prompt,
+body.loading #initial-view .centered-input-area {
     opacity: 0;
 }
 
@@ -442,6 +473,7 @@ body.loading .welcome-prompt {
     background: transparent;
     color: var(--light-gray);
     cursor: pointer;
+    font-family: "Aleo", serif;
     font-size: 0.85rem;
     transition: all 0.2s ease;
 }

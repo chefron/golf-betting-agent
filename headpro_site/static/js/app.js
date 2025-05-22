@@ -83,6 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         initialView.classList.remove('active');
         answerView.classList.add('active');
+
+        // Auto-scroll the answer area to the top
+        headProAnswer.scrollTop = 0;
         
         // Focus on the input
         messageInput.focus();
