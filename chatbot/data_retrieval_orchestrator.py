@@ -191,6 +191,10 @@ class DataRetrievalOrchestrator:
     def _retrieve_betting_recommendations(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
         """Retrieve betting recommendations for the current tournament."""
         cursor = conn.cursor()
+
+        # Initialize both recommendations and fades
+        data['betting_recommendations'] = []
+        data['betting_fades'] = []
         
         # Get recommendations with high EV and good mental form
         cursor.execute('''
@@ -222,11 +226,68 @@ class DataRetrievalOrchestrator:
                 'mental_justification': rec_dict['mental_justification']
             })
 
+        # Get FADES: players with low mental scores (regardless of EV)
+        cursor.execute('''
+        SELECT DISTINCT p.id as player_id, p.name as player_name, 
+            m.score as mental_score, m.justification as mental_justification
+        FROM bet_recommendations br
+        JOIN players p ON br.player_id = p.id
+        JOIN mental_form m ON p.id = m.player_id
+        WHERE br.event_name = ? 
+        AND m.score <= -0.25
+        ORDER BY m.score ASC
+        LIMIT 8
+        ''', (self.current_tournament,))
+        
+        fade_players = cursor.fetchall()
+        
+        # For each fade player, get their best available odds across all markets
+        for fade_player in fade_players:
+            fade_dict = dict(fade_player)
+            player_id = fade_dict['player_id']
+            
+            # Get this player's best odds across all markets
+            cursor.execute('''
+            SELECT market, sportsbook, decimal_odds, adjusted_ev
+            FROM bet_recommendations
+            WHERE player_id = ? AND event_name = ?
+            ORDER BY adjusted_ev DESC
+            LIMIT 3
+            ''', (player_id, self.current_tournament))
+            
+            player_odds = cursor.fetchall()
+            
+            # Format the fade entry
+            fade_entry = {
+                'player_id': player_id,
+                'player_name': self._format_player_name(fade_dict['player_name']),
+                'mental_score': fade_dict['mental_score'],
+                'mental_justification': fade_dict['mental_justification'],
+                'best_odds': []
+            }
+            
+            # Add their best available odds (even if negative EV)
+            for odds in player_odds:
+                odds_dict = dict(odds)
+                fade_entry['best_odds'].append({
+                    'market': odds_dict['market'],
+                    'sportsbook': odds_dict['sportsbook'],
+                    'decimal_odds': odds_dict['decimal_odds'],
+                    'american_odds': self._format_american_odds(odds_dict['decimal_odds']),
+                    'adjusted_ev': odds_dict['adjusted_ev']
+                })
+            
+            data['betting_fades'].append(fade_entry)
+
     def _retrieve_dfs_recommendations(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
-        """Retrieve DFS recommendations for the current tournament."""
+        """Retrieve DFS recommendations and fades for the current tournament."""
         cursor = conn.cursor()
         
-        # Get players in current tournament with good mental form, ordered by DK salary
+        # Initialize both recommendations and fades
+        data['dfs_recommendations'] = []
+        data['dfs_fades'] = []
+        
+        # Get DFS RECOMMENDATIONS: players in current tournament with good mental form, ordered by DK salary
         cursor.execute('''
         SELECT 
             p.id, p.name, 
@@ -250,9 +311,7 @@ class DataRetrievalOrchestrator:
         ORDER BY dk.salary DESC
         ''', (self.current_tournament, self.current_tournament))
         
-        dfs_recommendations = []
-        
-        # Process each player
+        # Process DFS recommendations
         for player in cursor.fetchall():
             player_dict = dict(player)
             player_id = player_dict['id']
@@ -272,10 +331,54 @@ class DataRetrievalOrchestrator:
             # Add recent tournament results (limit to 5)
             self._add_player_tournament_results(conn, player_id, player_data, limit=5)
             
-            dfs_recommendations.append(player_data)
+            data['dfs_recommendations'].append(player_data)
         
-        # Add to data structure
-        data['dfs_recommendations'] = dfs_recommendations
+        # Get DFS FADES: players with poor mental form (regardless of salary)
+        cursor.execute('''
+        SELECT 
+            p.id, p.name, 
+            m.score as mental_score, m.justification as mental_justification,
+            dk.salary as dk_salary, fd.salary as fd_salary,
+            dk.proj_ownership as projected_ownership
+        FROM players p
+        JOIN mental_form m ON p.id = m.player_id
+        LEFT JOIN (
+            SELECT player_id, salary, proj_ownership
+            FROM dfs_projections
+            WHERE event_name = ? AND site = 'draftkings' AND slate = 'main'
+        ) dk ON p.id = dk.player_id
+        LEFT JOIN (
+            SELECT player_id, salary
+            FROM dfs_projections
+            WHERE event_name = ? AND site = 'fanduel' AND slate = 'main'
+        ) fd ON p.id = fd.player_id
+        WHERE m.score <= -0.25
+        AND dk.salary IS NOT NULL
+        ORDER BY m.score ASC, dk.salary DESC
+        LIMIT 8
+        ''', (self.current_tournament, self.current_tournament))
+        
+        # Process DFS fades
+        for player in cursor.fetchall():
+            player_dict = dict(player)
+            player_id = player_dict['id']
+            
+            # Create player fade data
+            player_data = {
+                'player_id': player_id,
+                'player_name': self._format_player_name(player_dict['name']),
+                'mental_score': player_dict['mental_score'],
+                'mental_justification': player_dict['mental_justification'],
+                'dk_salary': player_dict['dk_salary'],
+                'fd_salary': player_dict['fd_salary'],
+                'projected_ownership': player_dict['projected_ownership'],
+                'recent_tournaments': []
+            }
+            
+            # Add recent tournament results (limit to 5)
+            self._add_player_tournament_results(conn, player_id, player_data, limit=5)
+            
+            data['dfs_fades'].append(player_data)
     
     def _retrieve_mental_rankings(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
         """Retrieve mental form rankings (highest and lowest) with field status."""

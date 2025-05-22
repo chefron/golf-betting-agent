@@ -148,7 +148,7 @@ Follow this EXACT decision tree - stop at the FIRST YES answer and output the co
    - If YES: Set query_type="dfs_current" and players=[] (empty list). STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 3.
 
-3. Is the query about betting recommendations (non-DFS-related) for the {self.current_tournament}? This includes explicit betting queries (outrights, finish positions, matchups, 3-ball, FRL, etc.) as well as questions like "Who should I bet on this week?" or "Give me your best {self.current_tournament} plays."
+3. Is the query about betting recommendations (non-DFS-related) for the {self.current_tournament}? This includes explicit betting queries (outrights, finish positions, matchups, 3-ball, FRL, fades, etc.) as well as questions like "Who should I bet on this week?" or "Give me your best {self.current_tournament} plays."
    - If YES: Set query_type="betting_current" and players=[] (empty list). STOP HERE AND OUTPUT JSON.
    - If NO: Continue to step 4.
 

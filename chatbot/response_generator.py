@@ -57,12 +57,14 @@ class ResponseGenerator:
 7. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
 
 'dfs_current': """
-1. In the data section below, you'll find DFS-relevant data for players with a mental score +0.25 who playing in the {tournament_name}, including DraftKings/FanDuel salaries, projected ownership percentages, mental form scores with detailed justifications, and more. Use this data to craft a concise, colorful response that directly answers the query.
-2. If the user asks for lineup advice, consider players at different salary tiers: high ($9,000+), mid ($7,500-$8,900), and value (below $7,500) on DraftKings. Most DFS lineups need a mix of these tiers to fit under the $50K salary cap ($60K for FanDuel). Lineups are composed of six players.
-3. For tournaments (GPPs), suggest lower-owned players (under 12%) with upside. For cash games (50/50s, double-ups), you can recommend more widely-owned players with consistent performance. 
-4. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
-5. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
-6. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
+1. In the data section below, you'll find DFS recommendations AND DFS fades for the {tournament_name}. Recommendations are players with strong mental form (+0.25 or higher). Fades are players with poor mental form (-0.25 or lower) that should be avoided regardless of salary or ownership.
+2. RECOMMENDATIONS: Focus on players with mental scores +0.25 or higher. Consider players at different salary tiers: high ($9,000+), mid ($7,500-$8,900), and value (below $7,500) on DraftKings. Most DFS lineups need a mix of these tiers to fit under the $50K salary cap ($60K for FanDuel). Lineups are composed of six players.
+3. FADES: These are players with mental scores of -0.25 or lower that you should avoid in DFS lineups, even if they have appealing salaries or low ownership. Poor mental form often leads to missed cuts or poor finishes that kill DFS lineups.
+4. For tournaments (GPPs), suggest lower-owned players (under 12%) with upside. For cash games (50/50s, double-ups), you can recommend more widely-owned players with consistent performance.
+5. When discussing mental form, use the provided scores (-1 to +1) and justifications but add colorful elaboration where appropriate. Don't fabricate data—stick to the data provided below.
+6. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
+7. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
+8. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
 
 'mental_rankings': """
 1. In the data section below, you'll find lists of players with the highest and lowest mental form scores (-1 to 1) across all the tours that you track, along with whether they're playing in the current PGA tournament. Use this data to craft a concise, colorful response that directly answers the query.
@@ -335,6 +337,27 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 if i < len(players_recommendations):
                     context_parts.append("")
 
+        # Add betting fades - NEW SECTION
+        if data.get('betting_fades'):
+            context_parts.append(f"\nBETTING FADES (players to avoid):")
+            
+            for i, fade in enumerate(data['betting_fades'], 1):
+                context_parts.append(f"  {i}. {fade['player_name']} (Mental Score: {fade['mental_score']})")
+                
+                # Show their best available odds (even though they're probably negative EV)
+                if fade.get('best_odds'):
+                    context_parts.append("     Best Available Odds:")
+                    for odds in fade['best_odds']:
+                        market_display = odds['market'].replace('_', ' ').title() if '_' in odds['market'] else odds['market'].capitalize()
+                        context_parts.append(f"     - {market_display}: {odds['american_odds']} ({odds['sportsbook']}), EV: {odds['adjusted_ev']:.1f}%")
+                
+                # Add mental assessment
+                context_parts.append(f"     Mental Assessment: {fade['mental_justification']}")
+                
+                # Add blank line between players for readability
+                if i < len(data['betting_fades']):
+                    context_parts.append("")
+
         # Add DFS recommendations
         if data.get('dfs_recommendations'):
             context_parts.append(f"\nDFS RECOMMENDATIONS for {tournament_name}:")
@@ -373,8 +396,48 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                         if date and ' ' in date:
                             date = date.split(' ')[0]
                         
-                        context_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")            
+                        context_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")
         
+        # Add DFS fades - NEW SECTION
+        if data.get('dfs_fades'):
+            context_parts.append(f"\nDFS FADES for {tournament_name} (players to avoid):")
+            
+            for i, player in enumerate(data['dfs_fades']):
+                context_parts.append(f"\n {player['player_name']}:")
+                
+                # Add salary information
+                salary_parts = []
+                if player.get('dk_salary'):
+                    salary_parts.append(f"${player['dk_salary']} (DraftKings)")
+                if player.get('fd_salary'):
+                    salary_parts.append(f"${player['fd_salary']} (FanDuel)")
+                    
+                if salary_parts:
+                    context_parts.append(f"    Salary: {', '.join(salary_parts)}")
+                
+                # Add ownership projection if available
+                if player.get('projected_ownership') is not None:
+                    context_parts.append(f"    Projected ownership: {player['projected_ownership']:.2f}%")
+                
+                # Add mental form data
+                context_parts.append(f"    Mental Form Score: {player['mental_score']}")
+                context_parts.append(f"    Mental Form Justification: {player['mental_justification']}")
+                
+                # Add recent tournament results
+                recent_tournaments = player.get('recent_tournaments')
+                if recent_tournaments:
+                    context_parts.append("    Recent Tournament Results:")
+                    for tournament in recent_tournaments:
+                        event_name = tournament.get('event_name', 'Unknown')
+                        tour = tournament.get('tour', '').upper()
+                        finish = tournament.get('finish_position', '')
+                        date = tournament.get('event_date', '')
+                        # Format the date to just show year-month-day
+                        if date and ' ' in date:
+                            date = date.split(' ')[0]
+                        
+                        context_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")
+
         # Add mental rankings
         if data.get('mental_rankings', {}).get('highest'):
             context_parts.append(f"\nMENTALLY STRONGEST PLAYERS from all tours (please note that only some are playing in the {tournament_name}):")
