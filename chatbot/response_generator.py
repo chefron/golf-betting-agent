@@ -460,6 +460,7 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 for i, bet in enumerate(model_perf['bet_history']):
                     context_parts.append(f"\n  Bet #{len(model_perf['bet_history']) - i}:")
                     context_parts.append(f"    Event: {bet['event_name']}")
+                    context_parts.append(f"    Course: {bet['course_name']}")
                     context_parts.append(f"    Player: {bet['player_name']}")
                     context_parts.append(f"    Market: {bet['bet_market']}")
                     context_parts.append(f"    Stake: {bet['stake_units']} units")

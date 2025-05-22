@@ -694,7 +694,7 @@ class DataRetrievalOrchestrator:
                 'avg_odds': round(stats_dict['avg_odds'] or 0, 2)
             }
         
-        # Get individual bet history
+        # Get individual bet history WITH course names via LEFT JOIN
         cursor.execute('''
         SELECT 
             b.event_name,
@@ -708,8 +708,15 @@ class DataRetrievalOrchestrator:
             b.placed_date,
             b.settled_date,
             b.is_dead_heat,
-            b.outcome
+            b.outcome,
+            tr.course_name
         FROM bets b
+        LEFT JOIN (
+            SELECT DISTINCT event_name, year, course_name 
+            FROM tournament_results 
+            WHERE course_name IS NOT NULL
+        ) tr ON b.event_name = tr.event_name
+            AND CAST(strftime('%Y', b.placed_date) AS INTEGER) = tr.year
         WHERE b.outcome IN ('win', 'loss')
         ORDER BY b.settled_date DESC
         ''')
@@ -757,13 +764,14 @@ class DataRetrievalOrchestrator:
             
             data['model_performance']['bet_history'].append({
                 'event_name': bet_dict['event_name'],
+                'course_name': bet_dict['course_name'] or 'Unavailable',
                 'player_name': bet_dict['player_name'],
                 'bet_market': market_display,
                 'stake_units': round(stake_units, 2),
                 'american_odds': american_odds,
                 'profit_loss_units': profit_loss_display,
                 'mental_form_score': bet_dict['mental_form_score'],
-                'ev': round(bet_dict['expected_value'] or 0, 2),  # Changed from adjusted_ev to ev
+                'ev': round(bet_dict['expected_value'] or 0, 2),
                 'placed_date': bet_dict['placed_date'],
                 'settled_date': settled_date,
                 'outcome': bet_dict['outcome']

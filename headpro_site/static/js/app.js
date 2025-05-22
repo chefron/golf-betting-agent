@@ -286,8 +286,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 answerView.classList.add('sucking');
             }
             
-            // Start unzooming immediately (don't wait for suction)
-            document.body.classList.add('unzooming');
+            // Start unzooming with a brief delay
+            setTimeout(() => {
+                document.body.classList.add('unzooming');
+            }, 300);
             
             // Start API reset and other cleanup in parallel
             const resetPromise = fetch('/api/reset', {
