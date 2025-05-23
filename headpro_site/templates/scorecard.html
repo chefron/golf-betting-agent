@@ -12,6 +12,7 @@
 <body>
     <div class="scorecard-container">
         <div class="scorecard">
+        <div class="grain-overlay"></div>
             <div class="scorecard-header">
                 <h1 class="club-name">THE HEAD PRO</h1>
                 <h2 class="scorecard-title">BETTING SCORECARD</h2>
@@ -30,7 +31,7 @@
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">ROI</div>
-                        <div class="stat-value {% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
+                        <div class="stat-value highlighted {% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
                             {% if data.overview.roi > 0 %}+{% endif %}{{ data.overview.roi or 0 }}%
                         </div>
                     </div>
@@ -102,10 +103,8 @@
                     {% endif %}
                 </div>
 
-                <div style="margin-top: 2rem; text-align: center; font-style: italic; color: var(--ink-faded);">
-                    <span class="ink-signature">"Mental edges that statistics miss completely."</span>
-                    <br>
-                    <span class="hand-written">- The Head Pro</span>
+                <div class="dead-heat">
+                    <p>DH = dead heat</p>
                 </div>
             </div>
         </div>
