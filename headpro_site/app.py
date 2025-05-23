@@ -3,6 +3,8 @@ import logging
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import sys
+import sqlite3
+from datetime import datetime
 
 # Add parent directory to path to find the modules
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -113,6 +115,196 @@ def reset_chat():
     except Exception as e:
         logger.error(f"Error resetting conversation: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/scorecard')
+def scorecard():
+    """Render the scorecard page with real model performance data"""
+    try:
+        # Get the database path (same as your chatbot uses)
+        db_path = os.environ.get('DB_PATH', '../data/db/mental_form.db')
+        
+        # Get model performance data
+        performance_data = get_model_performance_data(db_path)
+        
+        return render_template('scorecard.html', data=performance_data)
+    
+    except Exception as e:
+        logger.error(f"Error loading scorecard data: {e}")
+        # Return with empty/default data if there's an error
+        default_data = {
+            'overview': {
+                'total_bets': 0,
+                'win_rate': 0,
+                'roi': 0,
+                'profit_loss_units': 0,
+                'avg_stake_units': 0,
+                'avg_odds': 0
+            },
+            'bet_history': []
+        }
+        return render_template('scorecard.html', data=default_data)
+
+def get_model_performance_data(db_path):
+    """Get model performance data from the database - based on your data retriever logic"""
+    
+    def get_db_connection():
+        """Get database connection with proper error handling"""
+        try:
+            if not os.path.exists(db_path):
+                logger.error(f"Database file not found: {db_path}")
+                return None
+                
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row  # Enable column access by name
+            return conn
+        except Exception as e:
+            logger.error(f"Error connecting to database: {e}")
+            return None
+    
+    conn = get_db_connection()
+    if not conn:
+        return {'overview': {}, 'bet_history': []}
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Get overall statistics (copied from your _retrieve_model_performance method)
+        cursor.execute('''
+        SELECT 
+            COUNT(*) as total_bets,
+            SUM(CASE WHEN outcome = 'win' THEN 1 ELSE 0 END) as winning_bets,
+            SUM(CASE WHEN outcome = 'loss' THEN 1 ELSE 0 END) as losing_bets,
+            SUM(stake) as total_staked,
+            SUM(CASE WHEN outcome IN ('win', 'loss') THEN profit_loss ELSE 0 END) as total_profit_loss,
+            AVG(stake) as avg_stake,
+            AVG(odds) as avg_odds
+        FROM bets
+        WHERE outcome IN ('win', 'loss')
+        ''')
+        
+        stats = cursor.fetchone()
+        overview = {}
+        
+        if stats:
+            stats_dict = dict(stats)
+            total_bets = stats_dict['total_bets'] or 0
+            winning_bets = stats_dict['winning_bets'] or 0
+            total_staked = stats_dict['total_staked'] or 0
+            total_profit_loss = stats_dict['total_profit_loss'] or 0
+            
+            # Calculate ROI and Win Rate
+            roi = (total_profit_loss / total_staked * 100) if total_staked > 0 else 0
+            win_rate = (winning_bets / total_bets * 100) if total_bets > 0 else 0
+            
+            # Convert to units (1 unit = $10)
+            profit_loss_units = total_profit_loss / 10
+            avg_stake_units = (stats_dict['avg_stake'] or 0) / 10
+            
+            overview = {
+                'total_bets': total_bets,
+                'winning_bets': winning_bets,
+                'losing_bets': stats_dict['losing_bets'] or 0,
+                'roi': round(roi, 1),
+                'win_rate': round(win_rate, 1),
+                'profit_loss_units': round(profit_loss_units, 1),
+                'avg_stake_units': round(avg_stake_units, 1),
+                'avg_odds': round(stats_dict['avg_odds'] or 0, 0)
+            }
+        
+        # Get individual bet history (copied from your method)
+        cursor.execute('''
+        SELECT 
+            b.event_name,
+            b.player_name,
+            b.bet_market,
+            b.stake,
+            b.odds,
+            b.profit_loss,
+            b.mental_form_score,
+            b.expected_value,
+            b.placed_date,
+            b.settled_date,
+            b.is_dead_heat,
+            b.outcome,
+            tr.course_name
+        FROM bets b
+        LEFT JOIN (
+            SELECT DISTINCT event_name, year, course_name 
+            FROM tournament_results 
+            WHERE course_name IS NOT NULL
+        ) tr ON b.event_name = tr.event_name
+            AND CAST(strftime('%Y', b.placed_date) AS INTEGER) = tr.year
+        WHERE b.outcome IN ('win', 'loss')
+        ORDER BY b.settled_date DESC
+        LIMIT 200
+        ''')
+        
+        bet_history = []
+        for bet in cursor.fetchall():
+            bet_dict = dict(bet)
+            
+            # Convert stake and profit/loss to units
+            stake_units = bet_dict['stake'] / 10
+            profit_loss_units = bet_dict['profit_loss'] / 10
+            
+            # Format American odds
+            decimal_odds = bet_dict['odds']
+            if decimal_odds >= 2.0:
+                american_odds = f"+{int((decimal_odds - 1) * 100)}"
+            else:
+                american_odds = f"{int(-100 / (decimal_odds - 1))}"
+            
+            # Format market name
+            market = bet_dict['bet_market']
+            if market:
+                market_display = market.replace('_', ' ').title()
+            else:
+                market_display = market
+                
+            # Format profit/loss with proper sign and dead heat notation
+            if bet_dict['is_dead_heat'] and bet_dict['outcome'] == 'win':
+                if profit_loss_units >= 0:
+                    profit_loss_display = f"+{profit_loss_units:.1f}u (DH)"
+                else:
+                    profit_loss_display = f"{profit_loss_units:.1f}u (DH)"
+            else:
+                if profit_loss_units >= 0:
+                    profit_loss_display = f"+{profit_loss_units:.1f}u"
+                else:
+                    profit_loss_display = f"{profit_loss_units:.1f}u"
+            
+            # Format date to just year-month-day
+            settled_date = bet_dict['settled_date']
+            if settled_date and ' ' in settled_date:
+                settled_date = settled_date.split(' ')[0]
+            
+            bet_history.append({
+                'event_name': bet_dict['event_name'],
+                'course_name': bet_dict['course_name'] or 'Unknown',
+                'player_name': bet_dict['player_name'],
+                'bet_market': market_display,
+                'stake_units': round(stake_units, 1),
+                'american_odds': american_odds,
+                'profit_loss_display': profit_loss_display,
+                'profit_loss_units': profit_loss_units,
+                'mental_form_score': bet_dict['mental_form_score'],
+                'ev': round(bet_dict['expected_value'] or 0, 1),
+                'placed_date': bet_dict['placed_date'],
+                'settled_date': settled_date,
+                'outcome': bet_dict['outcome']
+            })
+        
+        return {
+            'overview': overview,
+            'bet_history': bet_history
+        }
+        
+    except Exception as e:
+        logger.error(f"Error retrieving model performance data: {e}")
+        return {'overview': {}, 'bet_history': []}
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

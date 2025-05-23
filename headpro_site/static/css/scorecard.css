@@ -1,0 +1,326 @@
+:root {
+  --paper-cream: #f4f1e8;
+  --paper-aged: #ede7d3;
+  --ink-blue: #1e3a5f;
+  --masters-green: #155843;
+  --ink-faded: #4a5568;
+  --ink-red: #8b2635;
+  --pencil-gray: #6b7280;
+  --green-felt: #2d5016;
+  --gold-accent: #d4af37;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: white;
+  min-height: 100vh;
+  font-family: 'Courier Prime', monospace;
+  padding: clamp(1rem, 3vw, 3rem);
+  overflow-x: auto;
+}
+
+.scorecard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  perspective: 1000px;
+}
+
+.scorecard {
+  background: 
+  /* Overlay stains/aging (keep these CSS ones) */
+  radial-gradient(circle at 85% 15%, rgba(139, 38, 53, 0.08) 0%, transparent 20%),
+  radial-gradient(circle at 10% 90%, rgba(212, 175, 55, 0.06) 0%, transparent 15%),
+  /* Main paper texture image */
+  url('../images/vintage-paper-texture.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
+ 
+  box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  transform: rotate(-1deg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Paper texture */
+.scorecard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+      radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0);
+  background-size: 12px 12px;
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+/* Hole punches */
+.scorecard::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: var(--green-felt);
+  border-radius: 50%;
+  box-shadow: 
+      0 60px 0 var(--green-felt),
+      0 -60px 0 var(--green-felt),
+      0 120px 0 var(--green-felt),
+      0 -120px 0 var(--green-felt);
+}
+
+.scorecard-header {
+  color: var(--masters-green);
+  padding: clamp(1rem, 2.5vw, 2rem);
+  text-align: center;
+  position: relative;
+  border-bottom: 3px double var(--masters-green);
+}
+
+.scorecard-header::before {
+  content: '⚬ ⚬ ⚬';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  opacity: 0.6;
+  letter-spacing: 1rem;
+}
+
+.club-name {
+  font-family: 'Special Elite', cursive;
+  font-size: 1rem;
+  position: relative;
+  width: fit-content;
+}
+
+.club-name::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--masters-green);
+  opacity: 0.8;
+  /* Very slight irregularity - like ribbon pressure variation */
+  box-shadow: 0 0 0.5px rgba(21, 88, 67, 0.4);
+}
+
+.scorecard-title {
+  font-family: 'Special Elite', cursive;
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  opacity: 0.9;
+  letter-spacing: 0.05em;
+}
+
+.scorecard-body {
+  padding: clamp(1rem, 2.5vw, 2rem);
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: clamp(0.8rem, 2vw, 1.5rem);
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: rgba(30, 58, 95, 0.03);
+  border: 1px dashed var(--ink-faded);
+  border-radius: 4px;
+}
+
+.stat-item {
+  text-align: center;
+  position: relative;
+}
+
+.stat-label {
+  font-size: clamp(0.65rem, 1.5vw, 0.8rem);
+  color: var(--masters-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+  font-weight: bold;
+}
+
+.stat-value {
+  font-family: 'Special Elite', cursive;
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--masters-green);
+  font-weight: bold;
+}
+
+.bet-history-section {
+  margin-top: 2rem;
+}
+
+.section-title {
+  font-family: 'Special Elite', cursive;
+  font-size: clamp(1rem, 2.2vw, 1.3rem);
+  color: var(--ink-blue);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--masters-green);
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 30%;
+  height: 1px;
+  background: var(--masters-green);
+}
+
+.bet-history-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ink-faded);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+}
+
+.bet-history-table th {
+  background: linear-gradient(180deg, var(--ink-blue) 0%, #1e3a5f 100%);
+  color: var(--paper-cream);
+  padding: clamp(0.5rem, 1.5vw, 0.8rem);
+  text-align: left;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+  border-bottom: 2px solid var(--ink-blue);
+}
+
+.bet-history-table td {
+  padding: clamp(0.4rem, 1.2vw, 0.7rem);
+  border-bottom: 1px solid rgba(30, 58, 95, 0.1);
+  color: var(--ink-blue);
+  font-family: 'Special Elite', cursive;
+}
+
+.bet-history-table tr:nth-child(even) {
+  background: rgba(30, 58, 95, 0.02);
+}
+
+.bet-history-table tr:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.outcome-win {
+  color: var(--green-felt);
+  font-weight: bold;
+}
+
+.outcome-loss {
+  color: var(--ink-red);
+  font-weight: bold;
+}
+
+.profit-positive {
+  color: var(--green-felt);
+  font-weight: bold;
+}
+
+.profit-negative {
+  color: var(--ink-red);
+  font-weight: bold;
+}
+
+.mental-score {
+  font-style: italic;
+}
+
+.player-name {
+  font-weight: bold;
+}
+
+.tournament-name {
+  font-style: italic;
+  color: var(--ink-faded);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .scorecard {
+      transform: rotate(0deg);
+  }
+  
+  .scorecard::after {
+      display: none;
+  }
+  
+  .bet-history-table {
+      font-size: 0.7rem;
+  }
+  
+  .bet-history-table th,
+  .bet-history-table td {
+      padding: 0.4rem 0.3rem;
+  }
+  
+  .stats-overview {
+      grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-overview {
+      grid-template-columns: 1fr;
+  }
+  
+  .bet-history-table th:nth-child(n+4),
+  .bet-history-table td:nth-child(n+4) {
+      display: none;
+  }
+}
+
+/* Print styles for authentic scorecard feel */
+@media print {
+  body {
+      background: white;
+      padding: 0;
+  }
+  
+  .scorecard {
+      transform: none;
+      box-shadow: none;
+      border: 2px solid black;
+  }
+}
+
+/* Add some ink bleed effects */
+.ink-signature {
+  font-family: 'Special Elite', cursive;
+  color: var(--ink-blue);
+  font-style: italic;
+  text-shadow: 0.5px 0.5px 1px rgba(30, 58, 95, 0.3);
+}
+
+.hand-written {
+  font-family: 'Special Elite', cursive;
+  transform: rotate(-0.5deg);
+  color: var(--pencil-gray);
+}
