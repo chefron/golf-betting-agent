@@ -13,9 +13,9 @@ class DataRetrievalOrchestrator:
         tournament_info = self._get_current_tournament_info()
         self.current_tournament = tournament_info["name"]
         self.current_course = tournament_info["course"]
-        logger.info(f"Initialized data retrieval orchestrator with tournament: {self.current_tournament} at {self.current_course}")
+        self.current_start_date = tournament_info["start_date"]
+        logger.info(f"Initialized data retrieval orchestrator with tournament: {self.current_tournament} at {self.current_course}, starts: {self.current_start_date}")
         
-    
     def retrieve_data(self, query_info: Dict[str, Any]) -> Dict[str, Any]:
         """Orchestrate retrieval of necessary data based on query analysis."""
         logger.info(f"Retrieving data for query type: {query_info.get('query_type', 'unknown')}")
@@ -26,7 +26,8 @@ class DataRetrievalOrchestrator:
             'players': {},
             'tournament': {
                 'name': self.current_tournament,
-                'course': self.current_course
+                'course': self.current_course,
+                'start_date': self.current_start_date
             },
             'betting_recommendations': [],
             'dfs_recommendations': [],
@@ -77,17 +78,17 @@ class DataRetrievalOrchestrator:
         return data
     
     def _get_current_tournament_info(self) -> Dict[str, str]:
-        """Get information about the current tournament, including course name."""
+        """Get information about the current tournament, including course name and start date."""
         conn = self._get_db_connection()
         if not conn:
-            return {"name": "Unknown Tournament", "course": "Unknown Course"}
+            return {"name": "Unknown Tournament", "course": "Unknown Course", "start_date": None}
         
         try:
             cursor = conn.cursor()
             
             # First try to get info from tournaments table
             cursor.execute('''
-            SELECT event_name, course_name
+            SELECT event_name, course_name, start_date
             FROM tournaments
             ORDER BY last_updated DESC
             LIMIT 1
@@ -95,7 +96,11 @@ class DataRetrievalOrchestrator:
             result = cursor.fetchone()
             
             if result and result[0]:
-                return {"name": result[0], "course": result[1] or "Unknown Course"}
+                return {
+                    "name": result[0], 
+                    "course": result[1] or "Unknown Course",
+                    "start_date": result[2]
+                }
             
             # Fallback to just getting the name from bet_recommendations
             cursor.execute('''
@@ -109,14 +114,14 @@ class DataRetrievalOrchestrator:
             conn.close()
             
             if result:
-                return {"name": result[0], "course": "Unknown Course"}
+                return {"name": result[0], "course": "Unknown Course", "start_date": None}
                 
-            return {"name": "Unknown Tournament", "course": "Unknown Course"}
+            return {"name": "Unknown Tournament", "course": "Unknown Course", "start_date": None}
         except Exception as e:
             logger.error(f"Error getting tournament info: {e}")
             if conn:
                 conn.close()
-            return {"name": "Unknown Tournament", "course": "Unknown Course"}
+            return {"name": "Unknown Tournament", "course": "Unknown Course", "start_date": None}
     
     def _get_db_connection(self) -> Optional[sqlite3.Connection]:
         """Get a connection to the database with better error reporting."""

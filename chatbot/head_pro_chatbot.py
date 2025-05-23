@@ -34,6 +34,7 @@ class HeadProChatbot:
         self.data_retriever = DataRetrievalOrchestrator(db_path)
         self.current_tournament = self.data_retriever.current_tournament
         self.current_course = self.data_retriever.current_course
+        self.current_start_date = self.data_retriever.current_start_date
         
         # Initialize other components
         self.query_analyzer = QueryAnalysisAgent(self.api_key, self.current_tournament)

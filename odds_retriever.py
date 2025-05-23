@@ -168,6 +168,20 @@ class OddsRetriever:
         adjusted_ev = self.calculate_ev(adjusted_probability, decimal_odds)
         
         return adjusted_ev, adjustment_factor * 100
+    
+    def _get_tournament_start_date(self, event_name):
+        """Get the start date for a tournament from the schedule API"""
+        schedule_data = self.fetch_api_data("get-schedule", {"tour": "pga"})
+        
+        if not schedule_data or "schedule" not in schedule_data:
+            return None
+        
+        # Find the tournament by name
+        for event in schedule_data["schedule"]:
+            if event.get("event_name") == event_name:
+                return event.get("start_date")
+        
+        return None
 
     def _update_tournament_info(self, event_name, course_name):
         """Store or update tournament information in the database"""
@@ -175,10 +189,13 @@ class OddsRetriever:
         if not event_name:
             return
         
+        # Get start date from schedule API
+        start_date = self._get_tournament_start_date(event_name)
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Check if tournaments table exists, if not create it
+        # Check if tournaments table exists, if not create it with start_date column
         cursor.execute('''
         SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'
         ''')
@@ -188,20 +205,27 @@ class OddsRetriever:
                 id INTEGER PRIMARY KEY,
                 event_name TEXT UNIQUE,
                 course_name TEXT,
+                start_date TEXT,
                 last_updated TEXT
             )
             ''')
+        else:
+            # Check if start_date column exists, add it if not
+            cursor.execute("PRAGMA table_info(tournaments)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'start_date' not in columns:
+                cursor.execute('ALTER TABLE tournaments ADD COLUMN start_date TEXT')
         
         # Update or insert tournament info
         cursor.execute('''
         INSERT OR REPLACE INTO tournaments
-        (event_name, course_name, last_updated)
-        VALUES (?, ?, ?)
-        ''', (event_name, course_name, self.current_batch_timestamp))
+        (event_name, course_name, start_date, last_updated)
+        VALUES (?, ?, ?, ?)
+        ''', (event_name, course_name, start_date, self.current_batch_timestamp))
         
         conn.commit()
         conn.close()
-        logger.info(f"Updated tournament info for {event_name} at {course_name}")
+        logger.info(f"Updated tournament info for {event_name} at {course_name}, start date: {start_date}")
     
     def update_odds_data(self, markets=None):
         """

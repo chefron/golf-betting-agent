@@ -209,9 +209,17 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
         # Add current tournament
         tournament_name = data.get('tournament', {}).get('name', 'Unknown Tournament')
         course_name = data.get('tournament', {}).get('course', 'Unknown Course')
+        start_date = data.get('tournament', {}).get('start_date')
+        
         context_parts.append(f"\nCURRENT TOURNAMENT: {tournament_name}")
         context_parts.append(f"COURSE: {course_name}")
-        
+
+        # Add start date if available
+        if start_date:
+            if ' ' in start_date:
+                start_date = start_date.split(' ')[0]
+            context_parts.append(f"START DATE: {start_date}")
+
         # Add player data if present
         if data.get('players'):
             context_parts.append("\nPLAYER DATA:")
