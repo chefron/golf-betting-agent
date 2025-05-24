@@ -53,6 +53,7 @@ body {
   transform: rotate(-.5deg);
   position: relative;
   overflow: hidden;
+  filter: contrast(.9) saturate(130%);
 }
 
 .scorecard::before {
@@ -62,7 +63,7 @@ body {
   left: 15px;
   font-size: 1.2rem;
   color: var(--masters-green);
-  opacity: 0.6;
+  opacity: 0.7;
   z-index: 10;
 }
 
@@ -74,7 +75,7 @@ body {
   right: 15px;
   font-size: 1.2rem;
   color: var(--masters-green);
-  opacity: 0.6;
+  opacity: 0.7;
   z-index: 10;
 }
 
@@ -98,7 +99,7 @@ body {
   left: 50.5%;
   transform: translateX(-50%);
   font-size: 0.7rem;
-  opacity: 0.6;
+  opacity: 0.85;
   letter-spacing: 1rem;
   color: var(--masters-green);
   margin-top: .5rem;
@@ -110,20 +111,24 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('../images/cardboard-texture.jpg'); /* Update with your image path */
-  background-size: cover; /* Or 'contain' depending on how you want it to scale */
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.2; /* Adjust opacity to taste */
+  background-image: 
+  radial-gradient(circle at 17% 43%, rgba(250, 218, 187, 0.08) 0.2px, transparent 0.5px),
+  radial-gradient(circle at 82% 29%, rgba(250, 218, 187, 0.04) 0.4px, transparent 0.5px),
+  radial-gradient(circle at 51% 76%, rgba(250, 218, 187, 0.06) 0.1px, transparent 0.5px),
+  radial-gradient(circle at 34% 11%, rgba(250, 218, 187, 0.03) 0.3px, transparent 0.5px),
+  url('../images/cardboard-texture.jpg');
+  background-size: .1px .2px, .25px .5px, .1px .001px, 1.8px .8px, cover;
+  background-repeat: repeat, repeat, repeat, repeat, no-repeat;
+  opacity: 0.3; /* Adjust opacity to taste */
   pointer-events: none;
-  z-index: 1;
+  z-index: 10;
   mix-blend-mode: multiply; /* This will blend nicely with the content below */
 }
 
 .club-name {
   position: relative;
   width: fit-content;
-  opacity: 0.85;
+  opacity: 0.9;
   margin-top: .7rem;
   font-size: 1rem;
 }
@@ -136,14 +141,14 @@ body {
   width: 100%;
   height: 2px;
   background: linear-gradient(to right, rgba(21,88,67,1), rgba(21,88,67,0.9));
-  opacity: 0.8;
+  opacity: 0.85;
   /* Very slight irregularity - like ribbon pressure variation */
   box-shadow: 0 0 .5px rgba(21, 88, 67, 0.4);
 }
 
 .scorecard-title {
   font-size: 1rem;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .scorecard-body {
@@ -157,7 +162,7 @@ body {
   right: 15px;
   font-size: 1.2rem;
   color: var(--masters-green);
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .scorecard-body::before {
@@ -167,7 +172,7 @@ body {
   left: 15px;
   font-size: 1.2rem;
   color: var(--masters-green);
-  opacity: 0.45;
+  opacity: 0.6;
 }
 
 .stats-overview {
@@ -178,10 +183,10 @@ body {
   margin-bottom: 2rem;
   padding: 1.5rem;
   border: 1.8px double var(--masters-green); /* Double line like the header */
-  border-radius: 1.5px; /* Remove rounded corners - typewriters were square */
+  border-radius: 1.5px 1px 1px 1px; /* Remove rounded corners - typewriters were square */
   opacity: 0.9;
+  background-blend-mode: multiply;
 }
-
 
 .stat-item {
   text-align: center;
@@ -253,14 +258,16 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   background: rgba(255, 255, 255, 0.1);
-  border: 3px double var(--masters-green); /* Changed from 1px solid */
-  border-radius: .5px; /* Remove rounded corners to match typewriter style */
+  border: 1.8px solid var(--masters-green); /* Changed from 1px solid */
+  border-radius: 1.5px; /* Remove rounded corners to match typewriter style */
   overflow: hidden;
   font-size: 1rem;
+  opacity: .9;
 }
 
 .bet-history-table th {
   color: var(--masters-green);
+  background: rgba(205, 221, 180, 0.6);
   padding: clamp(0.5rem, 1.5vw, 0.8rem);
   text-align: center;
   font-weight: bold;
@@ -298,7 +305,7 @@ body {
   bottom: 0;
   width: 1px;
   background: var(--masters-green);
-  opacity: 0.3; /* Make them a bit lighter than the header dividers */
+  opacity: 0.4; /* Make them a bit lighter than the header dividers */
 }
 
 .bet-history-table tr:nth-child(even) {

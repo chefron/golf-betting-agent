@@ -272,11 +272,20 @@ def get_model_performance_data(db_path):
                     profit_loss_display = f"+{profit_loss_units:.1f}u"
                 else:
                     profit_loss_display = f"{profit_loss_units:.1f}u"
-            
-            # Format date to just year-month-day
+
+            # Format date to American format (MM/DD/YYYY)
             settled_date = bet_dict['settled_date']
-            if settled_date and ' ' in settled_date:
-                settled_date = settled_date.split(' ')[0]
+            if settled_date:
+                try:
+                    # Parse the date (assuming it's in YYYY-MM-DD format)
+                    if ' ' in settled_date:
+                        settled_date = settled_date.split(' ')[0]  # Remove time if present
+                    
+                    date_obj = datetime.strptime(settled_date, '%Y-%m-%d')
+                    settled_date = date_obj.strftime('%m/%d/%Y')  # Convert to MM/DD/YYYY
+                except ValueError:
+                    # If parsing fails, keep original format
+                    pass
             
             bet_history.append({
                 'event_name': bet_dict['event_name'],
