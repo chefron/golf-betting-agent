@@ -19,9 +19,11 @@
 body {
   background: white;
   min-height: 100vh;
-  font-family: 'Special Elite', Courier, monospace;
   padding: clamp(1rem, 3vw, 3rem);
   overflow-x: auto;
+  font-family: "Jost", sans-serif;
+  font-size: 1rem;
+  font-optical-sizing: auto;
 }
 
 .scorecard-container {
@@ -31,7 +33,8 @@ body {
 }
 
 .scorecard {
-  background: 
+  background:
+  linear-gradient(rgba(250, 218, 187, 0.5), rgba(250, 218, 187, 0.4)),
   /* Overlay stains/aging (keep these CSS ones) */
   radial-gradient(circle at 85% 15%, rgba(139, 38, 53, 0.08) 0%, transparent 20%),
   radial-gradient(circle at 10% 90%, rgba(212, 175, 55, 0.06) 0%, transparent 15%),
@@ -45,7 +48,7 @@ body {
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
       0 2px 8px rgba(0, 0, 0, 0.1);
   clip-path: polygon(
-    0% 0.5%, 1% 0%, 99% 0%, 100% 1%, 
+    0% 0.5%, 1% 0%, 99% 0%, 100% .5%, 
     100% 99%, 99% 100%, 1% 100%, 0% 99.5%);
   transform: rotate(-.5deg);
   position: relative;
@@ -57,7 +60,6 @@ body {
   position: absolute;
   top: 15px;
   left: 15px;
-  font-family: 'Special Elite', monospace;
   font-size: 1.2rem;
   color: var(--masters-green);
   opacity: 0.6;
@@ -70,7 +72,6 @@ body {
   position: absolute;
   top: 15px;
   right: 15px;
-  font-family: 'Special Elite', monospace;
   font-size: 1.2rem;
   color: var(--masters-green);
   opacity: 0.6;
@@ -84,14 +85,14 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-around;
   padding: 2rem;
   height: 12vh;
-  gap: 1rem;
+  gap: .5rem;
 }
 
 .scorecard-header::before {
-  content: '❖ ❖ ❖';
+  content: '◆ ◆ ◆';
   position: absolute;
   top: 8px;
   left: 50.5%;
@@ -100,7 +101,6 @@ body {
   opacity: 0.6;
   letter-spacing: 1rem;
   color: var(--masters-green);
-  font-family: 'Special Elite', monospace;
   margin-top: .5rem;
 }
 
@@ -121,12 +121,11 @@ body {
 }
 
 .club-name {
-  font-family: 'Special Elite', cursive;
-  font-size: 1rem;
   position: relative;
   width: fit-content;
-  opacity: 0.9;
+  opacity: 0.85;
   margin-top: .7rem;
+  font-size: 1rem;
 }
 
 .club-name::after {
@@ -137,16 +136,14 @@ body {
   width: 100%;
   height: 2px;
   background: linear-gradient(to right, rgba(21,88,67,1), rgba(21,88,67,0.9));
-  opacity: 0.9;
+  opacity: 0.8;
   /* Very slight irregularity - like ribbon pressure variation */
   box-shadow: 0 0 .5px rgba(21, 88, 67, 0.4);
 }
 
 .scorecard-title {
-  font-family: 'Special Elite', Courier, monospace;
   font-size: 1rem;
-  opacity: 0.9;
-  letter-spacing: 0.05em;
+  opacity: 0.85;
 }
 
 .scorecard-body {
@@ -158,7 +155,6 @@ body {
   position: absolute;
   bottom: 15px;
   right: 15px;
-  font-family: 'Special Elite', monospace;
   font-size: 1.2rem;
   color: var(--masters-green);
   opacity: 0.6;
@@ -169,7 +165,6 @@ body {
   position: absolute;
   bottom: 15px;
   left: 15px;
-  font-family: 'Special Elite', monospace;
   font-size: 1.2rem;
   color: var(--masters-green);
   opacity: 0.45;
@@ -177,12 +172,14 @@ body {
 
 .stats-overview {
   display: grid;
+  background: rgba(205, 221, 180, 0.6);
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: clamp(0.8rem, 2vw, 1.5rem);
   margin-bottom: 2rem;
   padding: 1.5rem;
-  border: 2.4px double var(--masters-green); /* Double line like the header */
-  border-radius: .5px; /* Remove rounded corners - typewriters were square */
+  border: 1.8px double var(--masters-green); /* Double line like the header */
+  border-radius: 1.5px; /* Remove rounded corners - typewriters were square */
+  opacity: 0.9;
 }
 
 
@@ -198,12 +195,10 @@ body {
   letter-spacing: 0.05em;
   margin-bottom: 0.3rem;
   font-weight: bold;
-  font-family: 'Special Elite', Courier, monospace;
   opacity: 0.9;
 }
 
 .stat-value {
-  font-family: 'Special Elite', Courier, monospace;
   font-size: 1rem;
   color: var(--masters-green);
   font-weight: bold;
@@ -234,7 +229,6 @@ body {
 }
 
 .section-title {
-  font-family: 'Special Elite', Courier, monospace;
   font-size: 1rem;
   color: var(--masters-green);
   margin-bottom: 1rem;
@@ -292,7 +286,6 @@ body {
   padding: clamp(0.4rem, 1.2vw, 0.7rem);
   border-bottom: 1px solid rgba(30, 58, 95, 0.1);
   color: var(--masters-green);
-  font-family: 'Special Elite', Courier, monospace;
   position: relative; /* Add this for the pseudo-element */
 }
 
@@ -394,15 +387,8 @@ body {
 
 /* Add some ink bleed effects */
 .dead-heat {
-  font-family: 'Special Elite', Courier, monospace;
   color: var(--masters-green);
   margin-top: 1.5rem;
   width: 100%;
   text-align: right;
-}
-
-.hand-written {
-  font-family: 'Special Elite', Courier, monospace;
-  transform: rotate(-0.5deg);
-  color: var(--pencil-gray);
 }
