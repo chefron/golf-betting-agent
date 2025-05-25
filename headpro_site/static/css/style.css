@@ -144,6 +144,9 @@ body.unzooming #cinematic-overlay {
     border-radius: 50%; /* Makes it a circle */
     position: relative;
     margin: 0 auto;
+    font-family: "Merriweather", serif;
+    font-optical-sizing: auto;
+    line-height: 1.6;
 }
 
 .chat-content {
@@ -225,8 +228,9 @@ body.unzooming #cinematic-overlay {
     border: none;
     border-radius: 20px;
     background: rgba(255,255,255,0.1);
-    font-family: "Aleo", serif;
     color: var(--white);
+    font-family: "Merriweather", serif;
+    font-optical-sizing: auto;
 }
 
 /* Input focus states */
@@ -317,7 +321,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .user-question {
     font-size: 1rem;
-    color: var(--light-gray);
+    color: grey;
     text-align: center;
     margin-bottom: 2%;
     font-style: italic;
@@ -332,11 +336,11 @@ button#initial-send-btn:not(.send-icon-btn) {
     margin: 20px 0 20px 0;
     color: #dadada;
     font-size: 1.1rem;
-    line-height: 1.7;
-    letter-spacing: 0.01em;
+   
+    
     position: relative;
     white-space: pre-line;
-    font-family: "Aleo", serif;
+    
     scrollbar-width: thin;
     scrollbar-color: var(--mid-gray) transparent;;
 }
@@ -415,7 +419,6 @@ button#initial-send-btn:not(.send-icon-btn) {
     text-align: center;
     color: var(--light-gray);
     font-size: 1rem;
-    font-family: "Aleo", serif;
     font-style: italic;
     opacity: 0;
     transition: opacity 5s ease-in-out;
@@ -460,18 +463,16 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .welcome-tagline {
     margin-bottom: 1rem;
-    font-weight: 700;
-    font-family: "Aleo", serif;
+    font-weight: 600;
 }
 
 .welcome-prompt {
-    font-family: "Aleo", serif;
     margin-top: .5rem;
     font-weight: 300;
 }
 
 .welcome-message p {
-    color: #d1d1d1;
+    
 }
 
 /* Add transition to welcome message text elements */
@@ -532,7 +533,6 @@ body.loading #initial-view .centered-input-area {
     background: transparent;
     color: var(--light-gray);
     cursor: pointer;
-    font-family: "Aleo", serif;
     font-size: 0.85rem;
     transition: all 0.2s ease;
 }

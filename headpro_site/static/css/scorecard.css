@@ -21,9 +21,9 @@ body {
   min-height: 100vh;
   padding: clamp(1rem, 3vw, 3rem);
   overflow-x: auto;
-  font-family: "Jost", sans-serif;
-  font-size: 1rem;
+  font-family: "Merriweather", serif;
   font-optical-sizing: auto;
+  font-size: 1rem;
 }
 
 .scorecard-container {
@@ -33,27 +33,17 @@ body {
 }
 
 .scorecard {
-  background:
-  linear-gradient(rgba(250, 218, 187, 0.5), rgba(250, 218, 187, 0.4)),
-  /* Overlay stains/aging (keep these CSS ones) */
-  radial-gradient(circle at 85% 15%, rgba(139, 38, 53, 0.08) 0%, transparent 20%),
-  radial-gradient(circle at 10% 90%, rgba(212, 175, 55, 0.06) 0%, transparent 15%),
-  /* Main paper texture image */
-  url('../images/vintage-paper-texture.jpg');
+  background: linear-gradient(rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.25)), url('../images/paper-texture.png');
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
+  background-repeat: repeat-y;
   box-shadow: 
       0 8px 32px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
       0 2px 8px rgba(0, 0, 0, 0.1);
-  clip-path: polygon(
-    0% 0.5%, 1% 0%, 99% 0%, 100% .5%, 
-    100% 99%, 99% 100%, 1% 100%, 0% 99.5%);
   transform: rotate(-.5deg);
   position: relative;
   overflow: hidden;
-  filter: contrast(.9) saturate(130%);
 }
 
 .scorecard::before {
@@ -80,32 +70,29 @@ body {
 }
 
 .scorecard-header {
-  color: var(--masters-green);
-  text-align: center;
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr; /* Left and right columns smaller, center larger */
+  gap: 1rem;
+  padding: 1.5rem;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-around;
-  padding: 2rem;
-  height: 12vh;
-  gap: .5rem;
+  color: var(--masters-green);
 }
 
 .scorecard-header::before {
   content: '◆ ◆ ◆';
   position: absolute;
   top: 8px;
-  left: 50.5%;
+  left: 50%;
   transform: translateX(-50%);
   font-size: 0.7rem;
   opacity: 0.85;
   letter-spacing: 1rem;
   color: var(--masters-green);
-  margin-top: .5rem;
 }
 
-.grain-overlay {
+
+
+.grain-overlay-removed {
   position: absolute;
   top: 0;
   left: 0;
@@ -125,12 +112,43 @@ body {
   mix-blend-mode: multiply; /* This will blend nicely with the content below */
 }
 
-.club-name {
-  position: relative;
-  width: fit-content;
+/* Column styling */
+.header-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  height: 100%;
+}
+
+/* Individual cell styling */
+.header-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Optional: Add borders to visualize the grid during development */
+  border: 1px dashed rgba(21, 88, 67, 0.2);
+}
+
+/* Center column gets special treatment for main content */
+.header-col-2 {
+  text-align: center;
+}
+
+/* Logo styling (now in center column) */
+.scorecard-logo {
+  width: 45px;
+  height: 45px;
   opacity: 0.9;
-  margin-top: .7rem;
+  filter: sepia(10%) saturate(0.9);
+}
+
+/* Club name styling */
+.club-name {
   font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+  position: relative;
 }
 
 .club-name::after {
@@ -142,13 +160,75 @@ body {
   height: 2px;
   background: linear-gradient(to right, rgba(21,88,67,1), rgba(21,88,67,0.9));
   opacity: 0.85;
-  /* Very slight irregularity - like ribbon pressure variation */
   box-shadow: 0 0 .5px rgba(21, 88, 67, 0.4);
 }
 
+/* Header stats styling */
+.header-stats-group {
+  display: flex;
+  flex-direction: row; /* Changed from column to row for side-by-side */
+  gap: 1rem; /* Increased gap for horizontal spacing */
+  width: 100%;
+  justify-content: center; /* Center the stats in their cell */
+}
+
+.header-stat-item {
+  text-align: center;
+  flex: 1; /* Each stat takes equal space */
+}
+
+.header-stat-label {
+  font-size: 0.65rem; /* Slightly smaller to fit better */
+  color: var(--masters-green);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.1rem;
+  font-weight: bold;
+  opacity: 0.8;
+  white-space: nowrap; /* Prevent wrapping */
+}
+
+.header-stat-value {
+  font-size: 0.8rem;
+  color: var(--masters-green);
+  font-weight: bold;
+  opacity: 0.9;
+  white-space: nowrap; /* Prevent wrapping */
+}
+
+.header-stat-value.highlighted {
+  background: linear-gradient(
+      104deg,
+      rgba(130, 255, 173, 0) 0.9%,
+      rgba(255, 255, 0, 0.6) 2.4%,
+      rgba(255, 255, 0, 0.4) 5.8%,
+      rgba(255, 255, 0, 0.3) 93%,
+      rgba(255, 255, 0, 0.2) 96%,
+      rgba(255, 255, 0, 0) 98%
+  );
+  padding: 1px 4px;
+  margin: -1px -4px;
+  border-radius: 1px;
+  box-shadow: 0 0 4px rgba(255, 255, 0, 0.2);
+  opacity: 0.9;
+  display: inline-block;
+}
+
+/* Corner image styling */
+.header-corner-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain; /* Keeps aspect ratio and fits within the cell */
+  opacity: 0.8;
+}
+
+/* Scorecard title styling */
 .scorecard-title {
   font-size: 1rem;
   opacity: 0.9;
+  margin: 0;
 }
 
 .scorecard-body {
@@ -246,7 +326,7 @@ body {
 .section-title::after {
   content: '';
   position: absolute;
-  bottom: -3px;
+  bottom: -1.5px;
   left: 0;
   width: 30%;
   height: 1px;
@@ -398,4 +478,5 @@ body {
   margin-top: 1.5rem;
   width: 100%;
   text-align: right;
+  padding-right: .5rem;
 }
