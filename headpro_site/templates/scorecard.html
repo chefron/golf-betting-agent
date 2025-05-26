@@ -14,75 +14,58 @@
         <div class="scorecard">
         <div class="grain-overlay"></div>
             
-            <!-- Updated scorecard header with 3x3 grid layout -->
+            <!-- Simplified scorecard header -->
             <div class="scorecard-header">
-                <!-- Column 1 -->
-                <div class="header-col header-col-1">
-                    <div class="header-cell cell-1-1">
-                        <img src="{{ url_for('static', filename='images/course-map-1.png') }}" alt="golf hole map" class="header-corner-image">
-                    </div>
-                    <div class="header-cell cell-1-2">
-                        <!-- Performance Stats -->
-                        <div class="header-stats-group">
-                            <div class="header-stat-item">
-                                <div class="header-stat-label">ROI</div>
-                                <div class="header-stat-value highlighted {% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
-                                    {% if data.overview.roi > 0 %}+{% endif %}{{ data.overview.roi or 0 }}%
-                                </div>
-                            </div>
-                            <div class="header-stat-item">
-                                <div class="header-stat-label">Profit/Loss</div>
-                                <div class="header-stat-value {% if data.overview.profit_loss_units > 0 %}positive{% elif data.overview.profit_loss_units < 0 %}negative{% endif %}">
-                                    {% if data.overview.profit_loss_units > 0 %}+{% endif %}{{ data.overview.profit_loss_units or 0 }}u
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="header-cell cell-1-3"><!-- Bottom left --></div>
+                <div class="logo-section">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Head Pro Logo" class="scorecard-logo">
                 </div>
-                
-                <!-- Column 2 (Center) -->
-                <div class="header-col header-col-2">
-                    <div class="header-cell cell-2-1">
-                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Head Pro Logo" class="scorecard-logo">
-                    </div>
-                    <div class="header-cell cell-2-2">
-                        <h1 class="club-name">THE HEAD PRO</h1>
-                    </div>
-                    <div class="header-cell cell-2-3">
-                        <h2 class="scorecard-title">BETTING SCORECARD</h2>
-                    </div>
-                </div>
-                
-                <!-- Column 3 -->
-                <div class="header-col header-col-3">
-                    <div class="header-cell cell-3-1"><!-- Top right --></div>
-                    <div class="header-cell cell-3-2">
-                        <!-- Volume Stats -->
-                        <div class="header-stats-group">
-                            <div class="header-stat-item">
-                                <div class="header-stat-label">Total Bets</div>
-                                <div class="header-stat-value">{{ data.overview.total_bets or 0 }}</div>
-                            </div>
-                            <div class="header-stat-item">
-                                <div class="header-stat-label">Win Rate</div>
-                                <div class="header-stat-value {% if data.overview.win_rate > 0 %}positive{% endif %}">{{ data.overview.win_rate or 0 }}%</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="header-cell cell-3-3"><!-- Bottom right --></div>
+                <div class="title-section">
+                    <h1 class="club-name">THE HEAD PRO</h1>
+                    <h2 class="scorecard-title">BETTING SCORECARD</h2>
                 </div>
             </div>
             
             <div class="scorecard-body">
 
-                <!-- Recent Bet History -->
-                <div class="bet-history-section">
-                    <h3 class="section-title">SETTLED BETS</h3>
-                    
-                    {% if data.bet_history %}
-                    <table class="bet-history-table">
-                        <thead>
+                <!-- Combined Scorecard Table -->
+                <div class="scorecard-table-section">
+                    <table class="scorecard-table">
+                        <!-- Performance Overview Header -->
+                        <thead class="performance-header">
+                            <tr>
+                                <th colspan="9" class="section-header">PERFORMANCE OVERVIEW</th>
+                            </tr>
+                            <tr>
+                                <th>TOTAL BETS</th>
+                                <th>WIN RATE</th>
+                                <th>ROI</th>
+                                <th>PROFIT/LOSS</th>
+                                <th>AVG STAKE</th>
+                                <th>AVG ODDS</th>
+                                <th colspan="3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>{{ data.overview.total_bets or 0 }}</td>
+                                <td class="{% if data.overview.win_rate > 0 %}positive{% endif %}">{{ data.overview.win_rate or 0 }}%</td>
+                                <td class="highlighted {% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
+                                    {% if data.overview.roi > 0 %}+{% endif %}{{ data.overview.roi or 0 }}%
+                                </td>
+                                <td class="{% if data.overview.profit_loss_units > 0 %}positive{% elif data.overview.profit_loss_units < 0 %}negative{% endif %}">
+                                    {% if data.overview.profit_loss_units > 0 %}+{% endif %}{{ data.overview.profit_loss_units or 0 }}u
+                                </td>
+                                <td>{{ data.overview.avg_stake_units or 0 }}u</td>
+                                <td>{{ data.overview.avg_odds or 0 }}</td>
+                                <td colspan="3"></td>
+                            </tr>
+                        </tbody>
+                        
+                        <!-- Bet History Header -->
+                        <thead class="bet-history-header">
+                            <tr>
+                                <th colspan="9" class="section-header">SETTLED BETS</th>
+                            </tr>
                             <tr>
                                 <th>DATE</th>       
                                 <th>TOURNAMENT</th>
@@ -96,28 +79,31 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for bet in data.bet_history %}
-                            <tr>
-                                <td>{{ bet.settled_date }}</td>
-                                <td class="tournament-name">{{ bet.event_name }}</td>
-                                <td class="player-name">{{ bet.player_name }}</td>
-                                <td>{{ bet.bet_market }}</td>
-                                <td>{{ bet.american_odds }}</td>
-                                <td>{{ bet.stake_units }}u</td>
-                                <td class="outcome-{{ bet.outcome }}">{{ bet.outcome.upper() }}</td>
-                                <td class="{% if bet.profit_loss_units > 0 %}profit-positive{% elif bet.profit_loss_units < 0 %}profit-negative{% endif %}">
-                                    {{ bet.profit_loss_display }}
-                                </td>
-                                <td class="mental-score">{{ bet.mental_form_score }}</td>
-                            </tr>
-                            {% endfor %}
+                            {% if data.bet_history %}
+                                {% for bet in data.bet_history %}
+                                <tr>
+                                    <td>{{ bet.settled_date }}</td>
+                                    <td class="tournament-name">{{ bet.event_name }}</td>
+                                    <td class="player-name">{{ bet.player_name }}</td>
+                                    <td>{{ bet.bet_market }}</td>
+                                    <td>{{ bet.american_odds }}</td>
+                                    <td>{{ bet.stake_units }}u</td>
+                                    <td class="outcome-{{ bet.outcome }}">{{ bet.outcome.upper() }}</td>
+                                    <td class="{% if bet.profit_loss_units > 0 %}profit-positive{% elif bet.profit_loss_units < 0 %}profit-negative{% endif %}">
+                                        {{ bet.profit_loss_display }}
+                                    </td>
+                                    <td class="mental-score">{{ bet.mental_form_score }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">
+                                        No betting history available yet. Check back after some bets have been settled.
+                                    </td>
+                                </tr>
+                            {% endif %}
                         </tbody>
                     </table>
-                    {% else %}
-                    <div style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">
-                        No betting history available yet. Check back after some bets have been settled.
-                    </div>
-                    {% endif %}
                 </div>
 
                 <div class="dead-heat">
