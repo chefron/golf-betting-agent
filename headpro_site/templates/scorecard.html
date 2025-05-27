@@ -49,7 +49,7 @@
                             <tr>
                                 <td>{{ data.overview.total_bets or 0 }}</td>
                                 <td class="{% if data.overview.win_rate > 0 %}positive{% endif %}">{{ data.overview.win_rate or 0 }}%</td>
-                                <td class="highlighted {% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
+                                <td class="{% if data.overview.roi > 0 %}positive{% elif data.overview.roi < 0 %}negative{% endif %}">
                                     {% if data.overview.roi > 0 %}+{% endif %}{{ data.overview.roi or 0 }}%
                                 </td>
                                 <td class="{% if data.overview.profit_loss_units > 0 %}positive{% elif data.overview.profit_loss_units < 0 %}negative{% endif %}">
