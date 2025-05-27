@@ -239,7 +239,7 @@ class OddsRetriever:
             Dictionary with event information and processed odds data
         """
         if markets is None:
-            markets = ["win", "top_5", "top_10", "top_20", "make_cut", "mc", "frl"]
+            markets = ["win", "top_5", "top_10", "top_20", "make_cut", "mc"]
         
         result = {
             "event_name": None,
@@ -607,7 +607,6 @@ class OddsRetriever:
             "top_20": "Top 20 Finish",
             "make_cut": "Make Cut",
             "mc": "Miss Cut",
-            "frl": "First Round Leader"
         }
         return market_display.get(market, market.upper())
     
@@ -633,6 +632,5 @@ def format_market_name(market):
         "top_20": "Top 20 Finish",
         "make_cut": "Make Cut",
         "mc": "Miss Cut",
-        "frl": "First Round Leader"
     }
     return market_display.get(market, market.upper())

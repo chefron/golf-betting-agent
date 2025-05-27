@@ -43,17 +43,34 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listener for when the video ends
         headProVideo.addEventListener('ended', function() {
-            // Add fade-out class to container
-            if (headProImgContainer) {
-                headProImgContainer.classList.add('fade-out');
-                
-                // After fade completes, hide completely and adjust layout
-                setTimeout(() => {
-                    headProImgContainer.classList.add('hidden');
-                    document.querySelector('.chat-content').classList.add('conversation-started');
-                }, 1000); // Match this to your CSS transition time
-            }
+            // Instead of immediately fading out, just pause on the last frame
+            console.log('Video ended, pausing on final frame');
+            // The fade-out will now be handled by stopLoadingVideo() when the response comes back
         });
+    }
+
+    // Update the stopLoadingVideo function to handle the fade-out
+    function stopLoadingVideo() {
+        // Remove loading class from body
+        document.body.classList.remove('loading');
+        
+        // Start the fade-out of the video container when loading ends
+        if (headProImgContainer) {
+            headProImgContainer.classList.add('fade-out');
+            
+            // After fade completes, hide completely and adjust layout
+            setTimeout(() => {
+                headProImgContainer.classList.add('hidden');
+                document.querySelector('.chat-content').classList.add('conversation-started');
+            }, 1000); // Match this to your CSS transition time
+        }
+        
+        // Pause the video after a brief delay to let the fade-out start
+        if (headProVideo) {
+            setTimeout(() => {
+                headProVideo.pause();
+            }, 300);
+        }
     }
     
     // Load previous message if exists
@@ -162,20 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Handle autoplay prevention (unlikely since this is user-initiated)
                 console.error("Video play failed:", e);
             });
-        }
-    }
-
-    // Function to stop video when loading ends (if LLM responds quicker than video duration)
-    function stopLoadingVideo() {
-        // Remove loading class from body
-        document.body.classList.remove('loading');
-        
-        // Pause the video if it exists
-        if (headProVideo) {
-            // Wait a bit for the fade-out transition to complete
-            setTimeout(() => {
-                headProVideo.pause();
-            }, 300);
         }
     }
     
