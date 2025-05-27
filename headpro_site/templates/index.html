@@ -85,7 +85,7 @@
     </main>
     
     <footer class="bottom-nav">
-        <a href="scorecard" id="scorecard-link">BETTING RESULTS</a>
+        <a href="#" id="scorecard-link">BETTING RESULTS</a>
         <a href="https://twitter.com/headprobetting" target="_blank">TWITTER</a>
         <a href="#" id="about-link">ABOUT</a>
     </footer>
@@ -98,6 +98,91 @@
             <p>He specializes in identifying players whose mental state indicates imminent performance shifts—before they show up in results.</p>
             <p>The Head Pro is built with Claude by Anthropic and maintains a comprehensive database of player insights gathered from interviews, podcasts, and press conferences.</p>
             <p><strong>Note:</strong> For entertainment purposes only. Gamble responsibly.</p>
+        </div>
+    </div>
+
+    <!-- Scorecard Modal -->
+    <div id="scorecard-modal" class="modal scorecard-modal">
+        <div class="modal-content scorecard-modal-content">
+            <span class="close" id="scorecard-close">&times;</span>
+            <div class="scorecard-container">
+                <div class="scorecard">
+                    <div class="grain-overlay"></div>
+                    
+                    <!-- Simplified scorecard header -->
+                    <div class="scorecard-header">
+                        <div class="logo-section">
+                            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Head Pro Logo" class="scorecard-logo">
+                        </div>
+                        <div class="title-section">
+                            <h1 class="club-name">THE HEAD PRO</h1>
+                            <h2 class="scorecard-title">BETTING SCORECARD</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="scorecard-body">
+                        <div class="scorecard-table-section">
+                            <table class="scorecard-table">
+                                <!-- Performance Overview Header -->
+                                <thead class="performance-header">
+                                    <tr>
+                                        <th colspan="9" class="section-header">PERFORMANCE OVERVIEW</th>
+                                    </tr>
+                                    <tr>
+                                        <th>TOTAL BETS</th>
+                                        <th>WIN RATE</th>
+                                        <th>ROI</th>
+                                        <th>PROFIT/LOSS</th>
+                                        <th>AVG STAKE</th>
+                                        <th>AVG ODDS</th>
+                                        <th colspan="3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr id="overview-row">
+                                        <td>-</td>
+                                        <td>-%</td>
+                                        <td>-%</td>
+                                        <td>-u</td>
+                                        <td>-u</td>
+                                        <td>-</td>
+                                        <td colspan="3"></td>
+                                    </tr>
+                                </tbody>
+                                
+                                <!-- Bet History Header -->
+                                <thead class="bet-history-header">
+                                    <tr>
+                                        <th colspan="9" class="section-header">SETTLED BETS</th>
+                                    </tr>
+                                    <tr>
+                                        <th>DATE</th>       
+                                        <th>TOURNAMENT</th>
+                                        <th>PLAYER</th>
+                                        <th>MARKET</th>
+                                        <th>ODDS</th>
+                                        <th>STAKE</th>
+                                        <th>OUTCOME</th>
+                                        <th>P/L</th>
+                                        <th>MENTAL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bet-history-tbody">
+                                    <tr>
+                                        <td colspan="9" style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">
+                                            Loading betting history...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="dead-heat">
+                            <p>DH = dead heat</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     

@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const aboutModal = document.getElementById('about-modal');
     const closeModal = document.querySelector('.close');
     const thinkingMessage = document.getElementById('thinking-message');
+    const scorecardLink = document.getElementById('scorecard-link');
+    const scorecardModal = document.getElementById('scorecard-modal');
+    const scorecardClose = document.getElementById('scorecard-close');
     
     // Define SVG content as constants to ensure consistency when restoring
     const SEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -418,4 +421,149 @@ document.addEventListener('DOMContentLoaded', function() {
     if (initialView.classList.contains('active')) {
         initialInput.focus();
     }
+
+    // Function to load scorecard data
+    async function loadScorecardData() {
+        try {
+            const response = await fetch('/api/scorecard-data');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            // Update overview data
+            updateOverviewData(data.overview);
+            
+            // Update bet history
+            updateBetHistory(data.bet_history);
+            
+        } catch (error) {
+            console.error('Error loading scorecard data:', error);
+            
+            // Show error message in the table
+            const overviewRow = document.getElementById('overview-row');
+            if (overviewRow) {
+                overviewRow.innerHTML = '<td colspan="9" style="text-align: center; color: var(--ink-red);">Error loading data</td>';
+            }
+            
+            const betHistoryTbody = document.getElementById('bet-history-tbody');
+            if (betHistoryTbody) {
+                betHistoryTbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--ink-red);">Error loading betting history</td></tr>';
+            }
+        }
+    }
+
+    // Function to update overview data
+    function updateOverviewData(overview) {
+        const overviewRow = document.getElementById('overview-row');
+        if (!overviewRow || !overview) return;
+
+        const totalBets = overview.total_bets || 0;
+        const winRate = overview.win_rate || 0;
+        const roi = overview.roi || 0;
+        const profitLoss = overview.profit_loss_units || 0;
+        const avgStake = overview.avg_stake_units || 0;
+        const avgOdds = overview.avg_odds || 0;
+
+        // Determine classes for positive/negative values
+        const winRateClass = winRate > 0 ? 'positive' : '';
+        const roiClass = roi > 0 ? 'positive' : roi < 0 ? 'negative' : '';
+        const profitLossClass = profitLoss > 0 ? 'positive' : profitLoss < 0 ? 'negative' : '';
+
+        overviewRow.innerHTML = `
+            <td>${totalBets}</td>
+            <td class="${winRateClass}">${winRate}%</td>
+            <td class="${roiClass}">${roi > 0 ? '+' : ''}${roi}%</td>
+            <td class="${profitLossClass}">${profitLoss > 0 ? '+' : ''}${profitLoss}u</td>
+            <td>${avgStake}u</td>
+            <td>${avgOdds}</td>
+            <td colspan="3"></td>
+        `;
+    }
+
+    // Function to update bet history
+    function updateBetHistory(betHistory) {
+        const betHistoryTbody = document.getElementById('bet-history-tbody');
+        if (!betHistoryTbody) return;
+
+        if (!betHistory || betHistory.length === 0) {
+            betHistoryTbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">No betting history available yet.</td></tr>';
+            return;
+        }
+
+        // Generate HTML for each bet
+        const betsHtml = betHistory.map(bet => {
+            const outcomeClass = `outcome-${bet.outcome}`;
+            const profitLossClass = bet.profit_loss_units > 0 ? 'profit-positive' : bet.profit_loss_units < 0 ? 'profit-negative' : '';
+            
+            return `
+                <tr>
+                    <td>${bet.settled_date}</td>
+                    <td class="tournament-name">${bet.event_name}</td>
+                    <td class="player-name">${bet.player_name}</td>
+                    <td>${bet.bet_market}</td>
+                    <td>${bet.american_odds}</td>
+                    <td>${bet.stake_units}u</td>
+                    <td class="${outcomeClass}">${bet.outcome.toUpperCase()}</td>
+                    <td class="${profitLossClass}">${bet.profit_loss_display}</td>
+                    <td class="mental-score">${bet.mental_form_score}</td>
+                </tr>
+            `;
+        }).join('');
+
+        betHistoryTbody.innerHTML = betsHtml;
+    }
+
+    // Function to show scorecard modal with animation
+    function showScorecardModal() {
+        // Load the data first
+        loadScorecardData();
+        
+        // Show the modal
+        scorecardModal.style.display = 'block';
+        
+        // Trigger the animation after a brief delay to ensure display: block has taken effect
+        setTimeout(() => {
+            scorecardModal.classList.add('show');
+        }, 10);
+
+        // Prevent background scrolling
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Function to hide scorecard modal with animation
+    function hideScorecardModal() {
+        scorecardModal.classList.remove('show');
+        scorecardModal.classList.add('hide');
+        
+        // Wait for animation to complete before hiding
+        setTimeout(() => {
+            scorecardModal.style.display = 'none';
+            scorecardModal.classList.remove('hide');
+            document.body.style.overflow = 'auto';
+        }, 600); // Match this to your hide animation duration
+    }
+
+    // Event listeners for scorecard modal
+    scorecardLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showScorecardModal();
+    });
+
+    scorecardClose.addEventListener('click', hideScorecardModal);
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', (e) => {
+        if (e.target === scorecardModal) {
+            hideScorecardModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && scorecardModal.style.display === 'block') {
+            hideScorecardModal();
+        }
+    });
+    
 });

@@ -315,6 +315,34 @@ def get_model_performance_data(db_path):
         if conn:
             conn.close()
 
+@app.route('/api/scorecard-data')
+def scorecard_data():
+    """API endpoint to return scorecard data as JSON"""
+    try:
+        # Get the database path (same as your chatbot uses)
+        db_path = os.environ.get('DB_PATH', '../data/db/mental_form.db')
+        
+        # Get model performance data using your existing function
+        performance_data = get_model_performance_data(db_path)
+        
+        return jsonify(performance_data)
+    
+    except Exception as e:
+        logger.error(f"Error loading scorecard API data: {e}")
+        # Return empty/default data if there's an error
+        default_data = {
+            'overview': {
+                'total_bets': 0,
+                'win_rate': 0,
+                'roi': 0,
+                'profit_loss_units': 0,
+                'avg_stake_units': 0,
+                'avg_odds': 0
+            },
+            'bet_history': []
+        }
+        return jsonify(default_data)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port)
