@@ -195,7 +195,7 @@ body.unzooming #cinematic-overlay {
     width: 75%;
     display: flex;
     margin: 0;
-    transform: translateY(-1rem);
+    transform: translateY(-1.7rem);
     opacity: 1;
     transition: opacity 0.8s ease-out;
 }
@@ -464,7 +464,6 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .welcome-prompt {
-    margin-top: .5rem;
     font-weight: 300;
 }
 
@@ -602,19 +601,6 @@ body.loading #initial-view .centered-input-area {
     background-color: rgba(0,0,0,0.7);
 }
 
-.modal-content {
-   
-   
-}
-
-.modal-content h2 {
-   
-}
-
-.modal-content p {
-
-}
-
 .close {
     color: var(--light-gray);
     float: right;
@@ -626,6 +612,184 @@ body.loading #initial-view .centered-input-area {
 .close:hover {
     color: var(--white);
 }
+
+/* About Modal Styles */
+
+.about-modal {
+    background-color: rgba(0,0,0,0.7);
+}
+
+.about-modal-content {
+    background: transparent;
+    margin: 8% auto;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    width: 90%;
+    max-width: 600px;
+    height: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: none;
+    position: relative;
+    
+    /* Same entrance animation as scorecard */
+    transform: scale(0.1) translate(0, 0);
+    transform-origin: center center;
+    opacity: 0;
+    transition: none;
+}
+
+.about-modal.show .about-modal-content {
+    animation: emergeFromHole 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.about-modal.hide .about-modal-content {
+    animation: sinkIntoHole 0.6s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+/* About card modal styling - matches scorecard appearance */
+.about-card {
+    background: rgb(253, 250, 241);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: visible;
+    box-sizing: border-box;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    filter: saturate(1.5);
+    font-family: "Merriweather", serif;
+    font-optical-sizing: auto;
+    background-clip: padding-box;
+}
+
+/* Same border styling as scorecard */
+.about-card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border: 16px solid rgba(21, 88, 67, 0.9);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Same paper grain overlay as scorecard */
+.about-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('../images/paper-grain.png');
+    background-repeat: repeat;
+    pointer-events: none;
+    z-index: 10;
+    mix-blend-mode: overlay;
+}
+
+/* Content styling */
+.about-content {
+    position: relative;
+    z-index: 20;
+    color: var(--masters-green);
+}
+
+.about-photo {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    border: 3px solid rgba(21, 88, 67, 0.9);
+}
+
+.about-text h2 {
+    color: var(--masters-green);
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    font-family: "Jost", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.about-text p {
+    color: var(--masters-green);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+.about-text p:last-child {
+    margin-bottom: 0;
+}
+
+.about-text strong {
+    font-weight: 700;
+    color: var(--ink-red);
+}
+
+/* Close button for about modal */
+.about-modal .close {
+    position: absolute;
+    top: -12px;
+    right: 0;
+    color: var(--paper-cream);
+    font-size: 1.5rem;
+    font-family: 'Jost', sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 1000;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.about-modal .close:hover {
+    color: #fff;
+}
+
+/* CSS variables for about modal */
+.about-modal {
+    --paper-cream: #f4f1e8;
+    --masters-green: #155843;
+    --ink-red: #8b2635;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .about-modal-content {
+        width: 95%;
+        margin: 5% auto;
+    }
+    
+    .about-text h2 {
+        font-size: 1.5rem;
+    }
+    
+    .about-text p {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .about-card {
+        padding: 1rem;
+    }
+    
+    .about-text h2 {
+        font-size: 1.3rem;
+    }
+    
+    .about-text p {
+        font-size: 0.85rem;
+    }
+}
+
 
 /* Scorecard Modal Styles - Add these to your existing style.css */
 

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const headProAnswer = document.getElementById('head-pro-answer');
     const aboutLink = document.getElementById('about-link');
     const aboutModal = document.getElementById('about-modal');
+    const aboutClose = document.getElementById('about-close');
     const closeModal = document.querySelector('.close');
     const thinkingMessage = document.getElementById('thinking-message');
     const scorecardLink = document.getElementById('scorecard-link');
@@ -401,18 +402,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Modal controls
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();
-        aboutModal.style.display = 'block';
+        showAboutModal();
     });
     
-    closeModal.addEventListener('click', () => {
-        aboutModal.style.display = 'none';
-    });
-    
-    window.addEventListener('click', (e) => {
-        if (e.target === aboutModal) {
-            aboutModal.style.display = 'none';
-        }
-    });
+    // Event listener for about close button
+    aboutClose.addEventListener('click', hideAboutModal);
     
     // Ensure buttons are in their correct initial state
     resetSendButtons();
@@ -555,18 +549,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     scorecardClose.addEventListener('click', hideScorecardModal);
 
-    // Close modal when clicking outside of it
+    // Close modals when clicking outside them
     window.addEventListener('click', (e) => {
+        if (e.target === aboutModal) {
+            hideAboutModal();
+        }
         if (e.target === scorecardModal) {
             hideScorecardModal();
         }
     });
 
-    // Close modal on Escape key
+    // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && scorecardModal.style.display === 'block') {
-            hideScorecardModal();
+        if (e.key === 'Escape') {
+            if (aboutModal.style.display === 'block') {
+                hideAboutModal();
+            }
+            if (scorecardModal.style.display === 'block') {
+                hideScorecardModal();
+            }
         }
     });
+
+    // Function to show about modal with animation
+    function showAboutModal() {
+        aboutModal.style.display = 'block';
+        
+        // Trigger the animation after a brief delay
+        setTimeout(() => {
+            aboutModal.classList.add('show');
+        }, 10);
+
+        // Prevent background scrolling
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Function to hide about modal with animation
+    function hideAboutModal() {
+        aboutModal.classList.remove('show');
+        aboutModal.classList.add('hide');
+        
+        // Wait for animation to complete before hiding
+        setTimeout(() => {
+            aboutModal.style.display = 'none';
+            aboutModal.classList.remove('hide');
+            document.body.style.overflow = 'auto';
+        }, 600); // Match animation duration
+    }
+
     
 });

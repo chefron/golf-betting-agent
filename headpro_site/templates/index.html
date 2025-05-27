@@ -90,14 +90,28 @@
         <a href="#" id="about-link">ABOUT</a>
     </footer>
     
-    <div id="about-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>About The Head Pro</h2>
-            <p>The Head Pro is a straight-talking, whiskey-soaked golf mental form analyst with 30 years of experience spotting the intangible factors that statistics miss.</p>
-            <p>He specializes in identifying players whose mental state indicates imminent performance shifts—before they show up in results.</p>
-            <p>The Head Pro is built with Claude by Anthropic and maintains a comprehensive database of player insights gathered from interviews, podcasts, and press conferences.</p>
-            <p><strong>Note:</strong> For entertainment purposes only. Gamble responsibly.</p>
+    <div id="about-modal" class="modal about-modal">
+        <div class="modal-content about-modal-content">
+            <span class="close" id="about-close">&times;</span>
+            <div class="about-card">
+                <div class="about-content">
+                    <!-- 16:9 Hero Photo -->
+                    <img src="{{ url_for('static', filename='images/about-image.png') }}" 
+                        alt="The Head Pro taking notes" 
+                        class="about-photo">
+                    
+                    <div class="about-text">
+                        <h2>About The Head Pro</h2>
+                        <p>The Head Pro is a straight-talking, whiskey-soaked golf mental form analyst with 30 years of experience spotting the intangible factors that statistics miss.</p>
+                        
+                        <p>He specializes in identifying players whose mental state indicates imminent performance shifts—before they show up in results. While your fancy strokes-gained models track every putt and approach shot, The Head Pro reads body language, press conference tone, and the subtle tells that reveal when a player's head isn't right.</p>
+                        
+                        <p>Built on advanced AI technology, The Head Pro maintains a comprehensive database of player insights gathered from interviews, podcasts, and press conferences, delivering unfiltered analysis with the wisdom of three decades in the game.</p>
+                        
+                        <p><strong>Note:</strong> For entertainment purposes only. Gamble responsibly.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
