@@ -390,7 +390,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset thinking message
             if (thinkingMessage) {
-                thinkingMessage.classList.remove('show');
+                thinkingMessage.classList.remove('show', 'subtitle-mode');
+                thinkingMessage.textContent = '';
             }
 
             // Reset about video if it's playing
