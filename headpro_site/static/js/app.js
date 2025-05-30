@@ -10,13 +10,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const userQuestion = document.getElementById('user-question');
     const headProAnswer = document.getElementById('head-pro-answer');
     const aboutLink = document.getElementById('about-link');
-    const aboutModal = document.getElementById('about-modal');
-    const aboutClose = document.getElementById('about-close');
-    const closeModal = document.querySelector('.close');
     const thinkingMessage = document.getElementById('thinking-message');
     const scorecardLink = document.getElementById('scorecard-link');
     const scorecardModal = document.getElementById('scorecard-modal');
     const scorecardClose = document.getElementById('scorecard-close');
+
+    // Global variables for subtitle management
+    let aboutVideo = null;
+    let subtitleInterval = null;
+    let currentSubtitleIndex = -1;
+
+    // Function to start tracking subtitles
+    function startSubtitleTracking() {
+        if (subtitleInterval) {
+            clearInterval(subtitleInterval);
+        }
+        
+        subtitleInterval = setInterval(() => {
+            if (aboutVideo && !aboutVideo.paused) {
+                updateSubtitles();
+            }
+        }, 100); // Check every 100ms for smooth subtitle updates
+    }
+
+    // Subtitle data structure - you'll need to fill in the actual timings and text
+    const aboutSubtitles = [
+        { start: 0, end: 3, text: "Well, well. Look who's curious about the Head Pro." },
+        { start: 3.5, end: 7, text: "I'm not your typical golf analyst, that's for damn sure." },
+        { start: 7.5, end: 11, text: "While everyone else is obsessing over strokes gained..." },
+        { start: 11.5, end: 15, text: "I'm tracking what really matters - the mental game." },
+        { start: 15.5, end: 19, text: "Every interview, every social media post, every tell..." },
+        { start: 19.5, end: 23, text: "I see the psychological cracks others miss." },
+        { start: 23.5, end: 27, text: "That's how I find the betting edges that matter." },
+        { start: 27.5, end: 31, text: "The kind that separate the sharp money from the suckers." },
+        { start: 31.5, end: 36, text: "Now ask me something useful about this week's field." }
+    ];
     
     // Define SVG content as constants to ensure consistency when restoring
     const SEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -30,7 +58,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const userId = localStorage.getItem('userId') || 
         `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     localStorage.setItem('userId', userId);
-
 
     // Get video element
     const headProVideos = {
@@ -365,6 +392,32 @@ document.addEventListener('DOMContentLoaded', function() {
             if (thinkingMessage) {
                 thinkingMessage.classList.remove('show');
             }
+
+            // Reset about video if it's playing
+            if (aboutVideo) {
+                aboutVideo.pause();
+                aboutVideo.currentTime = 0;
+                aboutVideo.style.display = 'none';
+                
+                // Hide video controls
+                const videoControls = document.getElementById('video-controls-overlay');
+                if (videoControls) {
+                    videoControls.style.display = 'none';
+                }
+                
+                // Stop subtitle tracking
+                if (subtitleInterval) {
+                    clearInterval(subtitleInterval);
+                    subtitleInterval = null;
+                }
+                
+                // Clear subtitles
+                const subtitleElement = document.getElementById('thinking-message');
+                if (subtitleElement) {
+                    subtitleElement.classList.remove('show', 'subtitle-mode');
+                    subtitleElement.textContent = '';
+                }
+            }
             
             // Reset the Head Pro container
             const headProImgContainer = document.querySelector('.head-pro-img-container');
@@ -458,14 +511,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     resetBtn.addEventListener('click', resetConversation);
     
-    // Modal controls
+    // Update the about link event listener
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();
-        showAboutModal();
+        
+        // Check if we're already in about mode (video playing)
+        if (aboutVideo && !aboutVideo.paused && aboutVideo.currentTime > 0) {
+            // If about video is playing, restart it
+            aboutVideo.currentTime = 0;
+            aboutVideo.play();
+        } else {
+            // Start the about video experience
+            startAboutVideo();
+        }
     });
-    
-    // Event listener for about close button
-    aboutClose.addEventListener('click', hideAboutModal);
+
+    // Add mute button event listener
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'about-mute-btn') {
+            toggleAboutVideoSound();
+        }
+    });
     
     // Ensure buttons are in their correct initial state
     resetSendButtons();
@@ -610,9 +676,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Close modals when clicking outside them
     window.addEventListener('click', (e) => {
-        if (e.target === aboutModal) {
-            hideAboutModal();
-        }
         if (e.target === scorecardModal) {
             hideScorecardModal();
         }
@@ -621,40 +684,411 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (aboutModal.style.display === 'block') {
-                hideAboutModal();
-            }
             if (scorecardModal.style.display === 'block') {
                 hideScorecardModal();
             }
         }
     });
 
-    // Function to show about modal with animation
-    function showAboutModal() {
-        aboutModal.style.display = 'block';
-        
-        // Trigger the animation after a brief delay
-        setTimeout(() => {
-            aboutModal.classList.add('show');
-        }, 10);
-
-        // Prevent background scrolling
-        document.body.style.overflow = 'hidden';
+    // Function to initialize about video elements
+    function initializeAboutVideo() {
+        // Create the about video element if it doesn't exist
+        if (!aboutVideo) {
+            aboutVideo = document.createElement('video');
+            aboutVideo.id = 'about-video';
+            aboutVideo.className = 'head-pro-video';
+            aboutVideo.muted = true; // Start muted by default
+            aboutVideo.preload = 'auto';
+            aboutVideo.playsInline = true;
+            aboutVideo.style.display = 'none';
+            
+            // Add video source
+            const source = document.createElement('source');
+            source.src = '/static/videos/about.mp4'; // Adjust path as needed
+            source.type = 'video/mp4';
+            aboutVideo.appendChild(source);
+            
+            // Add video controls (hidden by default)
+            aboutVideo.controls = false;
+            
+            // Add to the video wrapper
+            const videoWrapper = document.querySelector('.head-pro-img-wrapper');
+            if (videoWrapper) {
+                videoWrapper.appendChild(aboutVideo);
+            }
+            
+            // Add event listeners
+            aboutVideo.addEventListener('loadedmetadata', onAboutVideoLoaded);
+            aboutVideo.addEventListener('timeupdate', updateSubtitles);
+            aboutVideo.addEventListener('ended', onAboutVideoEnded);
+            aboutVideo.addEventListener('pause', onAboutVideoPaused);
+            aboutVideo.addEventListener('play', onAboutVideoPlayed);
+        }
     }
 
-    // Function to hide about modal with animation
-    function hideAboutModal() {
-        aboutModal.classList.remove('show');
-        aboutModal.classList.add('hide');
+    // Add about video functionality
+    initializeAboutVideo();
+
+    // Replace your existing startAboutVideo() function with this fixed version:
+
+    function startAboutVideo() {
+        console.log('Starting about video experience');
         
-        // Wait for animation to complete before hiding
+        // Begin the zoom animation (reuse existing logic)
+        document.body.classList.add('pre-zoom');
+        void document.body.offsetHeight; // Force reflow
         setTimeout(() => {
-            aboutModal.style.display = 'none';
-            aboutModal.classList.remove('hide');
-            document.body.style.overflow = 'auto';
-        }, 600); // Match animation duration
+            document.body.classList.remove('pre-zoom');
+            document.body.classList.add('zooming');
+        }, 20);
+        
+        // Hide welcome messages - but DON'T use 'loading' class for about video
+        // Instead, directly hide the welcome elements
+        const welcomeTagline = document.querySelector('.welcome-tagline');
+        const welcomePrompt = document.querySelector('.welcome-prompt');
+        const inputArea = document.querySelector('.centered-input-area');
+        
+        if (welcomeTagline) welcomeTagline.style.opacity = '0';
+        if (welcomePrompt) welcomePrompt.style.opacity = '0';
+        if (inputArea) inputArea.style.opacity = '0';
+        
+        // Hide all other videos and show about video
+        Object.values(headProVideos).forEach(video => {
+            if (video) {
+                video.style.display = 'none';
+                video.pause();
+                video.currentTime = 0;
+            }
+        });
+        
+        // Show and prepare about video
+        if (aboutVideo) {
+            aboutVideo.style.display = 'block';
+            aboutVideo.currentTime = 0;
+            aboutVideo.muted = true; // Ensure it starts muted
+            currentSubtitleIndex = -1;
+            
+            // Show video controls
+            const videoControls = document.getElementById('video-controls-overlay');
+            if (videoControls) {
+                videoControls.style.display = 'block';
+                // Add class to show controls during about video
+                videoControls.classList.add('about-video-active');
+            }
+
+            // Also add click handler for the video itself to toggle pause/play
+            if (aboutVideo) {
+                aboutVideo.addEventListener('click', function() {
+                    if (aboutVideo.paused) {
+                        aboutVideo.play();
+                        console.log('Video resumed');
+                    } else {
+                        aboutVideo.pause();
+                        console.log('Video paused');
+                    }
+                });
+            }
+            
+            // Show subtitle area with subtitle styling
+            const subtitleElement = document.getElementById('thinking-message');
+            if (subtitleElement) {
+                subtitleElement.classList.add('show', 'subtitle-mode');
+                subtitleElement.textContent = ''; // Clear any existing text
+            }
+            
+            // Update mute button
+            updateMuteButton();
+
+            const muteBtn = document.getElementById('about-mute-btn');
+            if (muteBtn) {
+                console.log('Mute button found');
+                muteBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    toggleAboutVideoSound();
+                    console.log('Mute button clicked, video muted:', aboutVideo.muted);
+                };
+            } else {
+                console.error('Mute button not found!');
+            }
+            
+            // Start video
+            aboutVideo.play().catch(e => {
+                console.error("About video play failed:", e);
+            });
+            
+            // Start subtitle tracking
+            startSubtitleTracking();
+        }
+        
+        // Show input after 10 seconds
+        setTimeout(() => {
+            showAboutInput();
+        }, 10000);
+        
+        // Complete zoom after animation - but DON'T remove loading class
+        setTimeout(() => {
+            document.body.classList.remove('zooming');
+            document.body.classList.add('zoomed');
+            // REMOVED: document.body.classList.remove('loading'); 
+            // This was causing the welcome elements to reappear
+        }, 3000);
     }
 
+    // Enhanced subtitle update function
+    function updateSubtitles() {
+        if (!aboutVideo) return;
+        
+        const currentTime = aboutVideo.currentTime;
+        const subtitleElement = document.getElementById('thinking-message');
+        
+        if (!subtitleElement) return;
+        
+        // Find the current subtitle
+        let newSubtitleIndex = -1;
+        for (let i = 0; i < aboutSubtitles.length; i++) {
+            const subtitle = aboutSubtitles[i];
+            if (currentTime >= subtitle.start && currentTime <= subtitle.end) {
+                newSubtitleIndex = i;
+                break;
+            }
+        }
+        
+        // Update subtitle if it changed
+        if (newSubtitleIndex !== currentSubtitleIndex) {
+            currentSubtitleIndex = newSubtitleIndex;
+            
+            if (newSubtitleIndex >= 0) {
+                // Add a subtle fade effect for subtitle changes
+                subtitleElement.style.opacity = '0';
+                setTimeout(() => {
+                    subtitleElement.textContent = aboutSubtitles[newSubtitleIndex].text;
+                    subtitleElement.style.opacity = '1';
+                }, 150);
+            } else {
+                subtitleElement.textContent = '';
+            }
+        }
+    }
+
+    function showAboutInput() {
+        // Don't switch views at all - just show the input in the current initial view
+        
+        // Find or create an input area in the initial view
+        let aboutInputArea = document.getElementById('about-input-area');
+        
+        if (!aboutInputArea) {
+            // Create the input area
+            aboutInputArea = document.createElement('div');
+            aboutInputArea.id = 'about-input-area';
+            aboutInputArea.className = 'input-area';
+            aboutInputArea.style.cssText = `
+                position: fixed;
+                bottom: 10%;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 75%;
+                max-width: 600px;
+                z-index: 100;
+                pointer-events: auto;
+            `;
+            
+            // Create the input container
+            const inputContainer = document.createElement('div');
+            inputContainer.className = 'input-container';
+            
+            // Create the input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'about-input';
+            input.placeholder = 'Ask me something...';
+            input.style.cssText = `
+                flex: 1;
+                width: 100%;
+                padding: 12px 16px;
+                padding-right: 50px;
+                border: none;
+                border-radius: 20px;
+                background: rgba(255,255,255,0.1);
+                color: var(--white);
+                font-family: "Merriweather", serif;
+                font-optical-sizing: auto;
+            `;
+            
+            // Create the send button
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'send-icon-btn';
+            sendBtn.id = 'about-send-btn';
+            sendBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            `;
+            
+            // Assemble the input area
+            inputContainer.appendChild(input);
+            inputContainer.appendChild(sendBtn);
+            aboutInputArea.appendChild(inputContainer);
+            
+            // Add to the main chat container instead of initial view
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer) {
+                chatContainer.appendChild(aboutInputArea);
+            }
+            
+            // Add event listeners
+            sendBtn.addEventListener('click', () => {
+                const message = input.value.trim();
+                if (message) {
+                    cleanupAboutVideo();
+                    sendMessage(message);
+                }
+            });
+            
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const message = input.value.trim();
+                    if (message) {
+                        cleanupAboutVideo();
+                        sendMessage(message);
+                    }
+                }
+            });
+            
+            // Focus styles
+            input.addEventListener('focus', () => {
+                input.style.background = 'rgba(255,255,255,0.15)';
+            });
+            
+            input.addEventListener('blur', () => {
+                input.style.background = 'rgba(255,255,255,0.1)';
+            });
+        }
+        
+        // Show the input area with a fade-in effect
+        aboutInputArea.style.opacity = '0';
+        aboutInputArea.style.display = 'flex';
+        
+        setTimeout(() => {
+            aboutInputArea.style.transition = 'opacity 0.5s ease';
+            aboutInputArea.style.opacity = '1';
+        }, 100);
+        
+        // Focus on the input
+        const input = aboutInputArea.querySelector('input');
+        if (input) {
+            setTimeout(() => input.focus(), 200);
+        }
+    }
+
+    // Event handlers for about video
+    function onAboutVideoLoaded() {
+        console.log('About video metadata loaded');
+    }
+
+    function onAboutVideoEnded() {
+        console.log('About video ended');
+        
+        // Stop subtitle tracking
+        if (subtitleInterval) {
+            clearInterval(subtitleInterval);
+            subtitleInterval = null;
+        }
+        
+        // Clear subtitles
+        const subtitleElement = document.getElementById('thinking-message');
+        if (subtitleElement) {
+            subtitleElement.classList.remove('show');
+            subtitleElement.textContent = '';
+        }
+        
+        // Keep the video visible but paused
+        if (aboutVideo) {
+            aboutVideo.pause();
+        }
+    }
+
+    function onAboutVideoPaused() {
+        console.log('About video paused');
+        // Stop subtitle tracking when paused
+        if (subtitleInterval) {
+            clearInterval(subtitleInterval);
+            subtitleInterval = null;
+        }
+    }
+
+    function onAboutVideoPlayed() {
+        console.log('About video playing');
+        // Resume subtitle tracking when playing
+        startSubtitleTracking();
+    }
+
+    // Function to toggle video sound
+    function toggleAboutVideoSound() {
+        if (aboutVideo) {
+            aboutVideo.muted = !aboutVideo.muted;
+            console.log('About video muted:', aboutVideo.muted);
+            
+            // Update mute button if it exists
+            updateMuteButton();
+        }
+    }
+
+    // Function to update mute button appearance
+    function updateMuteButton() {
+        const muteButton = document.getElementById('about-mute-btn');
+        if (muteButton && aboutVideo) {
+            // Update button icon/text based on mute state
+            if (aboutVideo.muted) {
+                muteButton.innerHTML = '🔇'; // Muted icon
+                muteButton.title = 'Unmute video';
+            } else {
+                muteButton.innerHTML = '🔊'; // Sound icon
+                muteButton.title = 'Mute video';
+            }
+        }
+    }
+
+    function cleanupAboutVideo() {
+        // Remove the about input area
+        const aboutInputArea = document.getElementById('about-input-area');
+        if (aboutInputArea) {
+            aboutInputArea.remove();
+        }
+        
+        // Hide about video and controls
+        if (aboutVideo) {
+            aboutVideo.style.display = 'none';
+            aboutVideo.pause();
+        }
+        
+        const videoControls = document.getElementById('video-controls-overlay');
+        if (videoControls) {
+            videoControls.style.display = 'none';
+            videoControls.classList.remove('about-video-active');
+        }
+        
+        // Stop subtitle tracking
+        if (subtitleInterval) {
+            clearInterval(subtitleInterval);
+            subtitleInterval = null;
+        }
+        
+        // Clear subtitles
+        const subtitleElement = document.getElementById('thinking-message');
+        if (subtitleElement) {
+            subtitleElement.classList.remove('show', 'subtitle-mode');
+            subtitleElement.textContent = '';
+        }
+        
+        // Show a random loading video for the next chat response
+        startLoadingVideo();
+        
+        // NOW mark conversation as started since they're sending a real message
+        const chatContent = document.querySelector('.chat-content');
+        if (chatContent) {
+            chatContent.classList.add('conversation-started');
+        }
+    }
     
 });

@@ -36,6 +36,13 @@
                                 <video class="head-pro-video" id="notebook-video" muted preload="auto" playsinline style="display: none;">
                                     <source src="{{ url_for('static', filename='videos/notebook.mp4') }}" type="video/mp4">
                                 </video>
+                                <!-- About video added dynamically by JavaScript -->
+                                <!-- Mute button overlay (hidden by default, shown during about video) -->
+                                <div class="video-controls-overlay" id="video-controls-overlay" style="display: none;">
+                                    <button class="mute-toggle-btn" id="about-mute-btn" title="Unmute video">
+                                        🔇
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <p class="welcome-tagline">I'm The Head Pro. I track pro golfers' mental states to find edges that your fancy strokes-gained models miss.</p>
@@ -94,28 +101,6 @@
         <a href="https://twitter.com/headprobetting" target="_blank">TWITTER</a>
         <a href="#" id="about-link">ABOUT</a>
     </footer>
-    
-    <div id="about-modal" class="modal about-modal">
-        <div class="modal-content about-modal-content">
-            <span class="close" id="about-close">&times;</span>
-            <div class="about-card">
-                <div class="about-content">
-                    <!-- 16:9 Hero Photo -->
-                    <img src="{{ url_for('static', filename='images/about-image.png') }}" 
-                        alt="The Head Pro taking notes" 
-                        class="about-photo">
-                    
-                    <div class="about-text">
-                        <h2>About The Head Pro</h2>
-                        <p>They say golf is 90% mental. So why is everyone betting based on strokes gained metrics that only measure ball-striking? While the masses crunch off-the-tee and around-the-green stats, I'm tracking strokes gained between the ears—the real 90% that decides who wins.</p>
-                        <p>I use AI to obsessively scan every scrap of golf intel—pressers, interviews, podcasts, articles, social media—building a mental database no one else has. This gives me an unmatched read on the Tour's psychological landscape and the inside track on players' mental form.</p>
-                        <p>This isn't guesswork. It's quantifying the unquantifiable. THE HEAD PRO delivers the kind of mental game analysis that will change how you bet golf forever.</p>
-                        <p><strong>Note:</strong> For entertainment purposes only. Gamble responsibly.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Scorecard Modal -->
     <div id="scorecard-modal" class="modal scorecard-modal">

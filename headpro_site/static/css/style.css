@@ -1149,6 +1149,86 @@ body.loading #initial-view .centered-input-area {
     scrollbar-color: rgba(244, 241, 232, 0.6) transparent;
 }
 
+/* Video controls overlay */
+.video-controls-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    background: rgba(255, 0, 0, 0.3); /* Red background so you can see it */
+}
+
+.video-controls-overlay.about-video-active {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Show controls on hover over video wrapper */
+.head-pro-img-wrapper:hover .video-controls-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Mute toggle button */
+.mute-toggle-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.mute-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+.mute-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+/* Subtitle styling - enhance the existing thinking message for subtitles */
+.thinking-message.subtitle-mode {
+    font-style: normal;
+    font-size: 1.1rem;
+    line-height: 1.4;
+    white-space: normal;
+    max-width: 90%;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Remove the animated dots for subtitle mode */
+.thinking-message.subtitle-mode::after {
+    content: none;
+    animation: none;
+}
+
+/* About video specific styling */
+#about-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    -webkit-mask-image: radial-gradient(circle, black 25%, transparent 75%);
+    mask-image: radial-gradient(circle, black 25%, transparent 75%);
+}
+
 /* Responsive adjustments for modal */
 @media (max-width: 768px) {
     .scorecard-modal-content {
@@ -1171,6 +1251,23 @@ body.loading #initial-view .centered-input-area {
     
     .scorecard-modal .scorecard-title {
         font-size: 1rem;
+    }
+
+    .video-controls-overlay {
+        /* Always show on mobile since hover doesn't work well */
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
+    .mute-toggle-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+    
+    .thinking-message.subtitle-mode {
+        font-size: 1rem;
+        max-width: 95%;
     }
 }
 
@@ -1227,5 +1324,13 @@ body.loading #initial-view .centered-input-area {
         width: 95%;
         margin: 10% auto;
         padding: 20px;
+    }
+}
+
+/* Touch devices - show controls on tap */
+@media (hover: none) and (pointer: coarse) {
+    .video-controls-overlay {
+        opacity: 1;
+        pointer-events: auto;
     }
 }
