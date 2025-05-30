@@ -376,7 +376,9 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .head-pro-img-container {
-    margin-bottom: 15px;
+    margin-bottom: 5px;
+    margin-top: -5px;
+    margin-left: -3px;
     position: relative;
     opacity: 1;
     transition: opacity 1s ease-out, margin 0.5s ease-out;
@@ -395,8 +397,8 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-wrapper {
     position: relative;
-    width: 210px;
-    height: 210px;
+    width: 250px;
+    height: 250px;
     margin: 0 auto;
     overflow: hidden;
     border-radius: 50%;
@@ -621,18 +623,16 @@ body.loading #initial-view .centered-input-area {
 
 .about-modal-content {
     background: transparent;
-    margin: 8% auto;
+    margin: 5% auto;
     padding: 0;
     border: none;
     border-radius: 2px;
     width: 90%;
-    max-width: 600px;
     height: auto;
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: none;
     position: relative;
-    
     /* Same entrance animation as scorecard */
     transform: scale(0.1) translate(0, 0);
     transform-origin: center center;
@@ -698,15 +698,26 @@ body.loading #initial-view .centered-input-area {
     position: relative;
     z-index: 20;
     color: var(--masters-green);
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    align-items: flex-start;
 }
 
 .about-photo {
-    width: 100%;
+    flex: 0 0 40%; /* Use percentage but smaller than before */
+    max-width: 500px; /* Cap the maximum size */
+    min-width: 400px; /* Ensure minimum readable size */
     aspect-ratio: 16/9;
     object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 1.5rem;
-    border: 3px solid rgba(21, 88, 67, 0.9);
+    margin-bottom: 0;
+    border: 7px solid rgba(21, 88, 67, 0.9);
+    border-radius: 2px;
+    box-sizing: border-box;
+}
+
+.about-text {
+    flex: 1;
 }
 
 .about-text h2 {
@@ -762,6 +773,16 @@ body.loading #initial-view .centered-input-area {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .about-content {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .about-photo {
+        flex: none;
+        width: 80%;
+        margin-bottom: 0;
+    }
     .about-modal-content {
         width: 95%;
         margin: 5% auto;
@@ -1059,6 +1080,7 @@ body.loading #initial-view .centered-input-area {
     width: 100%;
     text-align: right;
     padding-right: .5rem;
+    font-size: 0.7rem;
 }
 
 /* Define the CSS variables that the modal needs */

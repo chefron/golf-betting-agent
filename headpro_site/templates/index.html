@@ -26,10 +26,15 @@
                     <div class="welcome-message">
                         <div class="head-pro-img-container">
                             <div class="head-pro-img-wrapper">
-                                <!-- Only the video element - no image -->
-                                <video class="head-pro-video" muted preload="auto" playsinline>
-                                    <source src="{{ url_for('static', filename='videos/open-hat-whiskey.mp4') }}" type="video/mp4">
-                                    <!-- Poster attribute as fallback if video fails to load -->
+                                <!-- All three videos, but only one visible at a time -->
+                                <video class="head-pro-video" id="whiskey-video" muted preload="auto" playsinline>
+                                    <source src="{{ url_for('static', filename='videos/whiskey.mp4') }}" type="video/mp4">
+                                </video>
+                                <video class="head-pro-video" id="cigar-video" muted preload="auto" playsinline style="display: none;">
+                                    <source src="{{ url_for('static', filename='videos/cigar.mp4') }}" type="video/mp4">
+                                </video>
+                                <video class="head-pro-video" id="notebook-video" muted preload="auto" playsinline style="display: none;">
+                                    <source src="{{ url_for('static', filename='videos/notebook.mp4') }}" type="video/mp4">
                                 </video>
                             </div>
                         </div>
@@ -102,12 +107,9 @@
                     
                     <div class="about-text">
                         <h2>About The Head Pro</h2>
-                        <p>The Head Pro is a straight-talking, whiskey-soaked golf mental form analyst with 30 years of experience spotting the intangible factors that statistics miss.</p>
-                        
-                        <p>He specializes in identifying players whose mental state indicates imminent performance shifts—before they show up in results. While your fancy strokes-gained models track every putt and approach shot, The Head Pro reads body language, press conference tone, and the subtle tells that reveal when a player's head isn't right.</p>
-                        
-                        <p>Built on advanced AI technology, The Head Pro maintains a comprehensive database of player insights gathered from interviews, podcasts, and press conferences, delivering unfiltered analysis with the wisdom of three decades in the game.</p>
-                        
+                        <p>They say golf is 90% mental. So why is everyone betting based on strokes gained metrics that only measure ball-striking? While the masses crunch off-the-tee and around-the-green stats, I'm tracking strokes gained between the ears—the real 90% that decides who wins.</p>
+                        <p>I use AI to obsessively scan every scrap of golf intel—pressers, interviews, podcasts, articles, social media—building a mental database no one else has. This gives me an unmatched read on the Tour's psychological landscape and the inside track on players' mental form.</p>
+                        <p>This isn't guesswork. It's quantifying the unquantifiable. THE HEAD PRO delivers the kind of mental game analysis that will change how you bet golf forever.</p>
                         <p><strong>Note:</strong> For entertainment purposes only. Gamble responsibly.</p>
                     </div>
                 </div>
@@ -144,11 +146,11 @@
                                     </tr>
                                     <tr>
                                         <th>TOTAL BETS</th>
-                                        <th>WIN RATE</th>
+                                        <th>PROFIT</th>
                                         <th>ROI</th>
-                                        <th>PROFIT/LOSS</th>
                                         <th>AVG STAKE</th>
                                         <th>AVG ODDS</th>
+                                        <th>AVG EV</th>
                                         <th colspan="3"></th>
                                     </tr>
                                 </thead>

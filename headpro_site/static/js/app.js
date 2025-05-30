@@ -33,43 +33,100 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // Get video element
-    const headProVideo = document.querySelector('.head-pro-video');
+    const headProVideos = {
+    whiskey: document.querySelector('#whiskey-video'),
+    cigar: document.querySelector('#cigar-video'),
+    notebook: document.querySelector('#notebook-video')
+    };
     const headProImgContainer = document.querySelector('.head-pro-img-container');
-    console.log('Video element found:', headProVideo !== null);
+    
+    let currentVideo = headProVideos.whiskey; // Start with whiskey video as default
 
-    if (headProVideo) {
-        // Set to first frame and pause
-        headProVideo.currentTime = 0;
-        headProVideo.pause();
+    // Function to randomly select and show a video
+    function selectRandomVideo() {
+        const videoNames = ['whiskey', 'cigar', 'notebook'];
+        const randomName = videoNames[Math.floor(Math.random() * videoNames.length)];
         
-        // Add event listener for when the video ends
-        headProVideo.addEventListener('ended', function() {
-            // Instead of immediately fading out, just pause on the last frame
-            console.log('Video ended, pausing on final frame');
-            // The fade-out will now be handled by stopLoadingVideo() when the response comes back
+        console.log(`Random selection: ${randomName}`);
+        console.log('Available videos:', Object.keys(headProVideos));
+        console.log('Whiskey video element:', headProVideos.whiskey);
+        console.log('Selected video element:', headProVideos[randomName]);
+        
+        // Hide all videos
+        Object.values(headProVideos).forEach(video => {
+            if (video) {
+                video.style.display = 'none';
+                video.pause();
+                video.currentTime = 0;
+            }
         });
+        
+        // Show and set the selected video
+        currentVideo = headProVideos[randomName];
+        if (currentVideo) {
+            currentVideo.style.display = 'block';
+            currentVideo.currentTime = 0;
+            console.log(`Successfully set ${randomName} video to display: block`);
+        } else {
+            console.error(`Failed to find video element for: ${randomName}`);
+        }
+        
+        return currentVideo;
+    }
+
+    // Update the startLoadingVideo function
+    function startLoadingVideo() {
+        // Select a random video first
+        const videoToPlay = selectRandomVideo();
+        
+        if (videoToPlay) {
+            videoToPlay.currentTime = 0;
+            videoToPlay.play().catch(e => {
+                console.error("Video play failed:", e);
+            });
+        }
+    }
+
+    if (headProVideos.whiskey || headProVideos.cigar || headProVideos.notebook) {
+        console.log('Video elements found');
+
+        // Set all videos to first frame and pause
+        Object.values(headProVideos).forEach(video => {
+            if (video) {
+                video.currentTime = 0;
+                video.pause();
+                
+                // Add event listener for when any video ends
+                video.addEventListener('ended', function() {
+                    console.log('Video ended, pausing on final frame');
+                    // The fade-out will now be handled by stopLoadingVideo() when the response comes back
+                });
+            }
+        });
+        
+        // Set whiskey as the default visible video
+        currentVideo = headProVideos.whiskey;
+        if (currentVideo) {
+            currentVideo.style.display = 'block';
+        }
     }
 
     // Update the stopLoadingVideo function to handle the fade-out
     function stopLoadingVideo() {
-        // Remove loading class from body
         document.body.classList.remove('loading');
         
-        // Start the fade-out of the video container when loading ends
         if (headProImgContainer) {
             headProImgContainer.classList.add('fade-out');
             
-            // After fade completes, hide completely and adjust layout
             setTimeout(() => {
                 headProImgContainer.classList.add('hidden');
-                document.querySelector('.chat-content').classList.add('conversation-started');
-            }, 1000); // Match this to your CSS transition time
+            }, 1000);
         }
         
-        // Pause the video after a brief delay to let the fade-out start
-        if (headProVideo) {
+        // Pause the current video
+        if (currentVideo) {
             setTimeout(() => {
-                headProVideo.pause();
+                currentVideo.pause();
             }, 300);
         }
     }
@@ -172,17 +229,6 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem(`headpro_messages_${userId}`, JSON.stringify(messages));
     }
     
-    // Function to start video when loading begins
-    function startLoadingVideo() {
-        if (headProVideo) {
-            headProVideo.currentTime = 0; // Start from beginning
-            headProVideo.play().catch(e => {
-                // Handle autoplay prevention (unlikely since this is user-initiated)
-                console.error("Video play failed:", e);
-            });
-        }
-    }
-    
     // Send message to API
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
@@ -236,13 +282,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show answer view
             showAnswerView(message, data.response);
-            
+
+            if (isInitial) {
+                document.querySelector('.chat-content').classList.add('conversation-started');
+            }
+                        
             // After zoom animation completes, switch to the static zoomed class
             if (isInitial) {
                 setTimeout(() => {
                     document.body.classList.remove('zooming');
                     document.body.classList.add('zoomed');
-                }, 5000);
+                }, 3000);
             }
             
         } catch (error) {
@@ -320,12 +370,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const headProImgContainer = document.querySelector('.head-pro-img-container');
             if (headProImgContainer) {
                 headProImgContainer.classList.remove('fade-out', 'hidden');
-            }
             
-            // Reset video
-            if (headProVideo) {
-                headProVideo.currentTime = 0;
-                headProVideo.pause();
+                // Reset to whiskey video as default
+                Object.values(headProVideos).forEach(video => {
+                    if (video) {
+                        video.style.display = 'none';
+                        video.pause();
+                        video.currentTime = 0;
+                    }
+                });
+                
+                currentVideo = headProVideos.whiskey;
+                if (currentVideo) {
+                    currentVideo.style.display = 'block';
+                    currentVideo.currentTime = 0;
+                }
             }
 
             // Reset welcome message visibility
@@ -342,12 +401,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     welcomeTagline.style.opacity = '';
                     welcomePrompt.style.opacity = '';
                 }, 100);
-            }
-            
-            // Remove the conversation-started class
-            const chatContent = document.querySelector('.chat-content');
-            if (chatContent) {
-                chatContent.classList.remove('conversation-started');
             }
             
             // Wait for suction animation to complete
@@ -367,7 +420,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Clean up the answer view classes
                 answerView.classList.remove('sucking', 'sucked');
-                
+
+                // Remove the conversation-started class
+                const chatContent = document.querySelector('.chat-content');
+                if (chatContent) {
+                    chatContent.classList.remove('conversation-started');
+                }
+                    
                 // Show initial view
                 showInitialView();
             }, 1000);
@@ -456,24 +515,24 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!overviewRow || !overview) return;
 
         const totalBets = overview.total_bets || 0;
-        const winRate = overview.win_rate || 0;
-        const roi = overview.roi || 0;
         const profitLoss = overview.profit_loss_units || 0;
+        const roi = overview.roi || 0;
         const avgStake = overview.avg_stake_units || 0;
-        const avgOdds = overview.avg_odds || 0;
+        const avgOdds = overview.avg_odds_american || '-';
+        const avgEv = overview.avg_ev || 0;
 
         // Determine classes for positive/negative values
-        const winRateClass = winRate > 0 ? 'positive' : '';
-        const roiClass = roi > 0 ? 'positive' : roi < 0 ? 'negative' : '';
         const profitLossClass = profitLoss > 0 ? 'positive' : profitLoss < 0 ? 'negative' : '';
+        const roiClass = roi > 0 ? 'positive' : roi < 0 ? 'negative' : '';
+        const avgEvClass = avgEv > 0 ? 'positive' : avgEv < 0 ? 'negative' : '';
 
         overviewRow.innerHTML = `
             <td>${totalBets}</td>
-            <td class="${winRateClass}">${winRate}%</td>
-            <td class="${roiClass}">${roi > 0 ? '+' : ''}${roi}%</td>
             <td class="${profitLossClass}">${profitLoss > 0 ? '+' : ''}${profitLoss}u</td>
+            <td class="${roiClass}">${roi > 0 ? '+' : ''}${roi}%</td>
             <td>${avgStake}u</td>
             <td>${avgOdds}</td>
+            <td class="${avgEvClass}">${avgEv > 0 ? '+' : ''}${avgEv}%</td>
             <td colspan="3"></td>
         `;
     }

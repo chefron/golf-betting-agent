@@ -177,7 +177,8 @@ def get_model_performance_data(db_path):
             SUM(stake) as total_staked,
             SUM(CASE WHEN outcome IN ('win', 'loss') THEN profit_loss ELSE 0 END) as total_profit_loss,
             AVG(stake) as avg_stake,
-            AVG(odds) as avg_odds
+            AVG(odds) as avg_odds,
+            AVG(expected_value) as avg_ev
         FROM bets
         WHERE outcome IN ('win', 'loss')
         ''')
@@ -194,21 +195,29 @@ def get_model_performance_data(db_path):
             
             # Calculate ROI and Win Rate
             roi = (total_profit_loss / total_staked * 100) if total_staked > 0 else 0
-            win_rate = (winning_bets / total_bets * 100) if total_bets > 0 else 0
             
             # Convert to units (1 unit = $10)
             profit_loss_units = total_profit_loss / 10
             avg_stake_units = (stats_dict['avg_stake'] or 0) / 10
+
+            # Format average odds to American format
+            avg_odds_decimal = stats_dict['avg_odds'] or 0
+            if avg_odds_decimal >= 2.0:
+                avg_odds_american = f"+{int((avg_odds_decimal - 1) * 100)}"
+            elif avg_odds_decimal > 1.0:
+                avg_odds_american = f"{int(-100 / (avg_odds_decimal - 1))}"
+            else:
+                avg_odds_american = "N/A"
             
             overview = {
                 'total_bets': total_bets,
                 'winning_bets': winning_bets,
                 'losing_bets': stats_dict['losing_bets'] or 0,
                 'roi': round(roi, 1),
-                'win_rate': round(win_rate, 1),
                 'profit_loss_units': round(profit_loss_units, 1),
                 'avg_stake_units': round(avg_stake_units, 1),
-                'avg_odds': round(stats_dict['avg_odds'] or 0, 0)
+                'avg_odds_american': avg_odds_american,
+                'avg_ev': round(stats_dict['avg_ev'] or 0, 1)
             }
         
         # Get individual bet history (copied from your method)
