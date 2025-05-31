@@ -334,6 +334,13 @@ button#initial-send-btn:not(.send-icon-btn) {
     font-style: italic;
 }
 
+#answer-view .user-question,
+#answer-view .head-pro-answer,
+#answer-view .input-area,
+#answer-view .controls {
+    transition: opacity 0.3s ease;
+}
+
 .head-pro-answer {
     flex: 1;
     overflow-y: auto;
@@ -436,6 +443,7 @@ body.zooming .head-pro-img-wrapper,
 body.zoomed .head-pro-img-wrapper {
     width: 400px;
     height: 400px;
+    transform: translateZ(0); /* Prevents blurring */
 }
 
 /* Thinking message styling */

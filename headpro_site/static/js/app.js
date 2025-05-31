@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let subtitleInterval = null;
     let currentSubtitleIndex = -1;
 
+    // Track ongoing API requests
+    let currentRequest = null;
+
     // Function to start tracking subtitles
     function startSubtitleTracking() {
         if (subtitleInterval) {
@@ -184,6 +187,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Switch to answer view
     function showAnswerView(question, answer) {
+        // Reset any inline opacity styles that might have been set
+        const userQuestion = document.getElementById('user-question');
+        const headProAnswer = document.getElementById('head-pro-answer');
+        const inputArea = document.querySelector('#answer-view .input-area');
+        const controls = document.querySelector('#answer-view .controls');
+        
+        if (userQuestion) userQuestion.style.opacity = '';
+        if (headProAnswer) headProAnswer.style.opacity = '';
+        if (inputArea) inputArea.style.opacity = '';
+        if (controls) controls.style.opacity = '';
+
         userQuestion.textContent = question;
         headProAnswer.innerHTML = answer;
         
@@ -260,6 +274,16 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
+        // Cancel any existing request
+        if (currentRequest) {
+            currentRequest.abort();
+            currentRequest = null;
+        }
+
+        // Create abort controller for this request
+        const controller = new AbortController();
+        currentRequest = controller;
+
         document.body.classList.add('loading')
         
         // Get the correct button
@@ -292,7 +316,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, message })
+                body: JSON.stringify({ user_id: userId, message }),
+                signal: controller.signal
             });
             
             if (!response.ok) {
@@ -325,41 +350,49 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error sending message:', error);
             
-            // Show error in answer view
-            showAnswerView(
-                message, 
-                "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
-            );
-            
-            // Complete the zoom even on error
-            if (isInitial) {
-                setTimeout(() => {
-                    document.body.classList.remove('zooming');
-                    document.body.classList.add('zoomed');
-                }, 5000);
+            // Only show error UI if it wasn't an abort
+            if (error.name !== 'AbortError') {
+                // Show error in answer view
+                showAnswerView(
+                    message, 
+                    "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
+                );
+                
+                // Complete the zoom even on error
+                if (isInitial) {
+                    setTimeout(() => {
+                        document.body.classList.remove('zooming');
+                        document.body.classList.add('zoomed');
+                    }, 5000);
+                }
             }
 
         } finally {
-            // Reset UI state
-            setTimeout(() => {
-                // Hide thinking message
-                if (thinkingMessage) {
-                    thinkingMessage.classList.remove('show');
-                }
-                
-                // Restore the original SVG content
-                targetBtn.innerHTML = SEND_SVG;
-                targetBtn.classList.remove('loading');
-                targetBtn.disabled = false;
+            // Clear the request tracker
+            currentRequest = null;
+            
+            // Reset UI state - but only if request wasn't aborted
+            if (!controller.signal.aborted) {
+                setTimeout(() => {
+                    // Hide thinking message
+                    if (thinkingMessage) {
+                        thinkingMessage.classList.remove('show');
+                    }
+                    
+                    // Restore the original SVG content
+                    targetBtn.innerHTML = SEND_SVG;
+                    targetBtn.classList.remove('loading');
+                    targetBtn.disabled = false;
 
-                // Stop the loading video
-                stopLoadingVideo();
-                
-                // Clear the input field
-                if (!isInitial) {
-                    messageInput.value = '';
-                }
-            }, 300); // Slightly longer delay to ensure transitions complete
+                    // Stop the loading video
+                    stopLoadingVideo();
+                    
+                    // Clear the input field
+                    if (!isInitial) {
+                        messageInput.value = '';
+                    }
+                }, 300);
+            }
         }
     }
 
@@ -451,21 +484,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // Rest of the function stays the same...
-
             // Reset welcome message visibility
-            const welcomeTagline = document.querySelector('.welcome-tagline');
+            const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
             const welcomePrompt = document.querySelector('.welcome-prompt');
+            const inputArea = document.querySelector('.centered-input-area');
 
-            if (welcomeTagline && welcomePrompt) {
-                // Set opacity back to 1 (will be visible because we removed conversation-started class)
-                welcomeTagline.style.opacity = '1';
+            if (welcomeTaglines.length > 0 && welcomePrompt && inputArea) {
+                // Set opacity back to 1 for all elements
+                welcomeTaglines.forEach(tagline => {
+                    tagline.style.opacity = '1';
+                });
                 welcomePrompt.style.opacity = '1';
+                inputArea.style.opacity = '1';
                 
                 // Remove any inline styles after transition completes
                 setTimeout(() => {
-                    welcomeTagline.style.opacity = '';
+                    welcomeTaglines.forEach(tagline => {
+                        tagline.style.opacity = '';
+                    });
                     welcomePrompt.style.opacity = '';
+                    inputArea.style.opacity = '';
                 }, 100);
             }
             
@@ -534,8 +572,53 @@ document.addEventListener('DOMContentLoaded', function() {
             aboutVideo.currentTime = 0;
             aboutVideo.play();
         } else {
-            // Start the about video experience
-            startAboutVideo();
+            // If we're in a conversation, transition directly to about video
+            // If we're in a conversation, transition directly to about video
+            if (answerView.classList.contains('active')) {
+                // First, fade out the conversation content
+                const userQuestion = document.getElementById('user-question');
+                const headProAnswer = document.getElementById('head-pro-answer');
+                const inputArea = document.querySelector('#answer-view .input-area');
+                const controls = document.querySelector('#answer-view .controls');
+                
+                // Fade out conversation elements
+                if (userQuestion) userQuestion.style.opacity = '0';
+                if (headProAnswer) headProAnswer.style.opacity = '0';
+                if (inputArea) inputArea.style.opacity = '0';
+                if (controls) controls.style.opacity = '0';
+                
+                // Wait for fade-out to complete, then switch views
+                setTimeout(() => {
+                    // Switch to initial view (but stay zoomed)
+                    initialView.classList.add('active');
+                    answerView.classList.remove('active');
+                    
+                    // Remove conversation-started class
+                    const chatContent = document.querySelector('.chat-content');
+                    if (chatContent) {
+                        chatContent.classList.remove('conversation-started');
+                    }
+                    
+                    // Reset video container visibility with fade-in
+                    const headProImgContainer = document.querySelector('.head-pro-img-container');
+                    if (headProImgContainer) {
+                        headProImgContainer.classList.remove('fade-out', 'hidden');
+                        headProImgContainer.style.opacity = '0';
+                        setTimeout(() => {
+                            headProImgContainer.style.opacity = '1';
+                        }, 1000);
+                    }
+                    
+                    // Start about video immediately
+                    startAboutVideo();
+                }, 300); // Wait 300ms for fade-out
+
+
+
+            } else {
+                // Start the about video experience from initial view
+                startAboutVideo();
+            }
         }
     });
 
@@ -755,13 +838,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.add('zooming');
         }, 20);
         
-        // Hide welcome messages - but DON'T use 'loading' class for about video
-        // Instead, directly hide the welcome elements
-        const welcomeTagline = document.querySelector('.welcome-tagline');
+        // Hide the welcome elements
+        const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
         const welcomePrompt = document.querySelector('.welcome-prompt');
         const inputArea = document.querySelector('.centered-input-area');
-        
-        if (welcomeTagline) welcomeTagline.style.opacity = '0';
+
+        welcomeTaglines.forEach(tagline => {
+            if (tagline) tagline.style.opacity = '0';
+        });
         if (welcomePrompt) welcomePrompt.style.opacity = '0';
         if (inputArea) inputArea.style.opacity = '0';
         
@@ -836,7 +920,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show input after 10 seconds
         setTimeout(() => {
             showAboutInput();
-        }, 10000);
+        }, 1000);
         
         // Complete zoom after animation - but DON'T remove loading class
         setTimeout(() => {
