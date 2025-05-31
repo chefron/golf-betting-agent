@@ -175,7 +175,7 @@ body.unzooming #cinematic-overlay {
 
 /* Initial view styling */
 #initial-view {
-    justify-content: space-between;
+    justify-content: space-between; /* Keep space-between for top/bottom layout */
     align-items: center;
     width: 75%;
     height: 75%;
@@ -184,26 +184,33 @@ body.unzooming #cinematic-overlay {
 }
 
 #initial-view .welcome-message {
-    flex: 1;
+    flex: none; /* Don't take up extra space */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
 }
 
-#initial-view .centered-input-area {
+#initial-view .bottom-section {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem; /* Space between prompt and input */
+    width: 100%;
+}
+
+#initial-view .bottom-section .welcome-prompt {
+    margin: 0; /* Remove default paragraph margins */
+    text-align: center;
+}
+
+#initial-view .bottom-section .centered-input-area {
     width: 75%;
     display: flex;
     margin: 0;
-    transform: translateY(-1.7rem);
     opacity: 1;
     transition: opacity 0.8s ease-out;
-}
-
-/* Initial view input area */
-.centered-input-area {
-    width: 75%;
-    display: flex;
 }
 
 /* Answer view input area */
@@ -377,13 +384,16 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .head-pro-img-container {
-    margin-bottom: 5px;
-    margin-top: -5px;
-    margin-left: -3px;
-    position: relative;
+    position: fixed;
+    top: 48%; /* Slightly above center so bottom is roughly at screen center */
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    margin: 0;
     opacity: 1;
-    transition: opacity 1s ease-out, margin 0.5s ease-out;
+    transition: opacity 1s ease-out; /* Just opacity transition */
     overflow: hidden;
+    pointer-events: auto;
 }
 
 /* Fade out animation for entire container */
@@ -400,7 +410,6 @@ button#initial-send-btn:not(.send-icon-btn) {
     position: relative;
     width: 300px;
     height: 300px;
-    margin: 0 auto;
     overflow: hidden;
     border-radius: 50%;
 }
@@ -412,6 +421,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     border-radius: 50%;
     -webkit-mask-image: radial-gradient(circle, black 50%, transparent 75%);
     mask-image: radial-gradient(circle, black 50%, transparent 75%);
+    position: absolute;
     /* Hide all possible native controls */
     &::-webkit-media-controls {
         display: none;
@@ -1226,12 +1236,7 @@ body.loading #initial-view .centered-input-area {
 
 /* About video specific styling */
 #about-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    -webkit-mask-image: radial-gradient(circle, black 25%, transparent 75%);
-    mask-image: radial-gradient(circle, black 25%, transparent 75%);
+
 }
 
 /* Responsive adjustments for modal */

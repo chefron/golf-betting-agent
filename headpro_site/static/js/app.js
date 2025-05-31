@@ -363,13 +363,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+        function stopSubtitleTracking() {
+        if (subtitleInterval) {
+            clearInterval(subtitleInterval);
+            subtitleInterval = null;
+        }
+        currentSubtitleIndex = -1;
+        
+        const subtitleElement = document.getElementById('thinking-message');
+        if (subtitleElement) {
+            subtitleElement.classList.remove('show', 'subtitle-mode');
+            subtitleElement.textContent = '';
+            subtitleElement.style.opacity = '';
+            subtitleElement.style.display = '';
+        }
+    }
+
     async function resetConversation() {
         try {
+
+            stopSubtitleTracking();
+
+            cleanupAboutVideo();
+
             // Start the suction animation if we're in answer view
             if (answerView.classList.contains('active')) {
                 answerView.classList.add('sucking');
             }
             
+            // Reset thinking message COMPLETELY - remove all classes and content
+            if (thinkingMessage) {
+                thinkingMessage.classList.remove('show', 'subtitle-mode');
+                thinkingMessage.textContent = ''; // Clear any existing text
+                thinkingMessage.style.opacity = ''; // Reset any inline styles
+            }
+
             // Start unzooming with a brief delay
             setTimeout(() => {
                 document.body.classList.add('unzooming');
@@ -387,14 +415,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset button states explicitly
             resetSendButtons();
-            
-            // Reset thinking message
-            if (thinkingMessage) {
-                thinkingMessage.classList.remove('show', 'subtitle-mode');
-                thinkingMessage.textContent = '';
-            }
 
-            // Reset about video if it's playing
+            // Reset about video if it's playing - BEFORE resetting other videos
             if (aboutVideo) {
                 aboutVideo.pause();
                 aboutVideo.currentTime = 0;
@@ -404,19 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const videoControls = document.getElementById('video-controls-overlay');
                 if (videoControls) {
                     videoControls.style.display = 'none';
-                }
-                
-                // Stop subtitle tracking
-                if (subtitleInterval) {
-                    clearInterval(subtitleInterval);
-                    subtitleInterval = null;
-                }
-                
-                // Clear subtitles
-                const subtitleElement = document.getElementById('thinking-message');
-                if (subtitleElement) {
-                    subtitleElement.classList.remove('show', 'subtitle-mode');
-                    subtitleElement.textContent = '';
+                    videoControls.classList.remove('about-video-active');
                 }
             }
             
@@ -440,6 +450,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentVideo.currentTime = 0;
                 }
             }
+
+            // Rest of the function stays the same...
 
             // Reset welcome message visibility
             const welcomeTagline = document.querySelector('.welcome-tagline');
@@ -811,7 +823,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 console.error('Mute button not found!');
             }
-            
+
             // Start video
             aboutVideo.play().catch(e => {
                 console.error("About video play failed:", e);
@@ -838,6 +850,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enhanced subtitle update function
     function updateSubtitles() {
         if (!aboutVideo) return;
+
+        // Only update subtitles if about video is visible and playing
+        if (aboutVideo.style.display === 'none' || aboutVideo.paused) {
+            return;
+        }
         
         const currentTime = aboutVideo.currentTime;
         const subtitleElement = document.getElementById('thinking-message');
@@ -1051,6 +1068,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function cleanupAboutVideo() {
+
+        stopSubtitleTracking();
+
         // Remove the about input area
         const aboutInputArea = document.getElementById('about-input-area');
         if (aboutInputArea) {
@@ -1068,28 +1088,18 @@ document.addEventListener('DOMContentLoaded', function() {
             videoControls.style.display = 'none';
             videoControls.classList.remove('about-video-active');
         }
+ 
+        // Only start loading video if NOT during a reset
+        // Check if we're in a reset state by looking for the unzooming class
+        if (!document.body.classList.contains('unzooming')) {
+            // Show a random loading video for the next chat response
+            startLoadingVideo();
         
-        // Stop subtitle tracking
-        if (subtitleInterval) {
-            clearInterval(subtitleInterval);
-            subtitleInterval = null;
-        }
-        
-        // Clear subtitles
-        const subtitleElement = document.getElementById('thinking-message');
-        if (subtitleElement) {
-            subtitleElement.classList.remove('show', 'subtitle-mode');
-            subtitleElement.textContent = '';
-        }
-        
-        // Show a random loading video for the next chat response
-        startLoadingVideo();
-        
-        // NOW mark conversation as started since they're sending a real message
-        const chatContent = document.querySelector('.chat-content');
-        if (chatContent) {
-            chatContent.classList.add('conversation-started');
+            // NOW mark conversation as started since they're sending a real message
+            const chatContent = document.querySelector('.chat-content');
+            if (chatContent) {
+                chatContent.classList.add('conversation-started');
+            }
         }
     }
-    
 });
