@@ -175,12 +175,12 @@ body.unzooming #cinematic-overlay {
 
 /* Initial view styling */
 #initial-view {
-    justify-content: space-between; /* Keep space-between for top/bottom layout */
+    justify-content: center; /* Keep space-between for top/bottom layout */
     align-items: center;
     width: 75%;
-    height: 75%;
+    height: auto;
     margin: auto;
-    gap: 0;
+    gap: 5rem;
 }
 
 #initial-view .welcome-message {
@@ -373,7 +373,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     text-align: center;
     margin-bottom: 0;
     opacity: 0.85;
-    font-size: 1.1rem;
+    font-size: 1rem;
     position: relative;
     height: 100%;
     display: flex;
@@ -385,8 +385,8 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 48%; /* Slightly above center so bottom is roughly at screen center */
-    left: 50%;
+    top: 50%; /* Slightly above center so bottom is roughly at screen center */
+    left: 49.5%;
     transform: translate(-50%, -50%);
     z-index: 10;
     margin: 0;
@@ -408,10 +408,11 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-wrapper {
     position: relative;
-    width: 300px;
-    height: 300px;
+    width: 260px;
+    height: 260px;
     overflow: hidden;
     border-radius: 50%;
+    transition: width 3s cubic-bezier(0.1, 0.7, 0.6, 1), height 3s cubic-bezier(0.1, 0.7, 0.6, 1);
 }
 
 .head-pro-video {
@@ -419,8 +420,8 @@ button#initial-send-btn:not(.send-icon-btn) {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
-    -webkit-mask-image: radial-gradient(circle, black 50%, transparent 75%);
-    mask-image: radial-gradient(circle, black 50%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
+    mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
     position: absolute;
     /* Hide all possible native controls */
     &::-webkit-media-controls {
@@ -431,7 +432,11 @@ button#initial-send-btn:not(.send-icon-btn) {
     }
 }
 
-
+body.zooming .head-pro-img-wrapper,
+body.zoomed .head-pro-img-wrapper {
+    width: 400px;
+    height: 400px;
+}
 
 /* Thinking message styling */
 .thinking-message {
@@ -480,17 +485,18 @@ button#initial-send-btn:not(.send-icon-btn) {
     }
 }
 
-.welcome-tagline {
-    margin-bottom: 1rem;
-    font-weight: 600;
+.welcome-tagline.welcome-intro {
+    font-weight: bold;
+    margin-bottom: 0.5rem; /* Small gap between the sentences */
+}
+
+.welcome-tagline.welcome-description {
+    font-weight: 300;
+    margin-bottom: 0;
 }
 
 .welcome-prompt {
     font-weight: 300;
-}
-
-.welcome-message p {
-    
 }
 
 /* Add transition to welcome message text elements */
