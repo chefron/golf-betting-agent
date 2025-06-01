@@ -39,15 +39,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Subtitle data structure - you'll need to fill in the actual timings and text
     const aboutSubtitles = [
-        { start: 0, end: 3, text: "Well, well. Look who's curious about the Head Pro." },
-        { start: 3.5, end: 7, text: "I'm not your typical golf analyst, that's for damn sure." },
-        { start: 7.5, end: 11, text: "While everyone else is obsessing over strokes gained..." },
-        { start: 11.5, end: 15, text: "I'm tracking what really matters - the mental game." },
-        { start: 15.5, end: 19, text: "Every interview, every social media post, every tell..." },
-        { start: 19.5, end: 23, text: "I see the psychological cracks others miss." },
-        { start: 23.5, end: 27, text: "That's how I find the betting edges that matter." },
-        { start: 27.5, end: 31, text: "The kind that separate the sharp money from the suckers." },
-        { start: 31.5, end: 36, text: "Now ask me something useful about this week's field." }
+        { start: 0, end: 3.9, text: "They say golf is 90% mental" },
+        { start: 4.2, end: 9, text: "but most bettors are still crunching ballstriking stats like it's 2015" },
+        { start: 9.5, end: 13.9, text: "I don't give a damn about strokes gained off the tee or around the green" },
+        { start: 14.2, end: 16.5, text: "I care about strokes gained between the ears" },
+        { start: 16.9, end: 19, text: "That's where tournaments are won." },
+        { start: 19.5, end: 23.2, text: "I scan every interview, every podcast, every social media meltdown" },
+        { start: 23.5, end: 27, text: "to build psychological profiles no spreadsheet can capture" },
+        { start: 27.5, end: 31, text: "When a guy's head ain't right, his game crumbles" },
+        { start: 31.3, end: 34.5, text: "When he's locked in mentally, he exceeds expectations" },
+        { start: 35, end: 37.5, text: "That, my friends, is what we call an edge." },
+        { start: 38, end: 46, text: "I'm the Head Pro, and I'm here to change the way you bet on golf." }
     ];
     
     // Define SVG content as constants to ensure consistency when restoring
@@ -309,6 +311,8 @@ document.addEventListener('DOMContentLoaded', function() {
         targetBtn.innerHTML = LOADING_ICON;
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
+        targetBtn.style.pointerEvents = 'none'; // ADD THIS LINE
+        targetBtn.style.cursor = 'default'; // Optional: explicitly set cursor
 
         // ENSURE thinking message is in correct state for regular messages
         const thinkingMessage = document.getElementById('thinking-message');
@@ -412,6 +416,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 targetBtn.innerHTML = SEND_SVG;
                 targetBtn.classList.remove('loading');
                 targetBtn.disabled = false;
+                targetBtn.style.pointerEvents = ''; // ADD THIS LINE
+                targetBtn.style.cursor = ''; // Optional: reset cursor
 
                 // Stop the loading video
                 stopLoadingVideo();
@@ -1096,11 +1102,11 @@ document.addEventListener('DOMContentLoaded', function() {
         aboutInputArea.className = 'input-area';
         aboutInputArea.style.cssText = `
             position: fixed;
-            bottom: 10%;
+            bottom: 7%;
             left: 50%;
             transform: translateX(-50%);
             width: 75%;
-            max-width: 600px;
+            max-width: 500px;
             z-index: 100;
             pointer-events: auto;
         `;
@@ -1113,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = document.createElement('input');
         input.type = 'text';
         input.id = 'about-input';
-        input.placeholder = 'Ask me something...';
+        input.placeholder = 'Ask me more.';
         input.style.cssText = `
             flex: 1;
             width: 100%;

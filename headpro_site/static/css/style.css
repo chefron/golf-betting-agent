@@ -196,7 +196,7 @@ body.unzooming #cinematic-overlay {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem; /* Space between prompt and input */
+    gap: .75rem; /* Space between prompt and input */
     width: 100%;
 }
 
@@ -392,7 +392,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 50%; /* Slightly above center so bottom is roughly at screen center */
+    top: 48.5%; /* Slightly above center so bottom is roughly at screen center */
     left: 49.5%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -467,7 +467,7 @@ body.zoomed .head-pro-img-wrapper {
     transition: opacity 5s ease-in-out;
     margin-top: 1rem;
     position: fixed;
-    top: 55%;
+    top: 75%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 80%;
@@ -1196,9 +1196,9 @@ body.loading #initial-view .centered-input-area {
 
 /* Video controls overlay */
 .video-controls-overlay {
-    position: absolute;
-    top: 5%;
-    right: 5%;
+    position: fixed; /* Use fixed instead of absolute */
+    top: calc(50% - 110px); /* Position relative to video center minus offset */
+    right: calc(50% - 110px); /* Position relative to video center minus offset */
     z-index: 50;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -1218,25 +1218,34 @@ body.loading #initial-view .centered-input-area {
 
 /* Mute toggle button */
 .mute-toggle-btn {
+    width: 36px;
+    height: 36px;
     border: none;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
+    background: transparent;
+    color: var(--white);
     font-size: 24px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    opacity: .9;
 }
 
 .mute-toggle-btn:hover {
-    background: rgba(0, 0, 0, 0.9);
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 .mute-toggle-btn:active {
     transform: scale(0.95);
+}
+
+/* For zoomed state, adjust position */
+body.zoomed .video-controls-overlay,
+body.zooming .video-controls-overlay {
+    top: calc(50% - 160px); /* Adjust for larger video size */
+    right: calc(50% - 170px);
 }
 
 /* Subtitle styling - enhance the existing thinking message for subtitles */
@@ -1245,12 +1254,9 @@ body.loading #initial-view .centered-input-area {
     font-size: 1.1rem;
     line-height: 1.4;
     white-space: normal;
-    max-width: 90%;
+    max-width: 70%;
     padding: 0.5rem 1rem;
-    background: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
 }
 
 /* Remove the animated dots for subtitle mode */
@@ -1292,11 +1298,14 @@ body.loading #initial-view .centered-input-area {
         /* Always show on mobile since hover doesn't work well */
         opacity: 1;
         pointer-events: auto;
+        /* Adjust position for smaller video */
+        top: calc(50% - 85px);
+        right: calc(50% - 85px);
     }
     
     .mute-toggle-btn {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
         font-size: 14px;
     }
     

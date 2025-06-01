@@ -211,7 +211,7 @@ class DataRetrievalOrchestrator:
         AND br.adjusted_ev >= 7.0
         AND m.score >= 0.25
         ORDER BY br.adjusted_ev DESC
-        LIMIT 15
+        LIMIT 10
         ''', (self.current_tournament,))
         
         recommendations = cursor.fetchall()
@@ -241,7 +241,7 @@ class DataRetrievalOrchestrator:
         WHERE br.event_name = ? 
         AND m.score <= -0.25
         ORDER BY m.score ASC
-        LIMIT 8
+        LIMIT 5
         ''', (self.current_tournament,))
         
         fade_players = cursor.fetchall()
