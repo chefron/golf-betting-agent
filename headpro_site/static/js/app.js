@@ -20,8 +20,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let subtitleInterval = null;
     let currentSubtitleIndex = -1;
 
-    // Track ongoing API requests
-    let currentRequest = null;
+    // Video management
+    let switchingToAbout = false;
+    let currentVideoMode = 'idle'; // 'idle', 'loading', 'about'
 
     // Function to start tracking subtitles
     function startSubtitleTracking() {
@@ -56,6 +57,29 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>`;
     
     const LOADING_ICON = '⟳';
+
+    // Simple function to stop all videos immediately
+    function stopAllVideos() {
+        console.log('Stopping all videos');
+        
+        // Stop regular videos
+        Object.values(headProVideos).forEach(video => {
+            if (video) {
+                video.pause();
+                video.currentTime = 0;
+                video.style.display = 'none';
+            }
+        });
+        
+        // Stop about video
+        if (aboutVideo) {
+            aboutVideo.pause();
+            aboutVideo.currentTime = 0;
+            aboutVideo.style.display = 'none';
+        }
+        
+        currentVideoMode = 'idle';
+    }
     
     // Generate/retrieve user ID
     const userId = localStorage.getItem('userId') || 
@@ -72,24 +96,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let currentVideo = headProVideos.whiskey; // Start with whiskey video as default
 
-    // Function to randomly select and show a video
+    // Simplified selectRandomVideo function
     function selectRandomVideo() {
         const videoNames = ['whiskey', 'cigar', 'notebook'];
         const randomName = videoNames[Math.floor(Math.random() * videoNames.length)];
         
         console.log(`Random selection: ${randomName}`);
-        console.log('Available videos:', Object.keys(headProVideos));
-        console.log('Whiskey video element:', headProVideos.whiskey);
-        console.log('Selected video element:', headProVideos[randomName]);
         
-        // Hide all videos
-        Object.values(headProVideos).forEach(video => {
-            if (video) {
-                video.style.display = 'none';
-                video.pause();
-                video.currentTime = 0;
-            }
-        });
+        // Stop all videos first
+        stopAllVideos();
         
         // Show and set the selected video
         currentVideo = headProVideos[randomName];
@@ -97,52 +112,37 @@ document.addEventListener('DOMContentLoaded', function() {
             currentVideo.style.display = 'block';
             currentVideo.currentTime = 0;
             console.log(`Successfully set ${randomName} video to display: block`);
-        } else {
-            console.error(`Failed to find video element for: ${randomName}`);
         }
         
         return currentVideo;
     }
 
-    // Update the startLoadingVideo function
+    // Simplified startLoadingVideo function
     function startLoadingVideo() {
-        // Select a random video first
+        // Don't start if we're in about mode or already loading
+        if (switchingToAbout || currentVideoMode === 'loading' || currentVideoMode === 'about') {
+            console.log('Skipping loading video - wrong mode:', currentVideoMode);
+            return;
+        }
+        
+        console.log('Starting loading video');
+        currentVideoMode = 'loading';
+        
+        // Select a random video
         const videoToPlay = selectRandomVideo();
         
         if (videoToPlay) {
             videoToPlay.currentTime = 0;
             videoToPlay.play().catch(e => {
-                console.error("Video play failed:", e);
+                console.error("Loading video play failed:", e);
             });
         }
     }
 
-    if (headProVideos.whiskey || headProVideos.cigar || headProVideos.notebook) {
-        console.log('Video elements found');
-
-        // Set all videos to first frame and pause
-        Object.values(headProVideos).forEach(video => {
-            if (video) {
-                video.currentTime = 0;
-                video.pause();
-                
-                // Add event listener for when any video ends
-                video.addEventListener('ended', function() {
-                    console.log('Video ended, pausing on final frame');
-                    // The fade-out will now be handled by stopLoadingVideo() when the response comes back
-                });
-            }
-        });
-        
-        // Set whiskey as the default visible video
-        currentVideo = headProVideos.whiskey;
-        if (currentVideo) {
-            currentVideo.style.display = 'block';
-        }
-    }
-
-    // Update the stopLoadingVideo function to handle the fade-out
+    // Simplified stopLoadingVideo function
     function stopLoadingVideo() {
+        console.log('Stopping loading video');
+        
         document.body.classList.remove('loading');
         
         if (headProImgContainer) {
@@ -153,11 +153,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
         }
         
-        // Pause the current video
-        if (currentVideo) {
-            setTimeout(() => {
-                currentVideo.pause();
-            }, 300);
+        // Only stop if we're in loading mode
+        if (currentVideoMode === 'loading') {
+            if (currentVideo) {
+                setTimeout(() => {
+                    currentVideo.pause();
+                }, 300);
+            }
+            currentVideoMode = 'idle';
         }
     }
     
@@ -185,8 +188,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Switch to answer view
     function showAnswerView(question, answer) {
+        // FIRST: Remove any lingering about input areas
+        const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
+        aboutInputAreas.forEach(area => area.remove());
+        
         // Reset any inline opacity styles that might have been set
         const userQuestion = document.getElementById('user-question');
         const headProAnswer = document.getElementById('head-pro-answer');
@@ -274,17 +280,11 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
-        // Cancel any existing request
-        if (currentRequest) {
-            currentRequest.abort();
-            currentRequest = null;
-        }
-
-        // Create abort controller for this request
-        const controller = new AbortController();
-        currentRequest = controller;
-
         document.body.classList.add('loading')
+        
+        // Disable about link during loading
+        aboutLink.style.pointerEvents = 'none';
+        aboutLink.style.opacity = '0.5';
         
         // Get the correct button
         const targetBtn = isInitial ? initialSendBtn : sendBtn;
@@ -316,8 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, message }),
-                signal: controller.signal
+                body: JSON.stringify({ user_id: userId, message })
             });
             
             if (!response.ok) {
@@ -350,49 +349,45 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error sending message:', error);
             
-            // Only show error UI if it wasn't an abort
-            if (error.name !== 'AbortError') {
-                // Show error in answer view
-                showAnswerView(
-                    message, 
-                    "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
-                );
-                
-                // Complete the zoom even on error
-                if (isInitial) {
-                    setTimeout(() => {
-                        document.body.classList.remove('zooming');
-                        document.body.classList.add('zoomed');
-                    }, 5000);
-                }
+            // Show error in answer view
+            showAnswerView(
+                message, 
+                "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
+            );
+            
+            // Complete the zoom even on error
+            if (isInitial) {
+                setTimeout(() => {
+                    document.body.classList.remove('zooming');
+                    document.body.classList.add('zoomed');
+                }, 5000);
             }
 
         } finally {
-            // Clear the request tracker
-            currentRequest = null;
-            
-            // Reset UI state - but only if request wasn't aborted
-            if (!controller.signal.aborted) {
-                setTimeout(() => {
-                    // Hide thinking message
-                    if (thinkingMessage) {
-                        thinkingMessage.classList.remove('show');
-                    }
-                    
-                    // Restore the original SVG content
-                    targetBtn.innerHTML = SEND_SVG;
-                    targetBtn.classList.remove('loading');
-                    targetBtn.disabled = false;
+            // Reset UI state
+            setTimeout(() => {
+                // Re-enable about link
+                aboutLink.style.pointerEvents = '';
+                aboutLink.style.opacity = '';
+                
+                // Hide thinking message
+                if (thinkingMessage) {
+                    thinkingMessage.classList.remove('show');
+                }
+                
+                // Restore the original SVG content
+                targetBtn.innerHTML = SEND_SVG;
+                targetBtn.classList.remove('loading');
+                targetBtn.disabled = false;
 
-                    // Stop the loading video
-                    stopLoadingVideo();
-                    
-                    // Clear the input field
-                    if (!isInitial) {
-                        messageInput.value = '';
-                    }
-                }, 300);
-            }
+                // Stop the loading video
+                stopLoadingVideo();
+                
+                // Clear the input field
+                if (!isInitial) {
+                    messageInput.value = '';
+                }
+            }, 300);
         }
     }
 
@@ -412,23 +407,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Updated resetConversation function - key changes
     async function resetConversation() {
         try {
+            // Disable about link during reset
+            aboutLink.style.pointerEvents = 'none';
+            aboutLink.style.opacity = '0.5';
+
+            // IMMEDIATELY stop all videos and reset mode
+            stopAllVideos();
+            currentVideoMode = 'idle';
+            switchingToAbout = false;
 
             stopSubtitleTracking();
 
-            cleanupAboutVideo();
+            // Clean up about video elements
+            const aboutInputArea = document.getElementById('about-input-area');
+            if (aboutInputArea) {
+                aboutInputArea.remove();
+            }
+            
+            const videoControls = document.getElementById('video-controls-overlay');
+            if (videoControls) {
+                videoControls.style.display = 'none';
+                videoControls.classList.remove('about-video-active');
+            }
 
             // Start the suction animation if we're in answer view
             if (answerView.classList.contains('active')) {
                 answerView.classList.add('sucking');
             }
             
-            // Reset thinking message COMPLETELY - remove all classes and content
+            // Reset thinking message COMPLETELY
             if (thinkingMessage) {
                 thinkingMessage.classList.remove('show', 'subtitle-mode');
-                thinkingMessage.textContent = ''; // Clear any existing text
-                thinkingMessage.style.opacity = ''; // Reset any inline styles
+                thinkingMessage.textContent = '';
+                thinkingMessage.style.opacity = '';
             }
 
             // Start unzooming with a brief delay
@@ -448,27 +462,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset button states explicitly
             resetSendButtons();
-
-            // Reset about video if it's playing - BEFORE resetting other videos
-            if (aboutVideo) {
-                aboutVideo.pause();
-                aboutVideo.currentTime = 0;
-                aboutVideo.style.display = 'none';
-                
-                // Hide video controls
-                const videoControls = document.getElementById('video-controls-overlay');
-                if (videoControls) {
-                    videoControls.style.display = 'none';
-                    videoControls.classList.remove('about-video-active');
-                }
-            }
             
             // Reset the Head Pro container
             const headProImgContainer = document.querySelector('.head-pro-img-container');
             if (headProImgContainer) {
                 headProImgContainer.classList.remove('fade-out', 'hidden');
             
-                // Reset to whiskey video as default
+                // Set whiskey as default and ensure it's visible but paused
                 Object.values(headProVideos).forEach(video => {
                     if (video) {
                         video.style.display = 'none';
@@ -481,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentVideo) {
                     currentVideo.style.display = 'block';
                     currentVideo.currentTime = 0;
+                    // DON'T play the video during reset
                 }
             }
 
@@ -490,11 +491,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const inputArea = document.querySelector('.centered-input-area');
 
             if (welcomeTaglines.length > 0 && welcomePrompt && inputArea) {
-                // Set opacity back to 1 for all elements
+                // Reset display and opacity
                 welcomeTaglines.forEach(tagline => {
+                    tagline.style.display = '';
                     tagline.style.opacity = '1';
                 });
+                welcomePrompt.style.display = '';
                 welcomePrompt.style.opacity = '1';
+                inputArea.style.display = '';
                 inputArea.style.opacity = '1';
                 
                 // Remove any inline styles after transition completes
@@ -533,11 +537,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 // Show initial view
                 showInitialView();
+
+                // Re-enable about link after reset completes
+                aboutLink.style.pointerEvents = '';
+                aboutLink.style.opacity = '';
+                
+                // Ensure we're in idle mode
+                currentVideoMode = 'idle';
             }, 1000);
             
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
+
+            // Re-enable about link even on error
+            aboutLink.style.pointerEvents = '';
+            aboutLink.style.opacity = '';
+            
+            // Reset video mode even on error
+            currentVideoMode = 'idle';
         }
     }
     
@@ -570,12 +588,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (aboutVideo && !aboutVideo.paused && aboutVideo.currentTime > 0) {
             // If about video is playing, restart it
             aboutVideo.currentTime = 0;
-            aboutVideo.play();
+            aboutVideo.play().catch(e => console.log('About video restart failed:', e));
         } else {
             // If we're in a conversation, transition directly to about video
-            // If we're in a conversation, transition directly to about video
             if (answerView.classList.contains('active')) {
-                // First, fade out the conversation content
+                // FIRST: Hide welcome elements immediately to prevent flashing
+                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
+                const welcomePrompt = document.querySelector('.welcome-prompt');
+                const initialInputArea = document.querySelector('.centered-input-area');
+                
+                // Hide welcome elements before any view switching
+                welcomeTaglines.forEach(tagline => {
+                    if (tagline) tagline.style.display = 'none';
+                });
+                if (welcomePrompt) welcomePrompt.style.display = 'none';
+                if (initialInputArea) initialInputArea.style.display = 'none';
+                
+                // Then fade out the conversation content
                 const userQuestion = document.getElementById('user-question');
                 const headProAnswer = document.getElementById('head-pro-answer');
                 const inputArea = document.querySelector('#answer-view .input-area');
@@ -606,18 +635,47 @@ document.addEventListener('DOMContentLoaded', function() {
                         headProImgContainer.style.opacity = '0';
                         setTimeout(() => {
                             headProImgContainer.style.opacity = '1';
-                        }, 1000);
+                        }, 100);
                     }
                     
-                    // Start about video immediately
-                    startAboutVideo();
-                }, 300); // Wait 300ms for fade-out
-
-
-
+                    // IMPORTANT: Stop any current video operations before starting about video
+                    // This prevents the AbortError race condition
+                    Object.values(headProVideos).forEach(video => {
+                        if (video && !video.paused) {
+                            video.pause();
+                        }
+                    });
+                    
+                    // Wait a moment for video operations to settle, then start about video
+                    setTimeout(() => {
+                        startAboutVideo();
+                    }, 100);
+                    
+                }, 300);
             } else {
-                // Start the about video experience from initial view
-                startAboutVideo();
+                // Starting from initial view - also hide welcome elements first
+                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
+                const welcomePrompt = document.querySelector('.welcome-prompt');
+                const initialInputArea = document.querySelector('.centered-input-area');
+                
+                // Hide welcome elements immediately
+                welcomeTaglines.forEach(tagline => {
+                    if (tagline) tagline.style.display = 'none';
+                });
+                if (welcomePrompt) welcomePrompt.style.display = 'none';
+                if (initialInputArea) initialInputArea.style.display = 'none';
+                
+                // Stop any current video operations
+                Object.values(headProVideos).forEach(video => {
+                    if (video && !video.paused) {
+                        video.pause();
+                    }
+                });
+                
+                // Wait a moment, then start about video
+                setTimeout(() => {
+                    startAboutVideo();
+                }, 100);
             }
         }
     });
@@ -825,110 +883,100 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add about video functionality
     initializeAboutVideo();
 
-    // Replace your existing startAboutVideo() function with this fixed version:
-
+    // Simplified startAboutVideo function
     function startAboutVideo() {
         console.log('Starting about video experience');
         
-        // Begin the zoom animation (reuse existing logic)
-        document.body.classList.add('pre-zoom');
-        void document.body.offsetHeight; // Force reflow
-        setTimeout(() => {
-            document.body.classList.remove('pre-zoom');
-            document.body.classList.add('zooming');
-        }, 20);
+        // Set the mode immediately
+        currentVideoMode = 'about';
+        switchingToAbout = true;
         
-        // Hide the welcome elements
-        const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
-        const welcomePrompt = document.querySelector('.welcome-prompt');
-        const inputArea = document.querySelector('.centered-input-area');
-
-        welcomeTaglines.forEach(tagline => {
-            if (tagline) tagline.style.opacity = '0';
-        });
-        if (welcomePrompt) welcomePrompt.style.opacity = '0';
-        if (inputArea) inputArea.style.opacity = '0';
+        // Stop all videos first
+        stopAllVideos();
         
-        // Hide all other videos and show about video
-        Object.values(headProVideos).forEach(video => {
-            if (video) {
-                video.style.display = 'none';
-                video.pause();
-                video.currentTime = 0;
-            }
-        });
-        
-        // Show and prepare about video
-        if (aboutVideo) {
-            aboutVideo.style.display = 'block';
-            aboutVideo.currentTime = 0;
-            aboutVideo.muted = true; // Ensure it starts muted
-            currentSubtitleIndex = -1;
+        // Begin the zoom animation only if not already zoomed
+        if (!document.body.classList.contains('zoomed') && !document.body.classList.contains('zooming')) {
+            document.body.classList.add('pre-zoom');
+            void document.body.offsetHeight; // Force reflow
+            setTimeout(() => {
+                document.body.classList.remove('pre-zoom');
+                document.body.classList.add('zooming');
+            }, 20);
             
-            // Show video controls
-            const videoControls = document.getElementById('video-controls-overlay');
-            if (videoControls) {
-                videoControls.style.display = 'block';
-                // Add class to show controls during about video
-                videoControls.classList.add('about-video-active');
-            }
-
-            // Also add click handler for the video itself to toggle pause/play
+            // Complete zoom after animation
+            setTimeout(() => {
+                document.body.classList.remove('zooming');
+                document.body.classList.add('zoomed');
+            }, 3000);
+        }
+        
+        // Wait a moment for any ongoing operations to settle
+        setTimeout(() => {
+            // Show and prepare about video
             if (aboutVideo) {
-                aboutVideo.addEventListener('click', function() {
+                aboutVideo.style.display = 'block';
+                aboutVideo.currentTime = 0;
+                aboutVideo.muted = true;
+                currentSubtitleIndex = -1;
+                
+                // Show video controls
+                const videoControls = document.getElementById('video-controls-overlay');
+                if (videoControls) {
+                    videoControls.style.display = 'block';
+                    videoControls.classList.add('about-video-active');
+                }
+
+                // Add click handler for the video itself to toggle pause/play
+                aboutVideo.onclick = function() {
                     if (aboutVideo.paused) {
-                        aboutVideo.play();
+                        aboutVideo.play().catch(e => console.log('Video resume failed:', e));
                         console.log('Video resumed');
                     } else {
                         aboutVideo.pause();
                         console.log('Video paused');
                     }
-                });
-            }
-            
-            // Show subtitle area with subtitle styling
-            const subtitleElement = document.getElementById('thinking-message');
-            if (subtitleElement) {
-                subtitleElement.classList.add('show', 'subtitle-mode');
-                subtitleElement.textContent = ''; // Clear any existing text
-            }
-            
-            // Update mute button
-            updateMuteButton();
-
-            const muteBtn = document.getElementById('about-mute-btn');
-            if (muteBtn) {
-                console.log('Mute button found');
-                muteBtn.onclick = function(e) {
-                    e.stopPropagation();
-                    toggleAboutVideoSound();
-                    console.log('Mute button clicked, video muted:', aboutVideo.muted);
                 };
-            } else {
-                console.error('Mute button not found!');
-            }
+                
+                // Show subtitle area with subtitle styling
+                const subtitleElement = document.getElementById('thinking-message');
+                if (subtitleElement) {
+                    subtitleElement.classList.add('show', 'subtitle-mode');
+                    subtitleElement.textContent = '';
+                }
+                
+                // Update mute button
+                updateMuteButton();
 
-            // Start video
-            aboutVideo.play().catch(e => {
-                console.error("About video play failed:", e);
-            });
+                const muteBtn = document.getElementById('about-mute-btn');
+                if (muteBtn) {
+                    muteBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        toggleAboutVideoSound();
+                    };
+                }
+
+                // Start video after a delay
+                setTimeout(() => {
+                    aboutVideo.play().catch(e => {
+                        console.error("About video play failed:", e);
+                        const subtitleElement = document.getElementById('thinking-message');
+                        if (subtitleElement) {
+                            subtitleElement.textContent = 'Click the video to start';
+                        }
+                    });
+                    
+                    // Start subtitle tracking
+                    startSubtitleTracking();
+                }, 200);
+            }
             
-            // Start subtitle tracking
-            startSubtitleTracking();
-        }
-        
-        // Show input after 10 seconds
-        setTimeout(() => {
-            showAboutInput();
-        }, 1000);
-        
-        // Complete zoom after animation - but DON'T remove loading class
-        setTimeout(() => {
-            document.body.classList.remove('zooming');
-            document.body.classList.add('zoomed');
-            // REMOVED: document.body.classList.remove('loading'); 
-            // This was causing the welcome elements to reappear
-        }, 3000);
+            // Show input after 1 second
+            setTimeout(() => {
+                showAboutInput();
+            }, 1000);
+
+            switchingToAbout = false;
+        }, 300);
     }
 
     // Enhanced subtitle update function
@@ -973,99 +1021,100 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showAboutInput() {
-        // Don't switch views at all - just show the input in the current initial view
-        
-        // Find or create an input area in the initial view
-        let aboutInputArea = document.getElementById('about-input-area');
-        
-        if (!aboutInputArea) {
-            // Create the input area
-            aboutInputArea = document.createElement('div');
-            aboutInputArea.id = 'about-input-area';
-            aboutInputArea.className = 'input-area';
-            aboutInputArea.style.cssText = `
-                position: fixed;
-                bottom: 10%;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 75%;
-                max-width: 600px;
-                z-index: 100;
-                pointer-events: auto;
-            `;
-            
-            // Create the input container
-            const inputContainer = document.createElement('div');
-            inputContainer.className = 'input-container';
-            
-            // Create the input
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.id = 'about-input';
-            input.placeholder = 'Ask me something...';
-            input.style.cssText = `
-                flex: 1;
-                width: 100%;
-                padding: 12px 16px;
-                padding-right: 50px;
-                border: none;
-                border-radius: 20px;
-                background: rgba(255,255,255,0.1);
-                color: var(--white);
-                font-family: "Merriweather", serif;
-                font-optical-sizing: auto;
-            `;
-            
-            // Create the send button
-            const sendBtn = document.createElement('button');
-            sendBtn.className = 'send-icon-btn';
-            sendBtn.id = 'about-send-btn';
-            sendBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            `;
-            
-            // Assemble the input area
-            inputContainer.appendChild(input);
-            inputContainer.appendChild(sendBtn);
-            aboutInputArea.appendChild(inputContainer);
-            
-            // Add to the main chat container instead of initial view
-            const chatContainer = document.querySelector('.chat-container');
-            if (chatContainer) {
-                chatContainer.appendChild(aboutInputArea);
-            }
-            
-            // Add event listeners
-            sendBtn.addEventListener('click', () => {
-                const message = input.value.trim();
-                if (message) {
-                    cleanupAboutVideo();
-                    sendMessage(message);
-                }
-            });
-            
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    const message = input.value.trim();
-                    if (message) {
-                        cleanupAboutVideo();
-                        sendMessage(message);
-                    }
-                }
-            });
-            
-            // Focus styles
-            input.addEventListener('focus', () => {
-                input.style.background = 'rgba(255,255,255,0.15)';
-            });
-            
-            input.addEventListener('blur', () => {
-                input.style.background = 'rgba(255,255,255,0.1)';
-            });
+        // Remove any existing about input first to prevent duplicates
+        const existingAboutInput = document.getElementById('about-input-area');
+        if (existingAboutInput) {
+            existingAboutInput.remove();
         }
+        
+        // Create the input area
+        const aboutInputArea = document.createElement('div');
+        aboutInputArea.id = 'about-input-area';
+        aboutInputArea.className = 'input-area';
+        aboutInputArea.style.cssText = `
+            position: fixed;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 75%;
+            max-width: 600px;
+            z-index: 100;
+            pointer-events: auto;
+        `;
+        
+        // Create the input container
+        const inputContainer = document.createElement('div');
+        inputContainer.className = 'input-container';
+        
+        // Create the input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'about-input';
+        input.placeholder = 'Ask me something...';
+        input.style.cssText = `
+            flex: 1;
+            width: 100%;
+            padding: 12px 16px;
+            padding-right: 50px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+            color: var(--white);
+            font-family: "Merriweather", serif;
+            font-optical-sizing: auto;
+        `;
+        
+        // Create the send button
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'send-icon-btn';
+        sendBtn.id = 'about-send-btn';
+        sendBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+        `;
+        
+        // Assemble the input area
+        inputContainer.appendChild(input);
+        inputContainer.appendChild(sendBtn);
+        aboutInputArea.appendChild(inputContainer);
+        
+        // Add to the main chat container
+        const chatContainer = document.querySelector('.chat-container');
+        if (chatContainer) {
+            chatContainer.appendChild(aboutInputArea);
+        }
+        
+        // Updated event listeners that immediately remove the input when used
+        function handleAboutSubmit() {
+            const message = input.value.trim();
+            if (message) {
+                // IMMEDIATELY remove the about input area before doing anything else
+                aboutInputArea.remove();
+                
+                // Then cleanup about video and send message
+                cleanupAboutVideo();
+                sendMessage(message);
+            }
+        }
+        
+        sendBtn.addEventListener('click', handleAboutSubmit);
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAboutSubmit();
+            }
+        });
+        
+        // Focus styles
+        input.addEventListener('focus', () => {
+            input.style.background = 'rgba(255,255,255,0.15)';
+        });
+        
+        input.addEventListener('blur', () => {
+            input.style.background = 'rgba(255,255,255,0.1)';
+        });
         
         // Show the input area with a fade-in effect
         aboutInputArea.style.opacity = '0';
@@ -1077,10 +1126,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
         
         // Focus on the input
-        const input = aboutInputArea.querySelector('input');
-        if (input) {
-            setTimeout(() => input.focus(), 200);
-        }
+        setTimeout(() => input.focus(), 200);
     }
 
     // Event handlers for about video
@@ -1152,14 +1198,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function cleanupAboutVideo() {
-
+        console.log('Cleaning up about video');
+        
+        // Only proceed if we're actually in about mode
+        if (currentVideoMode !== 'about') {
+            return;
+        }
+        
         stopSubtitleTracking();
 
-        // Remove the about input area
-        const aboutInputArea = document.getElementById('about-input-area');
-        if (aboutInputArea) {
-            aboutInputArea.remove();
-        }
+        // Remove ALL about input areas (in case there are duplicates)
+        const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
+        aboutInputAreas.forEach(area => area.remove());
         
         // Hide about video and controls
         if (aboutVideo) {
@@ -1172,18 +1222,22 @@ document.addEventListener('DOMContentLoaded', function() {
             videoControls.style.display = 'none';
             videoControls.classList.remove('about-video-active');
         }
- 
+
+        currentVideoMode = 'idle';
+    
         // Only start loading video if NOT during a reset
-        // Check if we're in a reset state by looking for the unzooming class
         if (!document.body.classList.contains('unzooming')) {
-            // Show a random loading video for the next chat response
-            startLoadingVideo();
-        
-            // NOW mark conversation as started since they're sending a real message
+            // Mark conversation as started since they're sending a real message
             const chatContent = document.querySelector('.chat-content');
             if (chatContent) {
                 chatContent.classList.add('conversation-started');
             }
+            
+            // Start loading video for the next response
+            setTimeout(() => {
+                startLoadingVideo();
+            }, 500);
         }
     }
+
 });

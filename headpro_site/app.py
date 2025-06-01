@@ -352,6 +352,14 @@ def scorecard_data():
         }
         return jsonify(default_data)
 
+@app.route('/favicon.ico')
+def favicon():
+    """Serve a simple favicon to avoid 404 errors"""
+    # Return a simple response to avoid 404 errors
+    # You can create an actual favicon.ico file later if needed
+    from flask import Response
+    return Response(status=204)  # No content response
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port)

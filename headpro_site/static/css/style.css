@@ -401,6 +401,9 @@ button#initial-send-btn:not(.send-icon-btn) {
     transition: opacity 1s ease-out; /* Just opacity transition */
     overflow: hidden;
     pointer-events: auto;
+    /* Add these properties to completely isolate from text-align */
+    display: block; /* Ensure it's block-level, not inline */
+    text-align: left; /* Reset text-align for this container */
 }
 
 /* Fade out animation for entire container */
@@ -420,6 +423,9 @@ button#initial-send-btn:not(.send-icon-btn) {
     overflow: hidden;
     border-radius: 50%;
     transition: width 3s cubic-bezier(0.1, 0.7, 0.6, 1), height 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+    /* Add these to ensure consistent positioning */
+    display: block;
+    margin: 0; /* Remove any default margins */
 }
 
 .head-pro-video {
@@ -430,6 +436,11 @@ button#initial-send-btn:not(.send-icon-btn) {
     -webkit-mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
     mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
     position: absolute;
+    top: 0;
+    left: 0;
+    /* Add this to completely isolate from parent text-align */
+    display: block;
+    
     /* Hide all possible native controls */
     &::-webkit-media-controls {
         display: none;
