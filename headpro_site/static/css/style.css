@@ -76,42 +76,66 @@ body.unzooming #cinematic-overlay {
     position: fixed;
     width: 100%;
     z-index: 1;
-    padding: 15px 20px;
+    padding: 0px 15px 5px;
 }
 
 .top-nav {
+    position: fixed;
     top: 0;
+    width: 100%;
+    z-index: 1;
     background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+    display: flex;
+    flex-direction: column;
 }
+
+.head-pro-logo {
+    width: 25vw;
+    height: auto; /* Maintains aspect ratio */
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 8px rgba(0, 0, 0, 0.6));
+}
+
 
 .bottom-nav {
     bottom: 0;
     background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
     display: flex;
     justify-content: flex-end;
-    gap: 2rem;
+    gap: 2.5rem;
 }
 
+/* No longer in use */
 .top-nav h1 {
-    font-size: 4rem;
+    font-size: clamp(2rem, 8vw, 4rem); /* Responsive font size */
     font-weight: 400;
     color: var(--white);
     font-family: "Jost", sans-serif;
     font-optical-sizing: auto;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 
-    0 0 8px rgba(0, 0, 0, 0.6);
+                 0 0 8px rgba(0, 0, 0, 0.6);
+    margin: 0; /* Remove default margins */
+    line-height: 1;
 }
 
+/* No longer in use */
 .top-nav h3 {
-    font-size: 1.5rem;
+    position: absolute;
+    bottom: -0.25em; /* Position relative to the h1's bottom */
+    right: -1.9em; /* Position relative to the h1's right edge */
+    font-size: clamp(0.8rem, 3vw, 1.5rem); /* Responsive font size */
     font-weight: 300;
     color: var(--white);
     font-family: "Jost", sans-serif;
     font-optical-sizing: auto;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 
-    0 0 8px rgba(0, 0, 0, 0.6);
-    margin: -1rem 0 0 16.4rem;
+                 0 0 8px rgba(0, 0, 0, 0.6);
+    margin: 0;
+    line-height: 1;
+    white-space: nowrap; /* Prevent wrapping */
 }
+
+
 
 .bottom-nav a, .bottom-nav span {
     color: var(--white);
@@ -816,47 +840,6 @@ body.loading #initial-view .centered-input-area {
     --ink-red: #8b2635;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .about-content {
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-    
-    .about-photo {
-        flex: none;
-        width: 80%;
-        margin-bottom: 0;
-    }
-    .about-modal-content {
-        width: 95%;
-        margin: 5% auto;
-    }
-    
-    .about-text h2 {
-        font-size: 1.5rem;
-    }
-    
-    .about-text p {
-        font-size: 0.9rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .about-card {
-        padding: 1rem;
-    }
-    
-    .about-text h2 {
-        font-size: 1.3rem;
-    }
-    
-    .about-text p {
-        font-size: 0.85rem;
-    }
-}
-
-
 /* Scorecard Modal Styles - Add these to your existing style.css */
 
 .scorecard-modal {
@@ -1265,13 +1248,75 @@ body.zooming .video-controls-overlay {
     animation: none;
 }
 
-/* About video specific styling */
-#about-video {
+/* ===== RESPONSIVE MEDIA QUERIES ===== */
 
-}
-
-/* Responsive adjustments for modal */
+/* Tablet and smaller desktop (768px and below) */
 @media (max-width: 768px) {
+    /* Navigation */
+    .top-nav {
+        padding: 10px 15px;
+    }
+    
+    .top-nav h3 {
+        bottom: -0.1em;
+        right: -1em;
+    }
+    
+    /* Main chat area */
+    .chat-container {
+        width: min(90vmin, 600px);
+        max-height: 85vh;
+    }
+
+    .head-pro-img {
+        max-width: 150px;
+    }
+    
+    /* Video controls */
+    .video-controls-overlay {
+        opacity: 1; /* Always show on mobile since hover doesn't work well */
+        pointer-events: auto;
+        top: calc(50% - 85px); /* Adjust position for smaller video */
+        right: calc(50% - 85px);
+    }
+    
+    .mute-toggle-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+    
+    .thinking-message.subtitle-mode {
+        font-size: 1rem;
+        max-width: 95%;
+    }
+    
+    /* About modal */
+    .about-content {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .about-photo {
+        flex: none;
+        width: 80%;
+        margin-bottom: 0;
+    }
+    
+    .about-modal-content {
+        width: 95%;
+        margin: 5% auto;
+    }
+    
+    .about-text h2 {
+        font-size: 1.5rem;
+    }
+    
+    .about-text p {
+        font-size: 0.9rem;
+    }
+    
+    /* Scorecard modal */
     .scorecard-modal-content {
         width: 98%;
         height: 95vh;
@@ -1293,60 +1338,21 @@ body.zooming .video-controls-overlay {
     .scorecard-modal .scorecard-title {
         font-size: 1rem;
     }
-
-    .video-controls-overlay {
-        /* Always show on mobile since hover doesn't work well */
-        opacity: 1;
-        pointer-events: auto;
-        /* Adjust position for smaller video */
-        top: calc(50% - 85px);
-        right: calc(50% - 85px);
-    }
-    
-    .mute-toggle-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
-    }
-    
-    .thinking-message.subtitle-mode {
-        font-size: 1rem;
-        max-width: 95%;
-    }
 }
 
+/* Mobile phones (480px and below) */
 @media (max-width: 480px) {
-    .scorecard-modal .scorecard-table th:nth-child(n+4),
-    .scorecard-modal .scorecard-table td:nth-child(n+4) {
-        display: none;
-    }
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .top-nav h1 {
-        font-size: 1.5rem;
-    }
-    
-    .chat-container {
-        width: min(90vmin, 600px);
-        max-height: 85vh;
-    }
-
-    .head-pro-img {
-        max-width: 150px;
-    }
-}
-
-@media (max-width: 480px) {
+    /* Navigation */
     .top-nav {
         padding: 10px;
     }
     
-    .top-nav h1 {
-        font-size: 1.2rem;
+    .top-nav h3 {
+        bottom: 0;
+        right: -0.8em;
     }
     
+    /* Main chat area */
     .chat-container {
         width: min(95vmin, 400px);
         max-height: 80vh;
@@ -1364,17 +1370,46 @@ body.zooming .video-controls-overlay {
         font-size: 0.8rem;
     }
     
+    /* General modal */
     .modal-content {
         width: 95%;
         margin: 10% auto;
         padding: 20px;
     }
+    
+    /* About modal */
+    .about-card {
+        padding: 1rem;
+    }
+    
+    .about-text h2 {
+        font-size: 1.3rem;
+    }
+    
+    .about-text p {
+        font-size: 0.85rem;
+    }
+    
+    /* Scorecard modal - hide extra columns on small screens */
+    .scorecard-modal .scorecard-table th:nth-child(n+4),
+    .scorecard-modal .scorecard-table td:nth-child(n+4) {
+        display: none;
+    }
 }
 
-/* Touch devices - show controls on tap */
+/* Very small screens (320px and below) */
+@media (max-width: 320px) {
+    .top-nav h3 {
+        bottom: 0.1em;
+        right: -0.6em;
+    }
+}
+
+/* Touch devices - ensure video controls are always accessible */
 @media (hover: none) and (pointer: coarse) {
     .video-controls-overlay {
         opacity: 1;
         pointer-events: auto;
     }
 }
+

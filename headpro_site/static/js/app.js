@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
         { start: 27.5, end: 31, text: "When a guy's head ain't right, his game crumbles" },
         { start: 31.3, end: 34.5, text: "When he's locked in mentally, he exceeds expectations" },
         { start: 35, end: 37.5, text: "That, my friends, is what we call an edge." },
-        { start: 38, end: 46, text: "I'm the Head Pro, and I'm here to change the way you bet on golf." }
+        { start: 38, end: 43, text: "I'm the Head Pro, and I'm here to change the way you bet on golf." }
     ];
     
     // Define SVG content as constants to ensure consistency when restoring
