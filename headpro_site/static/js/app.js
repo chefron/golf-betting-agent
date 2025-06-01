@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showAnswerView(question, answer) {
-        // FIRST: Remove any lingering about input areas
+        // Remove any lingering about input areas
         const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
         aboutInputAreas.forEach(area => area.remove());
         
@@ -212,6 +212,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Auto-scroll the answer area to the top
         headProAnswer.scrollTop = 0;
+        
+        // Ensure message input is enabled and ready
+        messageInput.disabled = false;
+        messageInput.style.opacity = '';
+        messageInput.style.pointerEvents = '';
         
         // Focus on the input
         messageInput.focus();
@@ -286,6 +291,17 @@ document.addEventListener('DOMContentLoaded', function() {
         aboutLink.style.pointerEvents = 'none';
         aboutLink.style.opacity = '0.5';
         
+        // Disable reset button during loading
+        resetBtn.style.pointerEvents = 'none';
+        resetBtn.style.opacity = '0.5';
+        
+        // Disable message input during loading (only for non-initial messages)
+        if (!isInitial) {
+            messageInput.disabled = true;
+            messageInput.style.opacity = '0.5';
+            messageInput.style.pointerEvents = 'none';
+        }
+        
         // Get the correct button
         const targetBtn = isInitial ? initialSendBtn : sendBtn;
         
@@ -294,7 +310,17 @@ document.addEventListener('DOMContentLoaded', function() {
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
 
-        // Show thinking message when starting to load
+        // ENSURE thinking message is in correct state for regular messages
+        const thinkingMessage = document.getElementById('thinking-message');
+        if (thinkingMessage && !isInitial) {
+            // For non-initial messages, make sure thinking message is reset to normal
+            thinkingMessage.className = 'thinking-message'; // Remove any subtitle classes
+            thinkingMessage.textContent = 'Checking my notes';
+            thinkingMessage.style.cssText = ''; // Clear all inline styles
+            // Don't show it for non-initial messages
+        }
+
+        // Show thinking message when starting to load (only for initial)
         if (isInitial && thinkingMessage) {
             thinkingMessage.classList.add('show');
         }
@@ -366,9 +392,16 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             // Reset UI state
             setTimeout(() => {
-                // Re-enable about link
-                aboutLink.style.pointerEvents = '';
-                aboutLink.style.opacity = '';
+                // Re-enable reset button
+                resetBtn.style.pointerEvents = '';
+                resetBtn.style.opacity = '';
+                
+                // Re-enable message input (only for non-initial messages)
+                if (!isInitial) {
+                    messageInput.disabled = false;
+                    messageInput.style.opacity = '';
+                    messageInput.style.pointerEvents = '';
+                }
                 
                 // Hide thinking message
                 if (thinkingMessage) {
@@ -389,9 +422,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 300);
         }
+
+        // ADD a separate timeout for about link with longer delay
+        setTimeout(() => {
+            aboutLink.style.pointerEvents = '';
+            aboutLink.style.opacity = '';
+            console.log('About link re-enabled after extended delay');
+        }, 1500);
     }
 
-        function stopSubtitleTracking() {
+    function stopSubtitleTracking() {
         if (subtitleInterval) {
             clearInterval(subtitleInterval);
             subtitleInterval = null;
@@ -590,6 +630,14 @@ document.addEventListener('DOMContentLoaded', function() {
             aboutVideo.currentTime = 0;
             aboutVideo.play().catch(e => console.log('About video restart failed:', e));
         } else {
+            // IMMEDIATELY clear any existing thinking message content to prevent flash
+            const thinkingMessage = document.getElementById('thinking-message');
+            if (thinkingMessage) {
+                thinkingMessage.classList.remove('show', 'subtitle-mode');
+                thinkingMessage.textContent = ''; // Clear content immediately
+                thinkingMessage.style.opacity = '0'; // Hide it
+            }
+            
             // If we're in a conversation, transition directly to about video
             if (answerView.classList.contains('active')) {
                 // FIRST: Hide welcome elements immediately to prevent flashing
@@ -639,7 +687,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // IMPORTANT: Stop any current video operations before starting about video
-                    // This prevents the AbortError race condition
                     Object.values(headProVideos).forEach(video => {
                         if (video && !video.paused) {
                             video.pause();
@@ -679,6 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
 
     // Add mute button event listener
     document.addEventListener('click', (e) => {
@@ -894,6 +942,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // Stop all videos first
         stopAllVideos();
         
+        // IMMEDIATELY prepare subtitle element to prevent flash
+        const subtitleElement = document.getElementById('thinking-message');
+        if (subtitleElement) {
+            // Clear everything first
+            subtitleElement.classList.remove('show', 'subtitle-mode');
+            subtitleElement.textContent = '';
+            subtitleElement.style.opacity = '0';
+            
+            // Then set up for subtitles (but keep hidden initially)
+            setTimeout(() => {
+                subtitleElement.classList.add('subtitle-mode'); // Add class but don't show yet
+            }, 100);
+        }
+        
         // Begin the zoom animation only if not already zoomed
         if (!document.body.classList.contains('zoomed') && !document.body.classList.contains('zooming')) {
             document.body.classList.add('pre-zoom');
@@ -937,11 +999,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
                 
-                // Show subtitle area with subtitle styling
+                // NOW show the subtitle area (after everything is set up)
                 const subtitleElement = document.getElementById('thinking-message');
                 if (subtitleElement) {
-                    subtitleElement.classList.add('show', 'subtitle-mode');
-                    subtitleElement.textContent = '';
+                    subtitleElement.classList.add('show'); // Now make it visible
+                    subtitleElement.style.opacity = '1';
+                    subtitleElement.textContent = ''; // Ensure it starts empty
                 }
                 
                 // Update mute button
@@ -1086,15 +1149,37 @@ document.addEventListener('DOMContentLoaded', function() {
             chatContainer.appendChild(aboutInputArea);
         }
         
-        // Updated event listeners that immediately remove the input when used
+        // Updated event listeners with EXPLICIT thinking message reset
         function handleAboutSubmit() {
             const message = input.value.trim();
             if (message) {
-                // IMMEDIATELY remove the about input area before doing anything else
+                // IMMEDIATELY remove the about input area
                 aboutInputArea.remove();
                 
-                // Then cleanup about video and send message
+                // EXPLICITLY reset thinking message BEFORE doing anything else
+                const thinkingMessage = document.getElementById('thinking-message');
+                if (thinkingMessage) {
+                    console.log('EXPLICITLY resetting thinking message');
+                    // Force remove all classes
+                    thinkingMessage.className = 'thinking-message'; // Reset to just base class
+                    thinkingMessage.textContent = 'Checking my notes'; // Reset text
+                    thinkingMessage.style.cssText = ''; // Clear ALL inline styles
+                    thinkingMessage.style.opacity = ''; // Explicitly clear opacity
+                    
+                    console.log('Thinking message after reset:', thinkingMessage.outerHTML);
+                }
+                
+                // Stop subtitle tracking completely
+                if (subtitleInterval) {
+                    clearInterval(subtitleInterval);
+                    subtitleInterval = null;
+                }
+                currentSubtitleIndex = -1;
+                
+                // THEN cleanup about video
                 cleanupAboutVideo();
+                
+                // FINALLY send the message
                 sendMessage(message);
             }
         }
@@ -1207,6 +1292,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         stopSubtitleTracking();
 
+        // PROPERLY reset the thinking message element back to normal state
+        const thinkingMessage = document.getElementById('thinking-message');
+        if (thinkingMessage) {
+            // Remove all about-related classes and content
+            thinkingMessage.classList.remove('show', 'subtitle-mode');
+            thinkingMessage.textContent = 'Checking my notes'; // Reset to default thinking text
+            thinkingMessage.style.opacity = ''; // Clear any inline opacity
+            thinkingMessage.style.display = ''; // Clear any inline display
+            
+            console.log('Reset thinking message to normal state');
+        }
+
         // Remove ALL about input areas (in case there are duplicates)
         const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
         aboutInputAreas.forEach(area => area.remove());
@@ -1239,5 +1336,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         }
     }
-
 });
