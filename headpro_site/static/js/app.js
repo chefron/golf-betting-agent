@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const scorecardClose = document.getElementById('scorecard-close');
 
     // Global variables for subtitle management
-    let aboutVideo = null;
+    let aboutVideo = document.querySelector('#about-video');
     let subtitleInterval = null;
     let currentSubtitleIndex = -1;
 
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function stopAllVideos() {
         console.log('Stopping all videos');
         
-        // Stop regular videos
+        // Stop regular videos AND about video
         Object.values(headProVideos).forEach(video => {
             if (video) {
                 video.pause();
@@ -72,13 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 video.style.display = 'none';
             }
         });
-        
-        // Stop about video
-        if (aboutVideo) {
-            aboutVideo.pause();
-            aboutVideo.currentTime = 0;
-            aboutVideo.style.display = 'none';
-        }
         
         currentVideoMode = 'idle';
     }
@@ -92,7 +85,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const headProVideos = {
     whiskey: document.querySelector('#whiskey-video'),
     cigar: document.querySelector('#cigar-video'),
-    notebook: document.querySelector('#notebook-video')
+    notebook: document.querySelector('#notebook-video'),
+    about: document.querySelector('#about-video')
     };
     const headProImgContainer = document.querySelector('.head-pro-img-container');
     
@@ -744,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Wait a moment, then start about video
                 setTimeout(() => {
                     startAboutVideo();
-                }, 100);
+                }, 150);
             }
         }
     });
@@ -914,89 +908,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Function to initialize about video elements
-    function initializeAboutVideo() {
-        // Create the about video element if it doesn't exist
-        if (!aboutVideo) {
-            aboutVideo = document.createElement('video');
-            aboutVideo.id = 'about-video';
-            aboutVideo.className = 'head-pro-video';
-            aboutVideo.muted = true; // Start muted by default
-            aboutVideo.preload = 'auto';
-            aboutVideo.playsInline = true;
-            aboutVideo.style.display = 'none';
-            
-            // Add video source
-            const source = document.createElement('source');
-            source.src = '/static/videos/about.mp4'; // Adjust path as needed
-            source.type = 'video/mp4';
-            aboutVideo.appendChild(source);
-            
-            // Add video controls (hidden by default)
-            aboutVideo.controls = false;
-            
-            // Add to the video wrapper
-            const videoWrapper = document.querySelector('.head-pro-img-wrapper');
-            if (videoWrapper) {
-                videoWrapper.appendChild(aboutVideo);
-            }
-            
-            // Add event listeners
-            aboutVideo.addEventListener('loadedmetadata', onAboutVideoLoaded);
-            aboutVideo.addEventListener('timeupdate', updateSubtitles);
-            aboutVideo.addEventListener('ended', onAboutVideoEnded);
-            aboutVideo.addEventListener('pause', onAboutVideoPaused);
-            aboutVideo.addEventListener('play', onAboutVideoPlayed);
-        }
-    }
-
-    // Add about video functionality
-    initializeAboutVideo();
-
     // Simplified startAboutVideo function
     function startAboutVideo() {
         console.log('Starting about video experience');
         
-        // Set the mode immediately
         currentVideoMode = 'about';
         switchingToAbout = true;
         
-        // Stop all videos first
         stopAllVideos();
         
-        // IMMEDIATELY prepare subtitle element to prevent flash
-        const subtitleElement = document.getElementById('thinking-message');
-        if (subtitleElement) {
-            // Clear everything first
-            subtitleElement.classList.remove('show', 'subtitle-mode');
-            subtitleElement.textContent = '';
-            subtitleElement.style.opacity = '0';
-            
-            // Then set up for subtitles (but keep hidden initially)
-            setTimeout(() => {
-                subtitleElement.classList.add('subtitle-mode'); // Add class but don't show yet
-            }, 100);
+        // Clear thinking message
+        const thinkingMessage = document.getElementById('thinking-message');
+        if (thinkingMessage) {
+            thinkingMessage.classList.remove('show', 'subtitle-mode');
+            thinkingMessage.textContent = '';
+            thinkingMessage.style.opacity = '0';
         }
         
-        // Begin the zoom animation only if not already zoomed
+        // Zoom animation setup...
         if (!document.body.classList.contains('zoomed') && !document.body.classList.contains('zooming')) {
             document.body.classList.add('pre-zoom');
-            void document.body.offsetHeight; // Force reflow
+            void document.body.offsetHeight;
             setTimeout(() => {
                 document.body.classList.remove('pre-zoom');
                 document.body.classList.add('zooming');
             }, 20);
             
-            // Complete zoom after animation
             setTimeout(() => {
                 document.body.classList.remove('zooming');
                 document.body.classList.add('zoomed');
             }, 3000);
         }
         
-        // Wait a moment for any ongoing operations to settle
         setTimeout(() => {
-            // Show and prepare about video
+            // About video is now already in DOM, just show it
             if (aboutVideo) {
                 aboutVideo.style.display = 'block';
                 aboutVideo.currentTime = 0;
@@ -1010,58 +955,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     videoControls.classList.add('about-video-active');
                 }
 
-                // Add click handler for the video itself to toggle pause/play
-                aboutVideo.onclick = function() {
-                    if (aboutVideo.paused) {
-                        aboutVideo.play().catch(e => console.log('Video resume failed:', e));
-                        console.log('Video resumed');
-                    } else {
-                        aboutVideo.pause();
-                        console.log('Video paused');
-                    }
-                };
+                // Set up event handlers
+                setupAboutVideoHandlers();
                 
-                // NOW show the subtitle area (after everything is set up)
+                // Show subtitle area
                 const subtitleElement = document.getElementById('thinking-message');
                 if (subtitleElement) {
-                    subtitleElement.classList.add('show'); // Now make it visible
+                    subtitleElement.classList.add('show', 'subtitle-mode');
                     subtitleElement.style.opacity = '1';
-                    subtitleElement.textContent = ''; // Ensure it starts empty
-                }
-                
-                // Update mute button
-                updateMuteButton();
-
-                const muteBtn = document.getElementById('about-mute-btn');
-                if (muteBtn) {
-                    muteBtn.onclick = function(e) {
-                        e.stopPropagation();
-                        toggleAboutVideoSound();
-                    };
+                    subtitleElement.textContent = '';
                 }
 
-                // Start video after a delay
                 setTimeout(() => {
                     aboutVideo.play().catch(e => {
                         console.error("About video play failed:", e);
-                        const subtitleElement = document.getElementById('thinking-message');
-                        if (subtitleElement) {
-                            subtitleElement.textContent = 'Click the video to start';
-                        }
                     });
-                    
-                    // Start subtitle tracking
                     startSubtitleTracking();
-                }, 200);
+                }, 16);
             }
             
-            // Show input after 1 second
             setTimeout(() => {
                 showAboutInput();
             }, 1000);
 
             switchingToAbout = false;
-        }, 300);
+        }, 16);
+    }
+
+    function setupAboutVideoHandlers() {
+        // Video click handler
+        aboutVideo.onclick = function() {
+            if (aboutVideo.paused) {
+                aboutVideo.play().catch(e => console.log('Video resume failed:', e));
+            } else {
+                aboutVideo.pause();
+            }
+        };
+        
+        // Update mute button
+        updateMuteButton();
+
+        const muteBtn = document.getElementById('about-mute-btn');
+        if (muteBtn) {
+            muteBtn.onclick = function(e) {
+                e.stopPropagation();
+                toggleAboutVideoSound();
+            };
+        }
     }
 
     // Enhanced subtitle update function
@@ -1367,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', function() {
         headProLogo.addEventListener('click', (e) => {
             e.preventDefault();
 
-            // Disable logo for 3 seconds
+            // Disable logo for 1 second
             headProLogo.style.pointerEvents = 'none';
             headProLogo.style.opacity = '0.5';
             setTimeout(() => {
