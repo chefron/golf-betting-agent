@@ -94,8 +94,18 @@ body.unzooming #cinematic-overlay {
     height: auto; /* Maintains aspect ratio */
     filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) 
             drop-shadow(0 0 8px rgba(0, 0, 0, 0.6));
+    cursor: pointer; /* Make it clear it's clickable */;
+    transition: opacity 0.2s ease, transform 0.2s ease; /* Smooth transitions;  */
 }
 
+.head-pro-logo:hover {
+    opacity: 0.8;
+    transform: scale(1.02); /* Subtle scale effect on hover */
+}
+
+.head-pro-logo:active {
+    transform: scale(0.98); /* Slight press effect */
+}
 
 .bottom-nav {
     bottom: 0;
@@ -479,6 +489,14 @@ body.zoomed .head-pro-img-wrapper {
     width: 400px;
     height: 400px;
     transform: translateZ(0); /* Prevents blurring */
+}
+
+/* Add smooth unzoom transition */
+body.unzooming .head-pro-img-wrapper {
+    width: 260px !important;
+    height: 260px !important;
+    transition: width 1s ease-out, height 1s ease-out;
+    transform: translateZ(0); /* Prevents blurring during animation */
 }
 
 /* Thinking message styling */

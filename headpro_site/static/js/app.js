@@ -287,6 +287,14 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
+        // Disable logo for 3 seconds to prevent race conditions
+        headProLogo.style.pointerEvents = 'none';
+        headProLogo.style.opacity = '0.5';
+        setTimeout(() => {
+            headProLogo.style.pointerEvents = '';
+            headProLogo.style.opacity = '';
+        }, 3000);
+
         document.body.classList.add('loading')
         
         // Disable about link during loading
@@ -487,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset thinking message COMPLETELY
             if (thinkingMessage) {
                 thinkingMessage.classList.remove('show', 'subtitle-mode');
-                thinkingMessage.textContent = '';
+                thinkingMessage.textContent = 'Checking my notes';
                 thinkingMessage.style.opacity = '';
             }
 
@@ -629,6 +637,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update the about link event listener
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();
+
+        // Disable logo for 3 seconds to prevent race conditions
+        headProLogo.style.pointerEvents = 'none';
+        headProLogo.style.opacity = '0.5';
+        setTimeout(() => {
+            headProLogo.style.pointerEvents = '';
+            headProLogo.style.opacity = '';
+        }, 3000);
         
         // Check if we're already in about mode (video playing)
         if (aboutVideo && !aboutVideo.paused && aboutVideo.currentTime > 0) {
@@ -1341,5 +1357,112 @@ document.addEventListener('DOMContentLoaded', function() {
                 startLoadingVideo();
             }, 500);
         }
+    }
+
+    // Get the logo element
+    const headProLogo = document.querySelector('.head-pro-logo');
+
+    // Add click event listener to the logo
+    if (headProLogo) {
+        headProLogo.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            // Disable logo for 3 seconds
+            headProLogo.style.pointerEvents = 'none';
+            headProLogo.style.opacity = '0.5';
+            setTimeout(() => {
+                headProLogo.style.pointerEvents = '';
+                headProLogo.style.opacity = '';
+            }, 1000);
+            
+            // If we're in About video mode, just clean that up and return to initial view
+            if (currentVideoMode === 'about' || (aboutVideo && aboutVideo.style.display !== 'none')) {
+                // Stop the about video immediately
+                if (aboutVideo) {
+                    aboutVideo.pause();
+                    aboutVideo.style.display = 'none';
+                }
+                
+                // Nuclear option: immediately clear everything about thinking message
+                const thinkingMessage = document.getElementById('thinking-message');
+                if (thinkingMessage) {
+                    thinkingMessage.style.display = 'none';
+                    thinkingMessage.className = 'thinking-message'; // Reset to base class only
+                    thinkingMessage.textContent = ''; // Clear text immediately
+                    thinkingMessage.style.opacity = '0';
+                }
+                
+                // Stop subtitle interval
+                if (subtitleInterval) {
+                    clearInterval(subtitleInterval);
+                    subtitleInterval = null;
+                }
+                currentSubtitleIndex = -1;
+                
+                // Reset thinking message to normal state after everything settles
+                setTimeout(() => {
+                    if (thinkingMessage) {
+                        thinkingMessage.textContent = 'Checking my notes';
+                        thinkingMessage.style.cssText = ''; // This should clear display: none
+                        thinkingMessage.style.display = ''; // But let's be explicit about it
+                    }
+                }, 200);
+                
+                // Remove about input if it exists
+                const aboutInput = document.getElementById('about-input-area');
+                if (aboutInput) {
+                    aboutInput.remove();
+                }
+                
+                // Hide video controls
+                const videoControls = document.getElementById('video-controls-overlay');
+                if (videoControls) {
+                    videoControls.style.display = 'none';
+                }
+                
+                // Reset video mode
+                currentVideoMode = 'idle';
+                
+                // Simple unzoom if needed
+                if (document.body.classList.contains('zoomed') || document.body.classList.contains('zooming')) {
+                    document.body.classList.remove('zoomed', 'zooming');
+                    document.body.classList.add('unzooming');
+                    setTimeout(() => {
+                        document.body.classList.remove('unzooming');
+                    }, 1000);
+                }
+                
+                // Reset to default video (whiskey)
+                Object.values(headProVideos).forEach(video => {
+                    if (video) video.style.display = 'none';
+                });
+                currentVideo = headProVideos.whiskey;
+                if (currentVideo) {
+                    currentVideo.style.display = 'block';
+                    currentVideo.currentTime = 0;
+                }
+                
+                // Show welcome text again
+                const welcomeElements = document.querySelectorAll('.welcome-tagline, .welcome-prompt, .centered-input-area');
+                welcomeElements.forEach(el => {
+                    if (el) {
+                        el.style.display = '';
+                        el.style.opacity = '';
+                    }
+                });
+                
+                return; // Don't do anything else
+            }
+            
+            // If we're in a conversation, do the full reset
+            if (answerView.classList.contains('active')) {
+                resetConversation();
+            }
+            
+            // Otherwise, do nothing (don't interrupt users on fresh initial screen)
+        });
+        
+        // Make it look clickable
+        headProLogo.style.cursor = 'pointer';
     }
 });
