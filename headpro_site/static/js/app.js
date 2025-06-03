@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
     const initialView = document.getElementById('initial-view');
     const answerView = document.getElementById('answer-view');
-    const resetBtn = document.getElementById('reset-btn');
     const userQuestion = document.getElementById('user-question');
     const headProAnswer = document.getElementById('head-pro-answer');
     const aboutLink = document.getElementById('about-link');
@@ -181,6 +180,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+
+    function truncateUserQuestion(question, maxLength = 50) {
+        if (question.length <= maxLength) {
+            return question;
+        }
+        
+        // Find the last space before the limit to avoid cutting words
+        const truncated = question.substring(0, maxLength);
+        const lastSpace = truncated.lastIndexOf(' ');
+        
+        if (lastSpace > 0) {
+            return question.substring(0, lastSpace) + '...';
+        }
+        
+        return truncated + '...?';
+    }
     
     function showAnswerView(question, answer) {
         // Remove any lingering about input areas
@@ -197,9 +212,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (headProAnswer) headProAnswer.style.opacity = '';
         if (inputArea) inputArea.style.opacity = '';
         if (controls) controls.style.opacity = '';
-
-        userQuestion.textContent = question;
-        headProAnswer.innerHTML = answer;
+        
+        // Truncate the question before displaying
+        const truncatedQuestion = truncateUserQuestion(question);
+        userQuestion.textContent = truncatedQuestion;
         
         initialView.classList.remove('active');
         answerView.classList.add('active');
@@ -287,10 +303,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Disable about link during loading
         aboutLink.style.pointerEvents = 'none';
         aboutLink.style.opacity = '0.5';
-        
-        // Disable reset button during loading
-        resetBtn.style.pointerEvents = 'none';
-        resetBtn.style.opacity = '0.5';
         
         // Disable input during loading
         mainInput.disabled = true;
@@ -389,9 +401,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             // Reset UI state
             setTimeout(() => {
-                // Re-enable reset button
-                resetBtn.style.pointerEvents = '';
-                resetBtn.style.opacity = '';
                 
                 // Re-enable message input
                 mainInput.disabled = false;
@@ -594,10 +603,6 @@ document.addEventListener('DOMContentLoaded', function() {
             currentVideoMode = 'idle';
         }
     }
-    
-
-    
-    resetBtn.addEventListener('click', resetConversation);
     
     // Update the about link event listener
     aboutLink.addEventListener('click', (e) => {

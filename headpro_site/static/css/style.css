@@ -21,6 +21,7 @@ body {
     width: 100vw;
     overflow: hidden;
     color: var(--white);
+    font-size: clamp(14px, 2vw, 16px)
 }
 
 .background-zoom {
@@ -121,6 +122,7 @@ body.unzooming #cinematic-overlay {
     display: flex;
     justify-content: flex-end;
     gap: 2.5rem;
+    padding: 0 .5rem 0 .5rem;
 }
 
 
@@ -134,7 +136,7 @@ body.unzooming #cinematic-overlay {
     transition: color 0.2s ease;
     font-family: "Jost", sans-serif;
     font-weight: 400;
-    font-size: 1.5rem;
+    font-size: 2em;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 
     0 0 8px rgba(0, 0, 0, 0.6);
 }
@@ -151,12 +153,20 @@ body.unzooming #cinematic-overlay {
     justify-content: center;
 }
 
-/* Ensuring a perfect circle for the chat container */
+/* Simple responsive chat container - no media queries needed */
 .chat-container {
-    aspect-ratio: 1 / 1; /* Forces a 1:1 aspect ratio (perfect circle) */
-    width: min(96vmin);
-    max-height: 96vh; /* Prevent overflow on very tall/narrow screens */
-    border-radius: 50%; /* Makes it a circle */
+    /* Width: stays reasonable on all screens */
+    width: min(96vmin, 95vw);
+    
+    /* Height: much taller on mobile, shorter on desktop */
+    height: min(80vh, max(600px, 96vmin));
+    
+    /* Remove fixed aspect ratio completely */
+    max-width: 800px;
+    
+    /* Dynamic border radius - more rectangular on mobile */
+    border-radius: clamp(8%, 20vmin, 50%);
+    
     position: relative;
     margin: 0 auto;
     font-family: "Merriweather", serif;
@@ -193,8 +203,8 @@ body.unzooming #cinematic-overlay {
     justify-content: space-between;
     align-items: center;
     width: 75%;
-    height: auto;
-    margin: 0 auto;
+    height: 100%;
+    margin: auto;
 }
 
 #initial-view .welcome-message {
@@ -270,7 +280,7 @@ body.unzooming #cinematic-overlay {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 1;
     padding: 1rem 5% 2rem 5%; /* Top, horizontal, bottom padding */
     
     /* High transparency to see hole behind */
@@ -321,7 +331,7 @@ body.unzooming #cinematic-overlay {
     color: var(--white);
     font-family: "Merriweather", serif;
     font-optical-sizing: auto;
-    font-size: 1rem;
+    font-size: 1em;
     
     /* Subtle border for definition */
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -437,11 +447,12 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .user-question {
-    font-size: 1rem;
+    font-size: .8em;
     color: grey;
     text-align: center;
-    margin-bottom: 2%;
     font-style: italic;
+    width: 75%;
+    margin: auto;
 }
 
 #answer-view .user-question,
@@ -459,7 +470,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     border-radius: 5px;
     margin: 20px 0 20px 0;
     color: #dadada;
-    font-size: 1.1rem;
+    font-size: 1em;
     position: relative;
     white-space: pre-line;
     scrollbar-width: thin;
@@ -490,20 +501,21 @@ button#initial-send-btn:not(.send-icon-btn) {
     text-align: center;
     margin-bottom: 0;
     opacity: 0.85;
-    font-size: 1rem;
+    font-size: 1em;
     position: relative;
-    height: 100%;
+    flex: 0 0 auto; /* Don't grow or shrink */
+    margin-top: 10%; /* Ensure it's at the top */
+    /* Keep the internal flex for centering content within welcome-message */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start; /* Change from center to flex-start */
     align-items: center;
-    position: relative;
 }
 
 .head-pro-img-container {
     position: fixed;
     top: 48.5%; /* Slightly above center so bottom is roughly at screen center */
-    left: 49.5%;
+    left: 49.4%;
     transform: translate(-50%, -50%);
     z-index: 10;
     margin: 0;
@@ -634,7 +646,10 @@ body.unzooming .head-pro-img-wrapper {
 
 .welcome-prompt {
     font-weight: 300;
+    /* Add these properties: */
+    margin-top: auto; /* This pushes it to the bottom */
     text-align: center;
+    margin-bottom: 25%;
 }
 
 /* Add transition to welcome message text elements */
@@ -1021,7 +1036,7 @@ body.loading #initial-view .centered-input-area {
     filter: saturate(1.5);
     font-family: "Merriweather", serif;
     font-optical-sizing: auto;
-    font-size: 1rem;
+    font-size: 1em;
     background-clip: padding-box;
 }
 
@@ -1103,7 +1118,7 @@ body.loading #initial-view .centered-input-area {
 }
 
 .scorecard-modal .club-name {
-    font-size: 2rem;
+    font-size: 2em;
     opacity: 0.9;
     margin: 0 0 0.1rem 0;
     font-family: "Jost", sans-serif;
@@ -1114,7 +1129,7 @@ body.loading #initial-view .centered-input-area {
 }
 
 .scorecard-modal .scorecard-title {
-    font-size: 1.1rem;
+    font-size: 1em;
     opacity: 0.9;
     margin: 0;
     font-weight: 500;
@@ -1142,7 +1157,7 @@ body.loading #initial-view .centered-input-area {
     border: 7px solid rgba(21, 88, 67, 0.9);
     border-radius: 2px;
     overflow: hidden;
-    font-size: 0.9rem;
+    font-size: 0.9em;
     opacity: 0.9;
 }
 
@@ -1152,7 +1167,7 @@ body.loading #initial-view .centered-input-area {
     padding: 1rem;
     text-align: center;
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 1em;
     letter-spacing: 0.1em;
 }
 
@@ -1178,7 +1193,6 @@ body.loading #initial-view .centered-input-area {
     position: relative;
     border-right: 2px solid rgba(21, 88, 67, 0.9);
     border-bottom: 2px solid rgba(21, 88, 67, 0.9);
-    font-size: 0.85rem;
 }
 
 .scorecard-modal .scorecard-table tr:nth-child(even) {
@@ -1349,6 +1363,10 @@ body.zooming .video-controls-overlay {
 @media (max-width: 768px) {
     /* Navigation */
 
+    .bottom-nav {
+    justify-content: center;
+    }
+
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
         transform: scale(1.1);
@@ -1356,14 +1374,22 @@ body.zooming .video-controls-overlay {
 
 
     /* Main chat area */
-    .chat-container {
-        width: min(90vmin, 600px);
-        max-height: 85vh;
+
+    .welcome-message {
+        margin-top: 20%;
+    }
+ 
+     .head-pro-img-container {
+        position: fixed;
+        top: 52%;
+        left: 47%;
     }
 
     .head-pro-img {
         max-width: 150px;
     }
+
+   
     
     /* Video controls */
     .video-controls-overlay {
@@ -1376,11 +1402,11 @@ body.zooming .video-controls-overlay {
     .mute-toggle-btn {
         width: 32px;
         height: 32px;
-        font-size: 14px;
+        font-size: 1em;
     }
     
     .thinking-message.subtitle-mode {
-        font-size: 1rem;
+        font-size: 1em;
         max-width: 95%;
     }
     
@@ -1436,14 +1462,6 @@ body.zooming .video-controls-overlay {
 /* Mobile phones (480px and below) */
 @media (max-width: 480px) {
     /* Navigation */
-   
-    
-
-    /* Main chat area */
-    .chat-container {
-        width: min(95vmin, 400px);
-        max-height: 80vh;
-    }
 
     .head-pro-img {
         max-width: 120px;
@@ -1477,11 +1495,7 @@ body.zooming .video-controls-overlay {
         font-size: 0.85rem;
     }
     
-    /* Scorecard modal - hide extra columns on small screens */
-    .scorecard-modal .scorecard-table th:nth-child(n+4),
-    .scorecard-modal .scorecard-table td:nth-child(n+4) {
-        display: none;
-    }
+  
 }
 
 /* Very small screens (320px and below) */
