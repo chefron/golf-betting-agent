@@ -2,10 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
     const initialView = document.getElementById('initial-view');
     const answerView = document.getElementById('answer-view');
-    const initialInput = document.getElementById('initial-input');
-    const initialSendBtn = document.getElementById('initial-send-btn');
-    const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
     const resetBtn = document.getElementById('reset-btn');
     const userQuestion = document.getElementById('user-question');
     const headProAnswer = document.getElementById('head-pro-answer');
@@ -14,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const scorecardLink = document.getElementById('scorecard-link');
     const scorecardModal = document.getElementById('scorecard-modal');
     const scorecardClose = document.getElementById('scorecard-close');
+    const mainInput = document.getElementById('main-input');
+    const mainSendBtn = document.getElementById('main-send-btn');
 
     // Global variables for subtitle management
     let aboutVideo = document.querySelector('#about-video');
@@ -210,12 +208,10 @@ document.addEventListener('DOMContentLoaded', function() {
         headProAnswer.scrollTop = 0;
         
         // Ensure message input is enabled and ready
-        messageInput.disabled = false;
-        messageInput.style.opacity = '';
-        messageInput.style.pointerEvents = '';
-        
-        // Focus on the input
-        messageInput.focus();
+        mainInput.disabled = false;
+        mainInput.style.opacity = '';
+        mainInput.style.pointerEvents = '';
+        mainInput.focus();
     }
     
     // Switch to initial view
@@ -224,27 +220,24 @@ document.addEventListener('DOMContentLoaded', function() {
         answerView.classList.remove('active');
         
         // Clear inputs
-        initialInput.value = '';
-        messageInput.value = '';
+        mainInput.value = ''
         
         // Reset button states explicitly
         resetSendButtons();
         
         // Focus on the initial input
-        initialInput.focus();
+        mainInput.focus();
     }
     
     // Helper function to ensure send buttons are in their correct state
     function resetSendButtons() {
-        // Reset initial send button
-        initialSendBtn.innerHTML = SEND_SVG;
-        initialSendBtn.classList.remove('loading');
-        initialSendBtn.disabled = false;
-        
-        // Reset main send button
-        sendBtn.innerHTML = SEND_SVG;
-        sendBtn.classList.remove('loading');
-        sendBtn.disabled = false;
+    if (mainSendBtn) {
+            mainSendBtn.innerHTML = SEND_SVG;
+            mainSendBtn.classList.remove('loading');
+            mainSendBtn.disabled = false;
+            mainSendBtn.style.pointerEvents = '';
+            mainSendBtn.style.cursor = '';
+        }
     }
     
     // Save messages to localStorage
@@ -299,15 +292,13 @@ document.addEventListener('DOMContentLoaded', function() {
         resetBtn.style.pointerEvents = 'none';
         resetBtn.style.opacity = '0.5';
         
-        // Disable message input during loading (only for non-initial messages)
-        if (!isInitial) {
-            messageInput.disabled = true;
-            messageInput.style.opacity = '0.5';
-            messageInput.style.pointerEvents = 'none';
-        }
+        // Disable input during loading
+        mainInput.disabled = true;
+        mainInput.style.opacity = '0.5';
+        mainInput.style.pointerEvents = 'none';
         
-        // Get the correct button
-        const targetBtn = isInitial ? initialSendBtn : sendBtn;
+        // Get the button
+        const targetBtn = mainSendBtn;
         
         // Set to loading state
         targetBtn.innerHTML = LOADING_ICON;
@@ -402,12 +393,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 resetBtn.style.pointerEvents = '';
                 resetBtn.style.opacity = '';
                 
-                // Re-enable message input (only for non-initial messages)
-                if (!isInitial) {
-                    messageInput.disabled = false;
-                    messageInput.style.opacity = '';
-                    messageInput.style.pointerEvents = '';
-                }
+                // Re-enable message input
+                mainInput.disabled = false;
+                mainInput.style.opacity = '';
+                mainInput.style.pointerEvents = '';
                 
                 // Hide thinking message
                 if (thinkingMessage) {
@@ -425,9 +414,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 stopLoadingVideo();
                 
                 // Clear the input field
-                if (!isInitial) {
-                    messageInput.value = '';
-                }
+                mainInput.value = '';
+
             }, 300);
         }
 
@@ -607,24 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Event Listeners
-    initialSendBtn.addEventListener('click', () => {
-        sendMessage(initialInput.value, true);
-    });
-    
-    initialInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage(initialInput.value, true);
-    });
-    
-    sendBtn.addEventListener('click', () => {
-        sendMessage(messageInput.value);
-    });
-    
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendMessage(messageInput.value);
-        }
-    });
+
     
     resetBtn.addEventListener('click', resetConversation);
     
@@ -738,7 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Wait a moment, then start about video
                 setTimeout(() => {
                     startAboutVideo();
-                }, 150);
+                }, 200);
             }
         }
     });
@@ -757,9 +728,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     loadLastMessage();
     
-    // If no saved message, focus on initial input
+    // If no saved message, focus on main input
     if (initialView.classList.contains('active')) {
-        initialInput.focus();
+        mainInput.focus();
     }
 
     // Function to load scorecard data
@@ -1405,4 +1376,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Make it look clickable
         headProLogo.style.cursor = 'pointer';
     }
+
+    mainSendBtn.addEventListener('click', () => {
+        const isInitial = initialView.classList.contains('active');
+        sendMessage(mainInput.value, isInitial);
+    });
+
+    mainInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const isInitial = initialView.classList.contains('active');
+            sendMessage(mainInput.value, isInitial);
+        }
+    });
+
 });
