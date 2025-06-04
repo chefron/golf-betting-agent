@@ -21,7 +21,7 @@ body {
     width: 100vw;
     overflow: hidden;
     color: var(--white);
-    font-size: clamp(14px, 2vw, 16px)
+    font-size: clamp(14px, 2.1vw, 18px)
 }
 
 .background-zoom {
@@ -962,7 +962,7 @@ body.loading #initial-view .centered-input-area {
     padding: 0;
     border: none;
     border-radius: 2px;
-    width: 95%;
+    width: 90%;
     max-width: 1200px;
     height: 90vh;
     overflow-y: auto;
@@ -1031,7 +1031,7 @@ body.loading #initial-view .centered-input-area {
     position: relative;
     overflow: visible;
     box-sizing: border-box;
-    padding: clamp(1rem, 2.5vw, 2rem);
+    padding: clamp(1em, 3vw, 2em);
     height: auto;
     filter: saturate(1.5);
     font-family: "Merriweather", serif;
@@ -1076,7 +1076,7 @@ body.loading #initial-view .centered-input-area {
     padding: 2rem 1.5rem;
     position: relative;
     color: var(--masters-green);
-    margin: 0 auto 2rem auto;
+    margin: auto;
     background: url('../images/golf-course-bg.png');
     background-size: cover;
     background-position-y: 56.5%;
@@ -1084,8 +1084,8 @@ body.loading #initial-view .centered-input-area {
     border: 7px solid rgba(21, 88, 67, 0.9);
     border-radius: 2px;
     box-sizing: border-box;
-    min-height: 20vh;
-    width: calc(100% - 14px);
+    min-height: 15vh;
+    width: 100%;
 }
 
 .scorecard-modal .logo-section {
@@ -1144,7 +1144,7 @@ body.loading #initial-view .centered-input-area {
 }
 
 .scorecard-modal .scorecard-table-section {
-    margin-bottom: 1rem;
+    margin-top: 1em;
     position: relative;
     z-index: 2;
 }
@@ -1154,20 +1154,17 @@ body.loading #initial-view .centered-input-area {
     border-collapse: collapse;
     border-spacing: 0;
     background: rgba(255, 255, 255, 0.1);
-    border: 7px solid rgba(21, 88, 67, 0.9);
-    border-radius: 2px;
     overflow: hidden;
-    font-size: 0.9em;
+    font-size: 0.8em;
     opacity: 0.9;
+    box-sizing: border-box;
 }
 
 .scorecard-modal .scorecard-table .section-header {
     color: var(--paper-cream);
     background: rgba(21, 88, 67, 0.9);
-    padding: 1rem;
     text-align: center;
     font-weight: bold;
-    font-size: 1em;
     letter-spacing: 0.1em;
 }
 
@@ -1178,7 +1175,6 @@ body.loading #initial-view .centered-input-area {
     text-align: center;
     font-weight: bold;
     letter-spacing: 0.03em;
-    font-size: 0.8rem;
     border-right: 2px solid rgba(21, 88, 67, 0.9);
     border-bottom: 2px solid rgba(21, 88, 67, 0.9);
     position: relative;
@@ -1193,6 +1189,11 @@ body.loading #initial-view .centered-input-area {
     position: relative;
     border-right: 2px solid rgba(21, 88, 67, 0.9);
     border-bottom: 2px solid rgba(21, 88, 67, 0.9);
+}
+
+.scorecard-table th:last-child,
+.scorecard-table td:last-child {
+    border-right: none;
 }
 
 .scorecard-modal .scorecard-table tr:nth-child(even) {
@@ -1236,7 +1237,7 @@ body.loading #initial-view .centered-input-area {
     top: -12px;
     right: 0;
     color: var(--paper-cream);
-    font-size: 1.5rem;
+    font-size: 1.5em;
     font-family: 'Jost', sans-serif;
     font-weight: bold;
     cursor: pointer;
@@ -1437,26 +1438,23 @@ body.zooming .video-controls-overlay {
     
     /* Scorecard modal */
     .scorecard-modal-content {
-        width: 98%;
-        height: 95vh;
+        max-width: 95%;
+        max-height: 90%;
+       
     }
     
     .scorecard-modal .scorecard-table {
-        font-size: 0.7rem;
+        font-size: 0.4em;
     }
     
     .scorecard-modal .scorecard-table th,
     .scorecard-modal .scorecard-table td {
-        padding: 0.4rem 0.2rem;
+        padding: 0.3em
     }
     
-    .scorecard-modal .club-name {
-        font-size: 1.5rem;
-    }
     
-    .scorecard-modal .scorecard-title {
-        font-size: 1rem;
-    }
+    
+
 }
 
 /* Mobile phones (480px and below) */
@@ -1509,4 +1507,57 @@ body.zooming .video-controls-overlay {
         opacity: 1;
         pointer-events: auto;
     }
+}
+
+/* Hide rotation message by default */
+.rotation-message {
+    display: none;
+}
+
+/* On small screens in portrait, show rotation message and hide scorecard */
+@media (max-width: 768px) and (orientation: portrait) {
+    .scorecard-modal-content {
+        display: none !important;
+    }
+    
+    .rotation-message {
+        display: flex !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        font-family: "Merriweather", serif;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .rotation-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        animation: rotate 2s infinite ease-in-out;
+    }
+    
+    .rotation-message h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: #75c095;
+    }
+    
+    .rotation-message p {
+        font-size: 1rem;
+        opacity: 0.8;
+        line-height: 1.5;
+    }
+}
+
+@keyframes rotate {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
 }

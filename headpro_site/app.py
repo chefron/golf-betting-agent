@@ -291,7 +291,7 @@ def get_model_performance_data(db_path):
                         settled_date = settled_date.split(' ')[0]  # Remove time if present
                     
                     date_obj = datetime.strptime(settled_date, '%Y-%m-%d')
-                    settled_date = date_obj.strftime('%m/%d/%Y')  # Convert to MM/DD/YYYY
+                    settled_date = date_obj.strftime('%m/%d/%y')  # Convert to MM/DD/YY
                 except ValueError:
                     # If parsing fails, keep original format
                     pass
