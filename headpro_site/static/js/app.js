@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const scorecardClose = document.getElementById('scorecard-close');
     const mainInput = document.getElementById('main-input');
     const mainSendBtn = document.getElementById('main-send-btn');
+    const textareaAutoResize = setupTextareaAutoResize();
 
     // Global variables for subtitle management
     let aboutVideo = document.querySelector('#about-video');
@@ -426,6 +427,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Clear the input field
                 mainInput.value = '';
+                if (textareaAutoResize) {
+                    textareaAutoResize();
+                }
 
             }, 300);
         }
@@ -1395,5 +1399,67 @@ document.addEventListener('DOMContentLoaded', function() {
             sendMessage(mainInput.value, isInitial);
         }
     });
+
+    function setupTextareaAutoResize() {
+        const textarea = document.getElementById('main-input');
+        if (!textarea) return null;
+        
+        // Auto-resize function
+        function autoResize() {
+            // Reset to a minimal height first
+            textarea.style.height = 'auto';
+            
+            // Get the scroll height (content height)
+            const scrollHeight = textarea.scrollHeight;
+            
+            // Calculate min and max heights in pixels
+            const style = window.getComputedStyle(textarea);
+            const fontSize = parseFloat(style.fontSize);
+            const minHeight = fontSize * 3.2; // 3.2em in pixels
+            const maxHeight = fontSize * 8;   // 8em in pixels
+            
+            // Set the appropriate height
+            if (scrollHeight <= minHeight) {
+                textarea.style.height = minHeight + 'px';
+                textarea.style.overflowY = 'hidden';
+            } else if (scrollHeight <= maxHeight) {
+                textarea.style.height = scrollHeight + 'px';
+                textarea.style.overflowY = 'hidden';
+            } else {
+                textarea.style.height = maxHeight + 'px';
+                textarea.style.overflowY = 'auto';
+            }
+        }
+        
+        // Add event listeners
+        textarea.addEventListener('input', autoResize);
+        textarea.addEventListener('paste', () => setTimeout(autoResize, 0));
+        textarea.addEventListener('cut', () => setTimeout(autoResize, 0));
+        
+        // Handle Enter key
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    // Allow new line on Shift+Enter
+                    setTimeout(autoResize, 0);
+                    return;
+                } else {
+                    // Submit on Enter
+                    e.preventDefault();
+                    const isInitial = initialView.classList.contains('active');
+                    sendMessage(textarea.value, isInitial);
+                }
+            }
+        });
+        
+        // Call once to set initial size
+        autoResize();
+        
+        // Return the autoResize function so it can be called externally
+        return autoResize;
+    }
+
+    setupTextareaAutoResize();
+    
 
 });

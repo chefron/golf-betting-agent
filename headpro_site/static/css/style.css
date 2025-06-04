@@ -306,8 +306,7 @@ body.unzooming #cinematic-overlay {
     left: 0;
     right: 0;
     z-index: 1;
-    padding: 1em 5% 5em 5%; /* Top, horizontal, bottom padding */
-    
+    padding: 1em 5% 4em 5%; /* Reduced bottom padding from 5em to 4em */
     /* High transparency to see hole behind */
     background: linear-gradient(
         to top,
@@ -315,9 +314,6 @@ body.unzooming #cinematic-overlay {
         rgba(0, 0, 0, 0.1) 70%,
         transparent 100%
     );
-    
-  
-    
     /* Smooth show/hide transitions */
     opacity: 1;
     transform: translateY(0);
@@ -336,21 +332,20 @@ body.unzooming #cinematic-overlay {
     position: relative;
     width: 100%;
     display: flex;
-
-    background: rgba(255, 255, 255, 0.05); /* Very subtle white tint */
- 
-
+    align-items: flex-end;
+    background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    
-    
 }
 
-.bottom-input-area input {
+.bottom-input-area textarea {
     flex: 1;
     width: 100%;
-    padding: 1em;
+   
+    max-height: 8em; /* Maximum height before scrolling */
+    
+    padding: .5em;
     padding-right: 55px;
     border-radius: 10px;
     background: rgba(30, 30, 30, 0.2); /* Barely visible fill */
@@ -358,6 +353,7 @@ body.unzooming #cinematic-overlay {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     font-family: "Merriweather", serif;
     font-size: 1em;
+    line-height: 1.4; /* Added line height for better multi-line readability */
 
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow:
@@ -366,10 +362,17 @@ body.unzooming #cinematic-overlay {
 
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, height 0.2s ease; /* Added height transition */
+    
+    /* Textarea specific styling */
+    resize: none; /* Prevent manual resizing */
+    overflow-y: hidden; /* Start with no scrolling - will be enabled via JS when needed */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    word-wrap: break-word; /* Break long words */
+    white-space: pre-wrap; /* Preserve line breaks and allow wrapping */
 }
 
-.bottom-input-area input:focus {
+.bottom-input-area textarea:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.25);
     box-shadow:
@@ -377,38 +380,85 @@ body.unzooming #cinematic-overlay {
         0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
-.bottom-input-area input::placeholder {
+.bottom-input-area textarea::placeholder {
     color: rgba(255, 255, 255, 0.5);
     font-style: italic;
 }
 
-/* Send button positioning */
+/* Custom scrollbar for the textarea */
+.bottom-input-area textarea::-webkit-scrollbar {
+    width: 4px;
+}
+
+.bottom-input-area textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.bottom-input-area textarea::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.bottom-input-area textarea::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Firefox scrollbar */
+.bottom-input-area textarea {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+/* Send button positioning - specific to bottom input area */
 .bottom-input-area .send-icon-btn {
     position: absolute;
     right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
+    bottom: 10px; /* 10px from the bottom of the input container */
     width: 40px;
     height: 40px;
     border-radius: 50%;
     background: var(--mid-green);
     border: 2px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    color: var(--white);
+    cursor: pointer;
+    z-index: 10;
+    font-size: 16px;
+    padding: 0;
+    outline: none;
+    /* Override the general rule positioning */
+    top: auto !important;
+    transform: none !important;
 }
 
 .bottom-input-area .send-icon-btn:hover {
     background: var(--light-green);
-    transform: translateY(-50%) scale(1.05);
+    transform: scale(1.05) !important; /* Override the general transform */
 }
 
-/* Send icon buttons - fixed size and positioning */
-.send-icon-btn {
+/* Loading state for bottom input area button */
+.bottom-input-area .send-icon-btn.loading {
+    animation: spin-bottom 1s infinite linear;
+}
+
+@keyframes spin-bottom {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* General send icon buttons - for other contexts (like the about input) */
+.send-icon-btn:not(.bottom-input-area .send-icon-btn) {
     position: absolute;
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 36px; /* Fixed width */
-    height: 36px; /* Fixed height - equal to width for perfect circle */
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -419,13 +469,9 @@ body.unzooming #cinematic-overlay {
     cursor: pointer;
     transition: background 0.2s ease;
     z-index: 10;
-    font-size: 16px; /* Consistent font size for spinner character */
-    padding: 0; /* Remove any padding */
-    outline: none; /* Remove outline */
-}
-
-.send-icon-btn:hover {
-    background: var(--light-green);
+    font-size: 16px;
+    padding: 0;
+    outline: none;
 }
 
 .send-icon-btn svg {
@@ -440,8 +486,8 @@ button#initial-send-btn:not(.send-icon-btn) {
     display: none;
 }
 
-/* Improved spinner animation */
-.send-icon-btn.loading {
+/* General spinner animation for other send buttons */
+.send-icon-btn:not(.bottom-input-area .send-icon-btn).loading {
     animation: spin 1s infinite linear;
 }
 
@@ -449,7 +495,6 @@ button#initial-send-btn:not(.send-icon-btn) {
     0% { transform: translateY(-50%) rotate(0deg); }
     100% { transform: translateY(-50%) rotate(360deg); }
 }
-
 
 
 /* Answer view styling */
@@ -521,7 +566,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .welcome-message {
     text-align: center;
-    margin-top: clamp(1em, 1em + 4vw, 4em);
+    margin-top: clamp(1em, 1em + 4vw, 3em);
     opacity: 0.85;
     font-size: 1em;
     position: relative;
@@ -535,7 +580,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 52%;
+    top: 60%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -671,7 +716,7 @@ body.unzooming .head-pro-img-wrapper {
     /* Add these properties: */
     margin-top: auto; /* This pushes it to the bottom */
     text-align: center;
-    margin-bottom: 15%;
+    margin-bottom: .5em;
 }
 
 /* Add transition to welcome message text elements */
