@@ -99,7 +99,7 @@ body.unzooming #cinematic-overlay {
 
 .head-pro-logo {
     width: 25vw;
-    min-width: 180px;
+    min-width: 210px;
     height: auto; /* Maintains aspect ratio */
     filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) 
             drop-shadow(0 0 8px rgba(0, 0, 0, 0.6));
@@ -142,7 +142,29 @@ body.unzooming #cinematic-overlay {
 }
 
 .bottom-nav a:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+}
+
+.x-logo-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+}
+
+.x-logo-svg {
+    width: .9em;
+    height: .9em;
     color: var(--white);
+    transition: all 0.2s ease;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) 
+            drop-shadow(0 0 8px rgba(0, 0, 0, 0.6));
+}
+
+.x-logo-link:hover .x-logo-svg {
+    transform: scale(1.1);
+    opacity: 0.8;
 }
 
 /* Main Chat Area */
@@ -159,7 +181,7 @@ body.unzooming #cinematic-overlay {
     width: min(96vmin, 95vw);
     
     /* Height: much taller on mobile, shorter on desktop */
-    height: clamp(50vh, 60vh + 10vw, 90vh);
+    height: clamp(60vh, 48vh + 8vw, 85vh);
     
     /* Remove fixed aspect ratio completely */
     max-width: 800px;
@@ -172,6 +194,7 @@ body.unzooming #cinematic-overlay {
     font-family: "Merriweather", serif;
     font-optical-sizing: auto;
     line-height: 1.6;
+    transform: translateY(-4vh);
 }
 
 .chat-content {
@@ -202,9 +225,11 @@ body.unzooming #cinematic-overlay {
 #initial-view {
     justify-content: space-between;
     align-items: center;
-    width: 75%;
+    width: 90%;
     height: 100%;
     margin: auto;
+    padding: 0 5em;
+    
 }
 
 #initial-view .welcome-message {
@@ -281,7 +306,7 @@ body.unzooming #cinematic-overlay {
     left: 0;
     right: 0;
     z-index: 1;
-    padding: 1rem 5% 2rem 5%; /* Top, horizontal, bottom padding */
+    padding: 1em 5% 5em 5%; /* Top, horizontal, bottom padding */
     
     /* High transparency to see hole behind */
     background: linear-gradient(
@@ -306,54 +331,55 @@ body.unzooming #cinematic-overlay {
 }
 
 .bottom-input-area .input-container {
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
     position: relative;
     width: 100%;
     display: flex;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    border-radius: 25px; /* Match the input border radius */
+
+    background: rgba(255, 255, 255, 0.05); /* Very subtle white tint */
+ 
+
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     
-    /* Optional: subtle background just for the input area */
-    background: rgba(0, 0, 0, 0.4);
+    
 }
 
-/* Enhanced input styling for bottom position */
 .bottom-input-area input {
     flex: 1;
     width: 100%;
-    padding: 14px 18px;
-    padding-right: 55px; /* Room for send button */
-    border: none;
-    border-radius: 25px;
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--white);
+    padding: 1em;
+    padding-right: 55px;
+    border-radius: 10px;
+    background: rgba(30, 30, 30, 0.2); /* Barely visible fill */
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     font-family: "Merriweather", serif;
-    font-optical-sizing: auto;
     font-size: 1em;
-    
-    /* Subtle border for definition */
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    
-    /* Enhanced shadow for floating effect */
-    box-shadow: 
-        0 4px 20px rgba(0, 0, 0, 0.3),
-        0 1px 3px rgba(0, 0, 0, 0.2);
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+        inset 0 0 0.5px rgba(255, 255, 255, 0.2),
+        0 1px 4px rgba(0, 0, 0, 0.06);
+
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: border-color 0.2s ease;
 }
 
 .bottom-input-area input:focus {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.4);
     outline: none;
-    box-shadow: 
-        0 4px 25px rgba(0, 0, 0, 0.4),
-        0 0 0 3px rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.2),
+        0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
 .bottom-input-area input::placeholder {
-    color: rgba(255, 255, 255, 0.7);
-    opacity: 1;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
 }
 
 /* Send button positioning */
@@ -432,14 +458,11 @@ button#initial-send-btn:not(.send-icon-btn) {
     z-index: 2;
 }
 
-#answer-view .user-question {
-    margin-bottom: 10px;
-}
+
 
 #answer-view .head-pro-answer {
     flex: 1;
     overflow-y: auto;
-    margin: .8em 0 0;
 }
 
 #answer-view .controls {
@@ -452,7 +475,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     text-align: center;
     font-style: italic;
     width: 75%;
-    margin: auto;
+    margin: 1.2em auto;
 }
 
 #answer-view .user-question,
@@ -466,9 +489,8 @@ button#initial-send-btn:not(.send-icon-btn) {
     flex: 1;
     overflow-y: auto;
     overflow-x: visible;
-    padding: 3%;
+    padding: 4%;
     border-radius: 5px;
-    margin: 1em 0 1em 0;
     color: #dadada;
     font-size: 1em;
     position: relative;
@@ -499,12 +521,11 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .welcome-message {
     text-align: center;
-    margin-bottom: 0;
+    margin-top: clamp(1em, 1em + 4vw, 4em);
     opacity: 0.85;
     font-size: 1em;
     position: relative;
     flex: 0 0 auto; /* Don't grow or shrink */
-   
     /* Keep the internal flex for centering content within welcome-message */
     display: flex;
     flex-direction: column;
@@ -514,8 +535,8 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 48.5%; /* Slightly above center so bottom is roughly at screen center */
-    left: 49.4%;
+    top: 52%;
+    left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
     margin: 0;
@@ -544,7 +565,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     height: 260px;
     overflow: hidden;
     border-radius: 50%;
-    transition: width 3s cubic-bezier(0.1, 0.7, 0.6, 1), height 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: width 1s cubic-bezier(0.1, 0.7, 0.6, 1), height 3s cubic-bezier(0.1, 0.7, 0.6, 1);
     /* Add these to ensure consistent positioning */
     display: block;
     margin: 0; /* Remove any default margins */
@@ -560,6 +581,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     position: absolute;
     top: 0;
     left: 0;
+    object-position: 54.5% 50%; 
     /* Add this to completely isolate from parent text-align */
     display: block;
     
@@ -649,7 +671,7 @@ body.unzooming .head-pro-img-wrapper {
     /* Add these properties: */
     margin-top: auto; /* This pushes it to the bottom */
     text-align: center;
-    margin-bottom: 25%;
+    margin-bottom: 15%;
 }
 
 /* Add transition to welcome message text elements */
@@ -1359,8 +1381,9 @@ body.zooming .video-controls-overlay {
 @media (max-width: 768px) {
     /* Navigation */
 
+   
     .bottom-nav {
-    justify-content: center;
+        justify-content: center;
     }
 
     body.zooming .background-zoom,
@@ -1375,17 +1398,15 @@ body.zooming .video-controls-overlay {
         
     }
  
-     .head-pro-img-container {
-        position: fixed;
-        top: 52%;
-        left: 47%;
+    .head-pro-img-container {
+     
     }
 
     .head-pro-img {
         max-width: 150px;
     }
 
-   
+
     
     /* Video controls */
     .video-controls-overlay {
@@ -1468,6 +1489,11 @@ body.zooming .video-controls-overlay {
         width: min(70vmin, 75vw); /* More constrained in the awkward zone */
     }
 
+     #initial-view {
+        padding: 2vw;
+    }
+
+
     #answer-view .head-pro-answer {
         font-size: .9em;
         margin: 4em 0 0;
@@ -1478,10 +1504,17 @@ body.zooming .video-controls-overlay {
 @media (max-width: 480px) {
     /* Navigation */
 
-    .head-pro-img {
-        max-width: 120px;
+    #initial-view {
+        padding: .1em;
     }
-    
+
+
+    .head-pro-img-wrapper {
+        position: relative;
+        width: 230px;
+        height: 230px;
+    }
+
     .welcome-message h2 {
         font-size: 1.3rem;
     }
