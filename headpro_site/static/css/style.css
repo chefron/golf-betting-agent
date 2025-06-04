@@ -21,7 +21,7 @@ body {
     width: 100vw;
     overflow: hidden;
     color: var(--white);
-    font-size: clamp(14px, 2.1vw, 18px)
+    font-size: clamp(15px, 2.1vw, 18px)
 }
 
 .background-zoom {
@@ -159,7 +159,7 @@ body.unzooming #cinematic-overlay {
     width: min(96vmin, 95vw);
     
     /* Height: much taller on mobile, shorter on desktop */
-    height: min(80vh, max(600px, 96vmin));
+    height: clamp(50vh, 60vh + 10vw, 90vh);
     
     /* Remove fixed aspect ratio completely */
     max-width: 800px;
@@ -183,7 +183,7 @@ body.unzooming #cinematic-overlay {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 3%;
+    padding: .3em;
 }
 
 /* View state handling */
@@ -439,7 +439,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 #answer-view .head-pro-answer {
     flex: 1;
     overflow-y: auto;
-    margin: 10px 0 0;
+    margin: .8em 0 0;
 }
 
 #answer-view .controls {
@@ -468,7 +468,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     overflow-x: visible;
     padding: 3%;
     border-radius: 5px;
-    margin: 20px 0 20px 0;
+    margin: 1em 0 1em 0;
     color: #dadada;
     font-size: 1em;
     position: relative;
@@ -504,7 +504,7 @@ button#initial-send-btn:not(.send-icon-btn) {
     font-size: 1em;
     position: relative;
     flex: 0 0 auto; /* Don't grow or shrink */
-    margin-top: 10%; /* Ensure it's at the top */
+   
     /* Keep the internal flex for centering content within welcome-message */
     display: flex;
     flex-direction: column;
@@ -677,11 +677,6 @@ body.loading #initial-view .centered-input-area {
     display: none;
 }
 
-/* Add some extra space to the top of the chat content when conversation started */
-.conversation-started {
-    /* Adjust padding or margins as needed */
-    padding-top: 10%;
-}
 
 /* Add special styling for the answer view head pro answer when first shown */
 .conversation-started #head-pro-answer {
@@ -1377,7 +1372,7 @@ body.zooming .video-controls-overlay {
     /* Main chat area */
 
     .welcome-message {
-        margin-top: 20%;
+        
     }
  
      .head-pro-img-container {
@@ -1451,10 +1446,32 @@ body.zooming .video-controls-overlay {
     .scorecard-modal .scorecard-table td {
         padding: 0.3em
     }
-    
-    
-    
+}
 
+/* Tablets */
+@media (min-width: 768px) and (max-width: 1200px) {
+    body.zooming .background-zoom,
+    body.zoomed .background-zoom {
+        transform: scale(1.1);
+    }
+
+    #answer-view .head-pro-answer {
+        font-size: 1em;
+        margin: 4em 0 0;
+    }
+}
+
+
+/* Large phones */
+@media (min-width: 480px) and (max-width: 768px) {
+    .chat-container {
+        width: min(70vmin, 75vw); /* More constrained in the awkward zone */
+    }
+
+    #answer-view .head-pro-answer {
+        font-size: .9em;
+        margin: 4em 0 0;
+    }
 }
 
 /* Mobile phones (480px and below) */

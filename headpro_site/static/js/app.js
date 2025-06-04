@@ -216,6 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Truncate the question before displaying
         const truncatedQuestion = truncateUserQuestion(question);
         userQuestion.textContent = truncatedQuestion;
+
+        headProAnswer.textContent = answer;
         
         initialView.classList.remove('active');
         answerView.classList.add('active');
