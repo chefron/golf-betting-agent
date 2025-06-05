@@ -765,12 +765,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show error message in the table
             const overviewRow = document.getElementById('overview-row');
             if (overviewRow) {
-                overviewRow.innerHTML = '<td colspan="9" style="text-align: center; color: var(--ink-red);">Error loading data</td>';
+                overviewRow.innerHTML = '<td colspan="8" style="text-align: center; color: var(--ink-red);">Error loading data</td>';
             }
             
             const betHistoryTbody = document.getElementById('bet-history-tbody');
             if (betHistoryTbody) {
-                betHistoryTbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--ink-red);">Error loading betting history</td></tr>';
+                betHistoryTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--ink-red);">Error loading betting history</td></tr>';
             }
         }
     }
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!betHistoryTbody) return;
 
         if (!betHistory || betHistory.length === 0) {
-            betHistoryTbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">No betting history available yet.</td></tr>';
+            betHistoryTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--ink-faded); font-style: italic;">No betting history available yet.</td></tr>';
             return;
         }
 
@@ -826,9 +826,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${bet.bet_market}</td>
                     <td>${bet.american_odds}</td>
                     <td>${bet.stake_units}u</td>
-                    <td class="${outcomeClass}">${bet.outcome.toUpperCase()}</td>
-                    <td class="${profitLossClass}">${bet.profit_loss_display}</td>
                     <td class="mental-score">${bet.mental_form_score}</td>
+                    <td class="${outcomeClass}">${bet.outcome.toUpperCase()}</td>
                 </tr>
             `;
         }).join('');
