@@ -233,7 +233,8 @@ def get_player_by_name(conn, name, fuzzy=True):
         "JHONNY VEGAS": "Vegas, Jhonattan",
         "RYAN GERRARD": "Gerard, Ryan",
         "JOHN RAM": "Rahm, Jon",
-        "MATTHEW PAVON": "Pavon, Matthieu"
+        "MATTHEW PAVON": "Pavon, Matthieu",
+        "HAROLD OTT": "Ott, Harrison"
     }
     
     if name.upper() in special_cases:

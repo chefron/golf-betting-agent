@@ -43,6 +43,9 @@ body.zoomed .background-zoom {
     transform: scale(1.45);
 }
 
+
+
+
 body.unzooming .background-zoom {
     transform: scale(1);
     transition: transform 1s ease-out;
@@ -582,7 +585,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 60%;
+    top: 58%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -660,19 +663,19 @@ body.unzooming .head-pro-img-wrapper {
 .thinking-message {
     text-align: center;
     color: var(--light-gray);
-    font-size: 1rem;
+    font-size: 1em;
     font-style: italic;
     opacity: 0;
-    transition: opacity 5s ease-in-out;
+    transition: opacity 3s ease-in-out;
     margin-top: 1rem;
     position: fixed;
-    top: 75%;
+    top: 8vh;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80%;
     min-width: 200px;
     white-space: nowrap;
     z-index: 50;
+    width: 50%;
 }
 
 .thinking-message.show {
@@ -1398,20 +1401,11 @@ body.loading #initial-view .centered-input-area {
     transform: scale(0.95);
 }
 
-/* For zoomed state, adjust position */
-body.zoomed .video-controls-overlay,
-body.zooming .video-controls-overlay {
-    top: calc(50% - 160px); /* Adjust for larger video size */
-    right: calc(50% - 170px);
-}
-
 /* Subtitle styling - enhance the existing thinking message for subtitles */
 .thinking-message.subtitle-mode {
     font-style: normal;
-    font-size: 1.1rem;
     line-height: 1.4;
     white-space: normal;
-    max-width: 70%;
     padding: 0.5rem 1rem;
     border-radius: 8px;
 }
@@ -1446,7 +1440,7 @@ body.zooming .video-controls-overlay {
     }
  
     .head-pro-img-container {
-     
+        top: 60%;
     }
 
     .head-pro-img {
@@ -1467,11 +1461,6 @@ body.zooming .video-controls-overlay {
         width: 32px;
         height: 32px;
         font-size: 1em;
-    }
-    
-    .thinking-message.subtitle-mode {
-        font-size: 1em;
-        max-width: 95%;
     }
     
     /* About modal */
@@ -1522,11 +1511,12 @@ body.zooming .video-controls-overlay {
     body.zoomed .background-zoom {
         transform: scale(1.1);
     }
+   
 
-    #answer-view .head-pro-answer {
-        font-size: 1em;
-        margin: 4em 0 0;
+    .thinking-message {
+        font-size: 1.3em;
     }
+
 }
 
 
@@ -1539,6 +1529,13 @@ body.zooming .video-controls-overlay {
      #initial-view {
         padding: 2vw;
     }
+
+     .thinking-message {
+        width: 90%;
+    }
+
+   
+
 
 
     #answer-view .head-pro-answer {
@@ -1555,19 +1552,16 @@ body.zooming .video-controls-overlay {
         padding: .1em;
     }
 
-
-    .head-pro-img-wrapper {
-        position: relative;
-        width: 230px;
-        height: 230px;
+    .thinking-message {
+        width: 100%;
     }
+
+   
+
+
 
     .welcome-message h2 {
         font-size: 1.3rem;
-    }
-    
-    .welcome-message p {
-        font-size: 0.8rem;
     }
     
     /* General modal */
@@ -1593,10 +1587,7 @@ body.zooming .video-controls-overlay {
   
 }
 
-/* Very small screens (320px and below) */
-@media (max-width: 320px) {
 
-}
 
 /* Touch devices - ensure video controls are always accessible */
 @media (hover: none) and (pointer: coarse) {

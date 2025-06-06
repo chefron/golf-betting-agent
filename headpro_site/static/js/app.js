@@ -199,9 +199,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showAnswerView(question, answer) {
-        // Remove any lingering about input areas
-        const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
-        aboutInputAreas.forEach(area => area.remove());
         
         // Reset any inline opacity styles that might have been set
         const userQuestion = document.getElementById('user-question');
@@ -471,12 +468,6 @@ document.addEventListener('DOMContentLoaded', function() {
             switchingToAbout = false;
 
             stopSubtitleTracking();
-
-            // Clean up about video elements
-            const aboutInputArea = document.getElementById('about-input-area');
-            if (aboutInputArea) {
-                aboutInputArea.remove();
-            }
             
             const videoControls = document.getElementById('video-controls-overlay');
             if (videoControls) {
@@ -954,10 +945,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     startSubtitleTracking();
                 }, 16);
             }
-            
-            setTimeout(() => {
-                showAboutInput();
-            }, 1000);
 
             switchingToAbout = false;
         }, 16);
@@ -1024,137 +1011,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 subtitleElement.textContent = '';
             }
         }
-    }
-
-    function showAboutInput() {
-        // Remove any existing about input first to prevent duplicates
-        const existingAboutInput = document.getElementById('about-input-area');
-        if (existingAboutInput) {
-            existingAboutInput.remove();
-        }
-        
-        // Create the input area
-        const aboutInputArea = document.createElement('div');
-        aboutInputArea.id = 'about-input-area';
-        aboutInputArea.className = 'input-area';
-        aboutInputArea.style.cssText = `
-            position: fixed;
-            bottom: 7%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 75%;
-            max-width: 500px;
-            z-index: 100;
-            pointer-events: auto;
-        `;
-        
-        // Create the input container
-        const inputContainer = document.createElement('div');
-        inputContainer.className = 'input-container';
-        
-        // Create the input
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'about-input';
-        input.placeholder = 'Ask me more.';
-        input.style.cssText = `
-            flex: 1;
-            width: 100%;
-            padding: 12px 16px;
-            padding-right: 50px;
-            border: none;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.1);
-            color: var(--white);
-            font-family: "Merriweather", serif;
-            font-optical-sizing: auto;
-        `;
-        
-        // Create the send button
-        const sendBtn = document.createElement('button');
-        sendBtn.className = 'send-icon-btn';
-        sendBtn.id = 'about-send-btn';
-        sendBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-        `;
-        
-        // Assemble the input area
-        inputContainer.appendChild(input);
-        inputContainer.appendChild(sendBtn);
-        aboutInputArea.appendChild(inputContainer);
-        
-        // Add to the main chat container
-        const chatContainer = document.querySelector('.chat-container');
-        if (chatContainer) {
-            chatContainer.appendChild(aboutInputArea);
-        }
-        
-        // Updated event listeners with EXPLICIT thinking message reset
-        function handleAboutSubmit() {
-            const message = input.value.trim();
-            if (message) {
-                // IMMEDIATELY remove the about input area
-                aboutInputArea.remove();
-                
-                // EXPLICITLY reset thinking message BEFORE doing anything else
-                const thinkingMessage = document.getElementById('thinking-message');
-                if (thinkingMessage) {
-                    console.log('EXPLICITLY resetting thinking message');
-                    // Force remove all classes
-                    thinkingMessage.className = 'thinking-message'; // Reset to just base class
-                    thinkingMessage.textContent = 'Checking my notes'; // Reset text
-                    thinkingMessage.style.cssText = ''; // Clear ALL inline styles
-                    thinkingMessage.style.opacity = ''; // Explicitly clear opacity
-                    
-                    console.log('Thinking message after reset:', thinkingMessage.outerHTML);
-                }
-                
-                // Stop subtitle tracking completely
-                if (subtitleInterval) {
-                    clearInterval(subtitleInterval);
-                    subtitleInterval = null;
-                }
-                currentSubtitleIndex = -1;
-                
-                // THEN cleanup about video
-                cleanupAboutVideo();
-                
-                // FINALLY send the message
-                sendMessage(message);
-            }
-        }
-        
-        sendBtn.addEventListener('click', handleAboutSubmit);
-        
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleAboutSubmit();
-            }
-        });
-        
-        // Focus styles
-        input.addEventListener('focus', () => {
-            input.style.background = 'rgba(255,255,255,0.15)';
-        });
-        
-        input.addEventListener('blur', () => {
-            input.style.background = 'rgba(255,255,255,0.1)';
-        });
-        
-        // Show the input area with a fade-in effect
-        aboutInputArea.style.opacity = '0';
-        aboutInputArea.style.display = 'flex';
-        
-        setTimeout(() => {
-            aboutInputArea.style.transition = 'opacity 0.5s ease';
-            aboutInputArea.style.opacity = '1';
-        }, 100);
-        
-        // Focus on the input
-        setTimeout(() => input.focus(), 200);
     }
 
     // Event handlers for about video
@@ -1246,10 +1102,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('Reset thinking message to normal state');
         }
-
-        // Remove ALL about input areas (in case there are duplicates)
-        const aboutInputAreas = document.querySelectorAll('#about-input-area, [id^="about-input"]');
-        aboutInputAreas.forEach(area => area.remove());
         
         // Hide about video and controls
         if (aboutVideo) {
@@ -1328,12 +1180,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         thinkingMessage.style.display = ''; // But let's be explicit about it
                     }
                 }, 200);
-                
-                // Remove about input if it exists
-                const aboutInput = document.getElementById('about-input-area');
-                if (aboutInput) {
-                    aboutInput.remove();
-                }
                 
                 // Hide video controls
                 const videoControls = document.getElementById('video-controls-overlay');
