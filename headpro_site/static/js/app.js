@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainSendBtn = document.getElementById('main-send-btn');
     const textareaAutoResize = setupTextareaAutoResize();
 
+    
+    // Rate limiting variables
+    let lastApiCall = 0;
+    let apiCallCount = 0;
+    let rateLimitWindowStart = Date.now();
+    const API_RATE_LIMIT = 10; // Max 10 API calls per minute
+    const RATE_LIMIT_WINDOW = 60000; // 1 minute
+    const MIN_TIME_BETWEEN_CALLS = 2000; // 2 seconds between calls
+
     // Global variables for subtitle management
     let aboutVideo = document.querySelector('#about-video');
     let subtitleInterval = null;
@@ -21,6 +30,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // Video management
     let switchingToAbout = false;
     let currentVideoMode = 'idle'; // 'idle', 'loading', 'about'
+
+    // Preload about video for smoother transitions
+    if (aboutVideo) {
+        aboutVideo.addEventListener('loadeddata', () => {
+            console.log('About video preloaded and ready');
+        });
+        // This will load the video metadata and first frame
+        aboutVideo.load();
+    }
+
+    // Rate limiting function
+    function isRateLimited() {
+        const now = Date.now();
+        
+        // Reset counter if window has passed
+        if (now - rateLimitWindowStart > RATE_LIMIT_WINDOW) {
+            apiCallCount = 0;
+            rateLimitWindowStart = now;
+        }
+        
+        // Check if too many calls in window
+        if (apiCallCount >= API_RATE_LIMIT) {
+            return true;
+        }
+        
+        // Check if too soon since last call
+        if (now - lastApiCall < MIN_TIME_BETWEEN_CALLS) {
+            return true;
+        }
+        
+        return false;
+    }
 
     // Function to start tracking subtitles
     function startSubtitleTracking() {
@@ -203,12 +244,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset any inline opacity styles that might have been set
         const userQuestion = document.getElementById('user-question');
         const headProAnswer = document.getElementById('head-pro-answer');
-        const inputArea = document.querySelector('#answer-view .input-area');
         const controls = document.querySelector('#answer-view .controls');
         
         if (userQuestion) userQuestion.style.opacity = '';
         if (headProAnswer) headProAnswer.style.opacity = '';
-        if (inputArea) inputArea.style.opacity = '';
         if (controls) controls.style.opacity = '';
         
         // Truncate the question before displaying
@@ -290,19 +329,49 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
-        // Disable logo for 3 seconds to prevent race conditions
-        headProLogo.style.pointerEvents = 'none';
-        headProLogo.style.opacity = '0.5';
-        setTimeout(() => {
-            headProLogo.style.pointerEvents = '';
-            headProLogo.style.opacity = '';
-        }, 3000);
+        // Rate limiting check
+        if (isRateLimited()) {
+            console.log('Message rate limited');
+            // Show rate limit message instead of sending
+            const rateLimitMessage = "Easy there, tiger. Give me a moment to catch up before firing off another question.";
+            showAnswerView(message, rateLimitMessage);
+            
+            // Still do the visual transitions but skip API call
+            if (isInitial) {
+                document.querySelector('.chat-content').classList.add('conversation-started');
+                document.body.classList.add('pre-zoom');
+                void document.body.offsetHeight;
+                setTimeout(() => {
+                    document.body.classList.remove('pre-zoom');
+                    document.body.classList.add('zooming');
+                }, 20);
+                setTimeout(() => {
+                    document.body.classList.remove('zooming');
+                    document.body.classList.add('zoomed');
+                }, 3000);
+            }
+            
+            // Reset UI state
+            mainInput.disabled = false;
+            mainInput.style.opacity = '';
+            mainInput.style.pointerEvents = '';
+            mainInput.value = '';
+            if (textareaAutoResize) textareaAutoResize();
+            resetSendButtons();
+            
+            return;
+        }
 
-        document.body.classList.add('loading')
-        
-        // Disable about link during loading
+        // Update rate limiting counters
+        lastApiCall = Date.now();
+        apiCallCount++;
+        console.log('API call made, count:', apiCallCount);
+
+        // Disable about link during loading (since you want to keep this)
         aboutLink.style.pointerEvents = 'none';
         aboutLink.style.opacity = '0.5';
+
+        document.body.classList.add('loading')
         
         // Disable input during loading
         mainInput.disabled = true;
@@ -316,18 +385,8 @@ document.addEventListener('DOMContentLoaded', function() {
         targetBtn.innerHTML = LOADING_ICON;
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
-        targetBtn.style.pointerEvents = 'none'; // ADD THIS LINE
-        targetBtn.style.cursor = 'default'; // Optional: explicitly set cursor
-
-        // ENSURE thinking message is in correct state for regular messages
-        const thinkingMessage = document.getElementById('thinking-message');
-        if (thinkingMessage && !isInitial) {
-            // For non-initial messages, make sure thinking message is reset to normal
-            thinkingMessage.className = 'thinking-message'; // Remove any subtitle classes
-            thinkingMessage.textContent = 'Checking my notes';
-            thinkingMessage.style.cssText = ''; // Clear all inline styles
-            // Don't show it for non-initial messages
-        }
+        targetBtn.style.pointerEvents = 'none';
+        targetBtn.style.cursor = 'default';
 
         // Show thinking message when starting to load (only for initial)
         if (isInitial && thinkingMessage) {
@@ -340,18 +399,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // Begin cinematic zoom when sending first message
         if (isInitial) {
             document.body.classList.add('pre-zoom');
-            void document.body.offsetHeight; // Force reflow
+            void document.body.offsetHeight;
             setTimeout(() => {
                 document.body.classList.remove('pre-zoom');
                 document.body.classList.add('zooming');
             }, 20);
         }
         
+        // Cancel any previous request
+        if (currentAbortController) {
+            currentAbortController.abort();
+        }
+        currentAbortController = new AbortController();
+        
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, message })
+                body: JSON.stringify({ user_id: userId, message }),
+                signal: currentAbortController.signal
             });
             
             if (!response.ok) {
@@ -382,6 +448,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request was cancelled');
+                return;
+            }
+            
             console.error('Error sending message:', error);
             
             // Show error in answer view
@@ -416,8 +487,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 targetBtn.innerHTML = SEND_SVG;
                 targetBtn.classList.remove('loading');
                 targetBtn.disabled = false;
-                targetBtn.style.pointerEvents = ''; // ADD THIS LINE
-                targetBtn.style.cursor = ''; // Optional: reset cursor
+                targetBtn.style.pointerEvents = '';
+                targetBtn.style.cursor = '';
 
                 // Stop the loading video
                 stopLoadingVideo();
@@ -431,13 +502,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 300);
         }
 
-        // ADD a separate timeout for about link with longer delay
+        // Re-enable about link after a delay
         setTimeout(() => {
             aboutLink.style.pointerEvents = '';
             aboutLink.style.opacity = '';
-            console.log('About link re-enabled after extended delay');
         }, 1500);
     }
+
+    // Add abort controller for canceling in-flight requests
+    let currentAbortController = null;
 
     function stopSubtitleTracking() {
         if (subtitleInterval) {
@@ -455,10 +528,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Updated resetConversation function - key changes
     async function resetConversation() {
         try {
-            // Disable about link during reset
+            // Cancel any ongoing API request
+            if (currentAbortController) {
+                currentAbortController.abort();
+                currentAbortController = null;
+            }
+
+            // Reset rate limiting on conversation reset
+            apiCallCount = 0;
+            rateLimitWindowStart = Date.now();
+            lastApiCall = 0;
+
+            
             aboutLink.style.pointerEvents = 'none';
             aboutLink.style.opacity = '0.5';
 
@@ -492,11 +575,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.classList.add('unzooming');
             }, 300);
             
+            // Create new abort controller for reset API call
+            currentAbortController = new AbortController();
+            
             // Start API reset and other cleanup in parallel
             const resetPromise = fetch('/api/reset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                body: JSON.stringify({ user_id: userId }),
+                signal: currentAbortController.signal
+            }).catch(err => {
+                if (err.name === 'AbortError') {
+                    console.log('Reset API call was cancelled');
+                } else {
+                    throw err;
+                }
             });
             
             // Clear saved messages
@@ -527,30 +620,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // Reset welcome message visibility
+            // Welcome message setup (same as before)
             const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
             const welcomePrompt = document.querySelector('.welcome-prompt');
-            const inputArea = document.querySelector('.centered-input-area');
 
-            if (welcomeTaglines.length > 0 && welcomePrompt && inputArea) {
-                // Reset display and opacity
-                welcomeTaglines.forEach(tagline => {
+            welcomeTaglines.forEach(tagline => {
+                if (tagline) {
                     tagline.style.display = '';
-                    tagline.style.opacity = '1';
-                });
+                    tagline.style.opacity = '0';
+                    tagline.style.transition = 'opacity 0.6s ease-out';
+                }
+            });
+
+            if (welcomePrompt) {
                 welcomePrompt.style.display = '';
-                welcomePrompt.style.opacity = '1';
-                inputArea.style.display = '';
-                inputArea.style.opacity = '1';
-                
-                // Remove any inline styles after transition completes
-                setTimeout(() => {
-                    welcomeTaglines.forEach(tagline => {
-                        tagline.style.opacity = '';
-                    });
-                    welcomePrompt.style.opacity = '';
-                    inputArea.style.opacity = '';
-                }, 100);
+                welcomePrompt.style.opacity = '0';
+                welcomePrompt.style.transition = 'opacity 0.6s ease-out';
             }
             
             // Wait for suction animation to complete
@@ -580,22 +665,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Show initial view
                 showInitialView();
 
-                // Re-enable about link after reset completes
+                
                 aboutLink.style.pointerEvents = '';
                 aboutLink.style.opacity = '';
                 
                 // Ensure we're in idle mode
                 currentVideoMode = 'idle';
-            }, 1000);
+
+                // Fade in welcome elements
+                setTimeout(() => {
+                    welcomeTaglines.forEach(tagline => {
+                        if (tagline) {
+                            tagline.style.opacity = '1';
+                        }
+                    });
+                }, 100);
+
+                setTimeout(() => {
+                    if (welcomePrompt) {
+                        welcomePrompt.style.opacity = '1';
+                    }
+                }, 300);
+
+                // Clean up transition styles
+                setTimeout(() => {
+                    welcomeTaglines.forEach(tagline => {
+                        if (tagline) {
+                            tagline.style.transition = '';
+                            tagline.style.opacity = '';
+                        }
+                    });
+                    if (welcomePrompt) {
+                        welcomePrompt.style.transition = '';
+                        welcomePrompt.style.opacity = '';
+                    }
+                }, 1200);
+
+            }, 1200);
             
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
 
-            // Re-enable about link even on error
-            aboutLink.style.pointerEvents = '';
-            aboutLink.style.opacity = '';
-            
             // Reset video mode even on error
             currentVideoMode = 'idle';
         }
@@ -632,25 +743,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 // FIRST: Hide welcome elements immediately to prevent flashing
                 const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
                 const welcomePrompt = document.querySelector('.welcome-prompt');
-                const initialInputArea = document.querySelector('.centered-input-area');
                 
                 // Hide welcome elements before any view switching
                 welcomeTaglines.forEach(tagline => {
                     if (tagline) tagline.style.display = 'none';
                 });
                 if (welcomePrompt) welcomePrompt.style.display = 'none';
-                if (initialInputArea) initialInputArea.style.display = 'none';
                 
                 // Then fade out the conversation content
                 const userQuestion = document.getElementById('user-question');
                 const headProAnswer = document.getElementById('head-pro-answer');
-                const inputArea = document.querySelector('#answer-view .input-area');
                 const controls = document.querySelector('#answer-view .controls');
                 
                 // Fade out conversation elements
                 if (userQuestion) userQuestion.style.opacity = '0';
                 if (headProAnswer) headProAnswer.style.opacity = '0';
-                if (inputArea) inputArea.style.opacity = '0';
                 if (controls) controls.style.opacity = '0';
                 
                 // Wait for fade-out to complete, then switch views
@@ -692,14 +799,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Starting from initial view - also hide welcome elements first
                 const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
                 const welcomePrompt = document.querySelector('.welcome-prompt');
-                const initialInputArea = document.querySelector('.centered-input-area');
                 
                 // Hide welcome elements immediately
                 welcomeTaglines.forEach(tagline => {
                     if (tagline) tagline.style.display = 'none';
                 });
                 if (welcomePrompt) welcomePrompt.style.display = 'none';
-                if (initialInputArea) initialInputArea.style.display = 'none';
                 
                 // Stop any current video operations
                 Object.values(headProVideos).forEach(video => {
@@ -880,16 +985,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Simplified startAboutVideo function
     function startAboutVideo() {
         console.log('Starting about video experience');
         
         currentVideoMode = 'about';
         switchingToAbout = true;
         
-        stopAllVideos();
-        
-        // Clear thinking message
+        // Clear thinking message first
         const thinkingMessage = document.getElementById('thinking-message');
         if (thinkingMessage) {
             thinkingMessage.classList.remove('show', 'subtitle-mode');
@@ -897,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
             thinkingMessage.style.opacity = '0';
         }
         
-        // Zoom animation setup...
+        // Zoom animation setup (if needed)
         if (!document.body.classList.contains('zoomed') && !document.body.classList.contains('zooming')) {
             document.body.classList.add('pre-zoom');
             void document.body.offsetHeight;
@@ -912,21 +1014,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 3000);
         }
         
-        setTimeout(() => {
-            // About video is now already in DOM, just show it
-            if (aboutVideo) {
-                aboutVideo.style.display = 'block';
-                aboutVideo.currentTime = 0;
-                aboutVideo.muted = true;
-                currentSubtitleIndex = -1;
+        // SEAMLESS TRANSITION: Prepare about video while current video is still showing
+        if (aboutVideo) {
+            // Prepare the about video (but don't show it yet)
+            aboutVideo.currentTime = 0;
+            aboutVideo.muted = true;
+            currentSubtitleIndex = -1;
+            
+            // Load the video to the first frame if it's not already loaded
+            aboutVideo.load();
+            
+            // Wait for it to be ready, then do the switch
+            const handleCanPlay = () => {
+                aboutVideo.removeEventListener('canplay', handleCanPlay);
                 
-                // Show video controls
+                // NOW do the instant switch
+                // Hide all other videos first
+                Object.values(headProVideos).forEach(video => {
+                    if (video && video !== aboutVideo) {
+                        video.style.display = 'none';
+                        video.pause();
+                    }
+                });
+                
+                // Immediately show about video
+                aboutVideo.style.display = 'block';
+                
+                // Set up video controls
                 const videoControls = document.getElementById('video-controls-overlay');
                 if (videoControls) {
                     videoControls.style.display = 'block';
                     videoControls.classList.add('about-video-active');
                 }
-
+                
                 // Set up event handlers
                 setupAboutVideoHandlers();
                 
@@ -937,17 +1057,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     subtitleElement.style.opacity = '1';
                     subtitleElement.textContent = '';
                 }
-
-                setTimeout(() => {
-                    aboutVideo.play().catch(e => {
-                        console.error("About video play failed:", e);
-                    });
+                
+                // Start playing
+                aboutVideo.play().then(() => {
                     startSubtitleTracking();
-                }, 16);
+                }).catch(e => {
+                    console.error("About video play failed:", e);
+                });
+                
+                switchingToAbout = false;
+            };
+            
+            // If the video is already ready, execute immediately
+            if (aboutVideo.readyState >= 3) { // HAVE_FUTURE_DATA or higher
+                handleCanPlay();
+            } else {
+                // Otherwise wait for it to be ready
+                aboutVideo.addEventListener('canplay', handleCanPlay);
+                
+                // Fallback timeout in case canplay doesn't fire
+                setTimeout(handleCanPlay, 100);
             }
-
-            switchingToAbout = false;
-        }, 16);
+        }
     }
 
     function setupAboutVideoHandlers() {
@@ -1209,14 +1340,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentVideo.currentTime = 0;
                 }
                 
-                // Show welcome text again
-                const welcomeElements = document.querySelectorAll('.welcome-tagline, .welcome-prompt, .centered-input-area');
-                welcomeElements.forEach(el => {
-                    if (el) {
-                        el.style.display = '';
-                        el.style.opacity = '';
+                // FIXED: Set up welcome text with proper fade-in (same as resetConversation)
+                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
+                const welcomePrompt = document.querySelector('.welcome-prompt');
+                
+                // Prepare welcome elements with fade-in
+                welcomeTaglines.forEach(tagline => {
+                    if (tagline) {
+                        tagline.style.display = ''; // Reset display
+                        tagline.style.opacity = '0'; // Start invisible
+                        tagline.style.transition = 'opacity 0.6s ease-out'; // Add smooth transition
                     }
                 });
+                
+                if (welcomePrompt) {
+                    welcomePrompt.style.display = ''; // Reset display
+                    welcomePrompt.style.opacity = '0'; // Start invisible
+                    welcomePrompt.style.transition = 'opacity 0.6s ease-out'; // Add smooth transition
+                }
+                
+                // Fade in welcome elements with timing similar to resetConversation
+                setTimeout(() => {
+                    welcomeTaglines.forEach(tagline => {
+                        if (tagline) {
+                            tagline.style.opacity = '1';
+                        }
+                    });
+                }, 400); // Start fading during unzoom
+                
+                setTimeout(() => {
+                    if (welcomePrompt) {
+                        welcomePrompt.style.opacity = '1';
+                    }
+                }, 400); // Fade in prompt later
+                
+                // Clean up transition styles
+                setTimeout(() => {
+                    welcomeTaglines.forEach(tagline => {
+                        if (tagline) {
+                            tagline.style.transition = '';
+                            tagline.style.opacity = '';
+                        }
+                    });
+                    if (welcomePrompt) {
+                        welcomePrompt.style.transition = '';
+                        welcomePrompt.style.opacity = '';
+                    }
+                }, 1800);
                 
                 return; // Don't do anything else
             }

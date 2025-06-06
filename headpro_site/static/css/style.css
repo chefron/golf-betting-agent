@@ -48,7 +48,8 @@ body.zoomed .background-zoom {
 
 body.unzooming .background-zoom {
     transform: scale(1);
-    transition: transform 1s ease-out;
+    transition: transform 0.8s ease-out;
+    will-change: transform;
 }
 
 /* No transition during pre-zoom setup */
@@ -70,7 +71,7 @@ body.pre-zoom .background-zoom {
 
 body.zooming #cinematic-overlay {
     background-color: rgba(0, 0, 0, 0.4);
-    transition: background-color 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: background-color 2s cubic-bezier(0.1, 0.7, 0.6, 1);
 }
 
 body.zoomed #cinematic-overlay {
@@ -79,7 +80,8 @@ body.zoomed #cinematic-overlay {
 
 body.unzooming #cinematic-overlay {
     background-color: rgba(0, 0, 0, 0);
-    transition: background-color 1s ease-out;
+    transition: background-color 0.8s ease-out;
+    will-change: background-color;
 }
 
 /* Navigation */
@@ -198,6 +200,7 @@ body.unzooming #cinematic-overlay {
     font-optical-sizing: auto;
     line-height: 1.6;
     transform: translateY(-4vh);
+    overflow: hidden;
 }
 
 .chat-content {
@@ -585,7 +588,7 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 .head-pro-img-container {
     position: fixed;
-    top: 58%;
+    top: 59%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -610,12 +613,11 @@ button#initial-send-btn:not(.send-icon-btn) {
 }
 
 .head-pro-img-wrapper {
-    position: relative;
-    width: 260px;
-    height: 260px;
+    width: 37vh;
+    height: 37vh;
     overflow: hidden;
     border-radius: 50%;
-    transition: width 1s cubic-bezier(0.1, 0.7, 0.6, 1), height 3s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: width 2s cubic-bezier(0.1, 0.7, 0.6, 1), height 2s cubic-bezier(0.1, 0.7, 0.6, 1);
     /* Add these to ensure consistent positioning */
     display: block;
     margin: 0; /* Remove any default margins */
@@ -625,13 +627,14 @@ button#initial-send-btn:not(.send-icon-btn) {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    background: transparent;
     border-radius: 50%;
     -webkit-mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
     mask-image: radial-gradient(ellipse 55% 55% at center, black 60%, transparent 80%);
     position: absolute;
     top: 0;
     left: 0;
-    object-position: 54.5% 50%; 
+    object-position: 56.5% 50%; 
     /* Add this to completely isolate from parent text-align */
     display: block;
     
@@ -646,17 +649,32 @@ button#initial-send-btn:not(.send-icon-btn) {
 
 body.zooming .head-pro-img-wrapper,
 body.zoomed .head-pro-img-wrapper {
-    width: 400px;
-    height: 400px;
+    width: 57vh;
+    height: 57vh;
     transform: translateZ(0); /* Prevents blurring */
+    overflow: hidden;
 }
 
 /* Add smooth unzoom transition */
 body.unzooming .head-pro-img-wrapper {
-    width: 260px !important;
-    height: 260px !important;
-    transition: width 1s ease-out, height 1s ease-out;
+    width: 37vh;
+    height: 37vh;
+    transition: width 0.7s ease-out, height 0.7s ease-out;
     transform: translateZ(0); /* Prevents blurring during animation */
+    will-change: width, height;
+}
+
+/* 3. Add cleanup class to remove will-change after animation */
+body:not(.zooming):not(.unzooming):not(.zoomed) .background-zoom,
+body:not(.zooming):not(.unzooming):not(.zoomed) #cinematic-overlay,
+body:not(.zooming):not(.unzooming):not(.zoomed) .head-pro-img-wrapper {
+    will-change: auto; /* Remove GPU optimization when not needed */
+}
+
+/* 4. Optimize video rendering during transitions */
+body.unzooming .head-pro-video {
+    backface-visibility: hidden; /* Prevent flickering */
+    transform: translateZ(0); /* Force GPU layer */
 }
 
 /* Thinking message styling */
@@ -666,7 +684,7 @@ body.unzooming .head-pro-img-wrapper {
     font-size: 1em;
     font-style: italic;
     opacity: 0;
-    transition: opacity 3s ease-in-out;
+    transition: opacity 2s ease-in-out;
     margin-top: 1rem;
     position: fixed;
     top: 8vh;
@@ -721,7 +739,7 @@ body.unzooming .head-pro-img-wrapper {
     /* Add these properties: */
     margin-top: auto; /* This pushes it to the bottom */
     text-align: center;
-    margin-bottom: .5em;
+   
 }
 
 /* Add transition to welcome message text elements */
@@ -1556,6 +1574,7 @@ body.loading #initial-view .centered-input-area {
         width: 100%;
     }
 
+    
    
 
 
