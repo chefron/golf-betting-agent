@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainSendBtn = document.getElementById('main-send-btn');
     const textareaAutoResize = setupTextareaAutoResize();
 
+    // Add a flag to track if reset was called
+    let resetCalled = false;
     
     // Rate limiting variables
     let lastApiCall = 0;
@@ -180,12 +182,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.body.classList.remove('loading');
         
-        if (headProImgContainer) {
+        // DON'T hide the video container if we're in the middle of a reset
+        const isResetting = document.body.classList.contains('unzooming') || 
+                        !answerView.classList.contains('active');
+        
+        if (headProImgContainer && !isResetting) {
             headProImgContainer.classList.add('fade-out');
             
             setTimeout(() => {
                 headProImgContainer.classList.add('hidden');
             }, 1000);
+        } else {
+            console.log('Skipping video hide because we are resetting');
         }
         
         // Only stop if we're in loading mode
@@ -325,18 +333,18 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem(`headpro_messages_${userId}`, JSON.stringify(messages));
     }
     
-    // Send message to API
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
+
+        // Reset the flag at the start of new messages
+        resetCalled = false;
 
         // Rate limiting check
         if (isRateLimited()) {
             console.log('Message rate limited');
-            // Show rate limit message instead of sending
             const rateLimitMessage = "Easy there, tiger. Give me a moment to catch up before firing off another question.";
             showAnswerView(message, rateLimitMessage);
             
-            // Still do the visual transitions but skip API call
             if (isInitial) {
                 document.querySelector('.chat-content').classList.add('conversation-started');
                 document.body.classList.add('pre-zoom');
@@ -351,7 +359,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 3000);
             }
             
-            // Reset UI state
             mainInput.disabled = false;
             mainInput.style.opacity = '';
             mainInput.style.pointerEvents = '';
@@ -366,10 +373,6 @@ document.addEventListener('DOMContentLoaded', function() {
         lastApiCall = Date.now();
         apiCallCount++;
         console.log('API call made, count:', apiCallCount);
-
-        // Disable about link during loading (since you want to keep this)
-        aboutLink.style.pointerEvents = 'none';
-        aboutLink.style.opacity = '0.5';
 
         document.body.classList.add('loading')
         
@@ -420,13 +423,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 signal: currentAbortController.signal
             });
             
+            // CHECK: If reset was called while we were waiting, abandon everything
+            if (resetCalled) {
+                console.log('Reset was called during API request, abandoning response');
+                return;
+            }
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
             
-            // Debug formatting
+            // CHECK AGAIN: If reset was called while parsing response, abandon
+            if (resetCalled) {
+                console.log('Reset was called during response processing, abandoning');
+                return;
+            }
+            
             console.log(JSON.stringify(data.response));
             
             // Save messages
@@ -448,20 +462,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Request was cancelled');
-                return;
+            if (error.name === 'AbortError' || resetCalled) {
+                console.log('Request was cancelled or reset was called');
+                return; // Don't show error message if cancelled
             }
             
             console.error('Error sending message:', error);
             
-            // Show error in answer view
             showAnswerView(
                 message, 
                 "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
             );
             
-            // Complete the zoom even on error
             if (isInitial) {
                 setTimeout(() => {
                     document.body.classList.remove('zooming');
@@ -470,43 +482,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
         } finally {
-            // Reset UI state
-            setTimeout(() => {
-                
-                // Re-enable message input
-                mainInput.disabled = false;
-                mainInput.style.opacity = '';
-                mainInput.style.pointerEvents = '';
-                
-                // Hide thinking message
-                if (thinkingMessage) {
-                    thinkingMessage.classList.remove('show');
-                }
-                
-                // Restore the original SVG content
-                targetBtn.innerHTML = SEND_SVG;
-                targetBtn.classList.remove('loading');
-                targetBtn.disabled = false;
-                targetBtn.style.pointerEvents = '';
-                targetBtn.style.cursor = '';
+            // ONLY reset UI if reset wasn't called
+            if (!resetCalled) {
+                setTimeout(() => {
+                    
+                    // Re-enable message input
+                    mainInput.disabled = false;
+                    mainInput.style.opacity = '';
+                    mainInput.style.pointerEvents = '';
+                    
+                    // Hide thinking message
+                    if (thinkingMessage) {
+                        thinkingMessage.classList.remove('show');
+                    }
+                    
+                    // Restore the original SVG content
+                    targetBtn.innerHTML = SEND_SVG;
+                    targetBtn.classList.remove('loading');
+                    targetBtn.disabled = false;
+                    targetBtn.style.pointerEvents = '';
+                    targetBtn.style.cursor = '';
 
-                // Stop the loading video
-                stopLoadingVideo();
-                
-                // Clear the input field
-                mainInput.value = '';
-                if (textareaAutoResize) {
-                    textareaAutoResize();
-                }
+                    // Stop the loading video
+                    stopLoadingVideo();
+                    
+                    // Clear the input field
+                    mainInput.value = '';
+                    if (textareaAutoResize) {
+                        textareaAutoResize();
+                    }
 
-            }, 300);
+                }, 300);
+            }
         }
-
-        // Re-enable about link after a delay
-        setTimeout(() => {
-            aboutLink.style.pointerEvents = '';
-            aboutLink.style.opacity = '';
-        }, 1500);
     }
 
     // Add abort controller for canceling in-flight requests
@@ -530,20 +538,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function resetConversation() {
         try {
+            // Set the reset flag IMMEDIATELY
+            resetCalled = true;
+
+            // IMMEDIATELY re-enable about link (in case it was disabled)
+            aboutLink.style.pointerEvents = '';
+            aboutLink.style.opacity = '';
+            
             // Cancel any ongoing API request
             if (currentAbortController) {
                 currentAbortController.abort();
                 currentAbortController = null;
             }
 
+            // IMMEDIATELY stop loading state
+            document.body.classList.remove('loading');
+            
+            // IMMEDIATELY reset UI elements that might be in loading state
+            mainInput.disabled = false;
+            mainInput.style.opacity = '';
+            mainInput.style.pointerEvents = '';
+            mainInput.value = '';
+            if (textareaAutoResize) textareaAutoResize();
+            resetSendButtons();
+
             // Reset rate limiting on conversation reset
             apiCallCount = 0;
             rateLimitWindowStart = Date.now();
             lastApiCall = 0;
-
-            
-            aboutLink.style.pointerEvents = 'none';
-            aboutLink.style.opacity = '0.5';
 
             // IMMEDIATELY stop all videos and reset mode
             stopAllVideos();
@@ -558,8 +580,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 videoControls.classList.remove('about-video-active');
             }
 
-            // Start the suction animation if we're in answer view
-            if (answerView.classList.contains('active')) {
+            const wasInAnswerView = answerView.classList.contains('active');
+            if (wasInAnswerView) {
                 answerView.classList.add('sucking');
             }
             
@@ -570,10 +592,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 thinkingMessage.style.opacity = '';
             }
 
-            // Start unzooming with a brief delay
+            // Start unzooming with a brief delay (shorter if no suction needed)
             setTimeout(() => {
                 document.body.classList.add('unzooming');
-            }, 300);
+            }, wasInAnswerView ? 300 : 100);
             
             // Create new abort controller for reset API call
             currentAbortController = new AbortController();
@@ -595,13 +617,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clear saved messages
             localStorage.removeItem(`headpro_messages_${userId}`);
             
-            // Reset button states explicitly
-            resetSendButtons();
-            
             // Reset the Head Pro container
             const headProImgContainer = document.querySelector('.head-pro-img-container');
             if (headProImgContainer) {
                 headProImgContainer.classList.remove('fade-out', 'hidden');
+                headProImgContainer.style.opacity = '';
+                headProImgContainer.style.display = '';
             
                 // Set whiskey as default and ensure it's visible but paused
                 Object.values(headProVideos).forEach(video => {
@@ -616,11 +637,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentVideo) {
                     currentVideo.style.display = 'block';
                     currentVideo.currentTime = 0;
-                    // DON'T play the video during reset
                 }
             }
 
-            // Welcome message setup (same as before)
+            // Welcome message setup
             const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
             const welcomePrompt = document.querySelector('.welcome-prompt');
 
@@ -638,11 +658,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 welcomePrompt.style.transition = 'opacity 0.6s ease-out';
             }
             
-            // Wait for suction animation to complete
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // Wait for suction animation to complete (shorter if no suction)
+            await new Promise(resolve => setTimeout(resolve, wasInAnswerView ? 800 : 400));
             
-            // Mark as completely sucked
-            if (answerView.classList.contains('active')) {
+            // Mark as completely sucked (only if we were in answer view)
+            if (wasInAnswerView && answerView.classList.contains('active')) {
                 answerView.classList.add('sucked');
             }
             
@@ -664,10 +684,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 // Show initial view
                 showInitialView();
-
-                
-                aboutLink.style.pointerEvents = '';
-                aboutLink.style.opacity = '';
                 
                 // Ensure we're in idle mode
                 currentVideoMode = 'idle';
@@ -687,7 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }, 300);
 
-                // Clean up transition styles
+                // Clean up transition styles and reset flag
                 setTimeout(() => {
                     welcomeTaglines.forEach(tagline => {
                         if (tagline) {
@@ -699,6 +715,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         welcomePrompt.style.transition = '';
                         welcomePrompt.style.opacity = '';
                     }
+                    
+                    // Clear the reset flag after everything is complete
+                    resetCalled = false;
                 }, 1200);
 
             }, 1200);
@@ -706,8 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error resetting conversation:', error);
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
-
-            // Reset video mode even on error
+            resetCalled = false; // Clear flag on error
             currentVideoMode = 'idle';
         }
     }
@@ -716,9 +734,26 @@ document.addEventListener('DOMContentLoaded', function() {
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();
 
+        // CANCEL any ongoing API request (same as reset does)
+        resetCalled = true; // Prevent response from showing
+        if (currentAbortController) {
+            currentAbortController.abort();
+            currentAbortController = null;
+        }
+
+        // IMMEDIATELY stop loading state
+        document.body.classList.remove('loading');
+        
+        // Reset UI elements that might be in loading state
+        mainInput.disabled = false;
+        mainInput.style.opacity = '';
+        mainInput.style.pointerEvents = '';
+        mainInput.value = '';
+        if (textareaAutoResize) textareaAutoResize();
+        resetSendButtons();
+
         // Disable logo for 3 seconds to prevent race conditions
         headProLogo.style.pointerEvents = 'none';
-        headProLogo.style.opacity = '0.5';
         setTimeout(() => {
             headProLogo.style.pointerEvents = '';
             headProLogo.style.opacity = '';
@@ -1392,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // If we're in a conversation, do the full reset
-            if (answerView.classList.contains('active')) {
+            if (answerView.classList.contains('active') || document.body.classList.contains('loading')) {
                 resetConversation();
             }
             
