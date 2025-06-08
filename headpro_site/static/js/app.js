@@ -1511,5 +1511,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setupTextareaAutoResize();
     
-
 });
