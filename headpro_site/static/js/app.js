@@ -93,13 +93,13 @@ document.addEventListener('DOMContentLoaded', function() {
         { start: 38, end: 43, text: "I'm the Head Pro, and I'm here to change the way you bet on golf." }
     ];
     
-    // Define SVG content as constants to ensure consistency when restoring
-    const SEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"></line>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    // Replace the SEND_SVG constant in app.js with the new golf tee icon (larger and centered)
+    const SEND_SVG = `<svg width="22" height="40" viewBox="0 0 24 48" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 0H18V2L14 6V28C14 33 13.5 40 12 44C10.5 40 10 33 10 28V6L6 2V0Z" fill="currentColor"/>
     </svg>`;
-    
-    const LOADING_ICON = '⟳';
+
+    // Since we want the tee to spin during loading, we use the same icon
+    const LOADING_ICON = SEND_SVG;
 
     // Simple function to stop all videos immediately
     function stopAllVideos() {
@@ -695,7 +695,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             tagline.style.opacity = '1';
                         }
                     });
-                }, 100);
+                }, 300);
 
                 setTimeout(() => {
                     if (welcomePrompt) {
