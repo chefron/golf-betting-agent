@@ -371,6 +371,26 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
+        // Clear reset flag immediately when starting a new interaction
+        resetCalled = false;
+
+        // Clean up about video if it's currently playing
+        if (currentVideoMode === 'about') {
+            console.log('Cleaning up about video before sending message');
+            cleanupAboutVideo();
+        }
+
+        // Clear any inline opacity styles that might override CSS
+        if (welcomeContent) {
+            welcomeContent.style.opacity = '';
+        }
+
+        // Rate limiting check
+        if (!isInitial && Date.now() - lastMessageTime < 3000) {
+            return;
+        }
+        lastMessageTime = Date.now();
+
         // Start loading video
         startLoadingVideo();
 
@@ -380,12 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Rate limiting check
-        if (!isInitial && Date.now() - lastMessageTime < 3000) {
-            return;
-        }
-        lastMessageTime = Date.now();
-
         // Set submitting flag
         isSubmitting = true;
 
@@ -414,12 +428,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // API call logic stays the same...
         try {
-            const abortController = new AbortController();
+            currentAbortController = new AbortController();  // ← Assign to global
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId, message }),
-                signal: currentAbortController.signal
+                signal: currentAbortController.signal  // ← Use global (now not null)
             });
             
             if (!response.ok) {
@@ -1155,15 +1169,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         stopSubtitleTracking();
 
-        // PROPERLY reset the thinking message element back to normal state
-        const thinkingMessage = document.getElementById('thinking-message');
-        if (thinkingMessage) {
-            // Remove all about-related classes and content
-            thinkingMessage.classList.remove('show');
-            thinkingMessage.style.opacity = ''; // Clear any inline opacity
-            thinkingMessage.style.display = ''; // Clear any inline display
-            
-            console.log('Reset thinking message to normal state');
+        // Hide subtitle container
+        if (subtitleContainer) {
+            subtitleContainer.classList.remove('show');
         }
         
         // Hide about video and controls
@@ -1178,21 +1186,26 @@ document.addEventListener('DOMContentLoaded', function() {
             videoControls.classList.remove('about-video-active');
         }
 
+        // Reset video mode to idle
         currentVideoMode = 'idle';
-    
-        // Only start loading video if NOT during a reset
-        if (!document.body.classList.contains('unzooming')) {
-            // Mark conversation as started since they're sending a real message
-            const chatContent = document.querySelector('.chat-content');
-            if (chatContent) {
-                chatContent.classList.add('conversation-started');
+        
+        // Reset to default video (whiskey)
+        Object.values(headProVideos).forEach(video => {
+            if (video && video !== aboutVideo) {
+                video.style.display = 'none';
+                video.pause();
+                video.currentTime = 0;
             }
-            
-            // Start loading video for the next response
-            setTimeout(() => {
-                startLoadingVideo();
-            }, 500);
+        });
+        
+        // Show default video
+        if (headProVideos.whiskey) {
+            headProVideos.whiskey.style.display = 'block';
+            headProVideos.whiskey.currentTime = 0;
         }
+        currentVideo = headProVideos.whiskey;
+
+        console.log('About video cleanup complete, currentVideoMode:', currentVideoMode);
     }
 
     // Get the logo element

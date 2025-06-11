@@ -189,7 +189,7 @@ body.unzooming #cinematic-overlay {
     height: clamp(60vh, 48vh + 8vw, 85vh);
     
     /* Remove fixed aspect ratio completely */
-    max-width: 800px;
+    
     
 
     
@@ -241,6 +241,7 @@ body.unzooming #cinematic-overlay {
 /* Welcome content - visible by default */
 .welcome-content {
     opacity: 1;
+    font-size: .9em;
     transition: opacity 0.3s ease;
     display: flex;
     flex-direction: column;
@@ -620,7 +621,7 @@ body.unzooming #cinematic-overlay {
     flex: 1;
     overflow-y: auto;
     overflow-x: visible;
-    padding: 4%;
+    padding: 3%;
     border-radius: 5px;
     color: #dadada;
     font-size: 1em;
@@ -652,9 +653,8 @@ body.unzooming #cinematic-overlay {
 
 .welcome-message {
     text-align: center;
-    margin-top: clamp(1em, 1em + 4vw, 3em);
-    opacity: 0.85;
-    font-size: 1em;
+    margin-top: clamp(1em, 1em + 7vw, 3em);
+  
     position: relative;
     flex: 0 0 auto; /* Don't grow or shrink */
     /* Keep the internal flex for centering content within welcome-message */
@@ -666,7 +666,7 @@ body.unzooming #cinematic-overlay {
 
 .head-pro-img-container {
     position: fixed;
-    top: 59%;
+    top: 60%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -692,8 +692,8 @@ body.unzooming #cinematic-overlay {
 }
 
 .head-pro-img-wrapper {
-    width: 37vh;
-    height: 37vh;
+    width: 38.5vh;
+    height: 38.5vh;
     overflow: hidden;
     border-radius: 50%;
     transition: width 2s cubic-bezier(0.1, 0.7, 0.6, 1), height 2s cubic-bezier(0.1, 0.7, 0.6, 1);
@@ -1494,7 +1494,7 @@ body.loading .loading-overlay {
 /* Subtitle styling  */
 .subtitle-container {
     position: fixed;
-    top: 7vh; /* Keep same position as thinking message for now */
+    top: 4vh; /* Keep same position as thinking message for now */
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
@@ -1524,11 +1524,41 @@ body.loading .loading-overlay {
 
 /* ===== RESPONSIVE MEDIA QUERIES ===== */
 
-/* Tablet and smaller desktop (768px and below) */
-@media (max-width: 768px) {
-    /* Navigation */
 
+/* Tablets */
+@media (min-width: 768px) and (max-width: 1200px) {
+    body.zooming .background-zoom,
+    body.zoomed .background-zoom {
+        transform: scale(1.1);
+    }
    
+
+    .thinking-message {
+        font-size: 1.3em;
+    }
+
+    .chat-container {
+        transform: translateY(0);
+        height: 55vh;
+    }
+
+
+}
+
+
+
+
+
+/* Mobile  */
+@media (min-width: 0px) and (max-width: 768px) {
+
+
+    .head-pro-answer {
+      
+        padding: 4%;
+        margin-top: 2vh;
+    }
+      
     .bottom-nav {
         justify-content: center;
     }
@@ -1545,13 +1575,6 @@ body.loading .loading-overlay {
         
     }
  
-    .head-pro-img-container {
-        top: 60%;
-    }
-
-    .head-pro-img {
-        max-width: 150px;
-    }
 
 
     
@@ -1607,49 +1630,6 @@ body.loading .loading-overlay {
     .scorecard-modal .scorecard-table td {
         padding: 0.3em
     }
-}
-
-/* Tablets */
-@media (min-width: 768px) and (max-width: 1200px) {
-    body.zooming .background-zoom,
-    body.zoomed .background-zoom {
-        transform: scale(1.1);
-    }
-   
-
-    .thinking-message {
-        font-size: 1.3em;
-    }
-
-}
-
-
-/* Large phones */
-@media (min-width: 480px) and (max-width: 768px) {
-    .chat-container {
-        width: min(70vmin, 75vw); /* More constrained in the awkward zone */
-    }
-
-     #initial-view {
-        padding: 2vw;
-    }
-
-     .thinking-message {
-        width: 90%;
-    }
-
-   
-
-
-
-    #answer-view .head-pro-answer {
-        font-size: .9em;
-        margin: 4em 0 0;
-    }
-}
-
-/* Mobile phones (480px and below) */
-@media (max-width: 480px) {
     /* Navigation */
 
     #initial-view {
@@ -1659,10 +1639,6 @@ body.loading .loading-overlay {
     .thinking-message {
         width: 100%;
     }
-
-    
-   
-
 
 
     .welcome-message h2 {
@@ -1687,6 +1663,10 @@ body.loading .loading-overlay {
     
     .about-text p {
         font-size: 0.85rem;
+    }
+
+    .bottom-input-area {
+        padding-bottom: 5em;
     }
     
   
