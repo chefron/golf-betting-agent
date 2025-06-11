@@ -12,17 +12,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainInput = document.getElementById('main-input');
     const mainSendBtn = document.getElementById('main-send-btn');
     const textareaAutoResize = setupTextareaAutoResize();
+    const subtitleContainer = document.getElementById('subtitle-container');
+    const subtitleText = document.getElementById('subtitle-text');
+    const welcomeContent = document.querySelector('.welcome-content');
+
+    // Debounce flag to prevent duplicate messages
+    let isSubmitting = false;
+
+    // Initialize abort controller
+    let currentAbortController = new AbortController();
 
     // Add a flag to track if reset was called
     let resetCalled = false;
     
     // Rate limiting variables
-    let lastApiCall = 0;
-    let apiCallCount = 0;
-    let rateLimitWindowStart = Date.now();
-    const API_RATE_LIMIT = 10; // Max 10 API calls per minute
-    const RATE_LIMIT_WINDOW = 60000; // 1 minute
-    const MIN_TIME_BETWEEN_CALLS = 2000; // 2 seconds between calls
+    let lastMessageTime = 0;
 
     // Global variables for subtitle management
     let aboutVideo = document.querySelector('#about-video');
@@ -40,29 +44,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         // This will load the video metadata and first frame
         aboutVideo.load();
-    }
-
-    // Rate limiting function
-    function isRateLimited() {
-        const now = Date.now();
-        
-        // Reset counter if window has passed
-        if (now - rateLimitWindowStart > RATE_LIMIT_WINDOW) {
-            apiCallCount = 0;
-            rateLimitWindowStart = now;
-        }
-        
-        // Check if too many calls in window
-        if (apiCallCount >= API_RATE_LIMIT) {
-            return true;
-        }
-        
-        // Check if too soon since last call
-        if (now - lastApiCall < MIN_TIME_BETWEEN_CALLS) {
-            return true;
-        }
-        
-        return false;
     }
 
     // Function to start tracking subtitles
@@ -108,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Stop regular videos AND about video
         Object.values(headProVideos).forEach(video => {
             if (video) {
+                // Pause immediately - this will cause any pending play() to reject with AbortError
                 video.pause();
                 video.currentTime = 0;
                 video.style.display = 'none';
@@ -124,56 +106,106 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Get video element
     const headProVideos = {
-    whiskey: document.querySelector('#whiskey-video'),
-    cigar: document.querySelector('#cigar-video'),
-    notebook: document.querySelector('#notebook-video'),
-    about: document.querySelector('#about-video')
+        whiskey: document.querySelector('#whiskey-video'),
+        cigar: document.querySelector('#cigar-video'),
+        notebook: document.querySelector('#notebook-video'),
+        about: document.querySelector('#about-video')
     };
     const headProImgContainer = document.querySelector('.head-pro-img-container');
     
     let currentVideo = headProVideos.whiskey; // Start with whiskey video as default
 
-    // Simplified selectRandomVideo function
     function selectRandomVideo() {
         const videoNames = ['whiskey', 'cigar', 'notebook'];
         const randomName = videoNames[Math.floor(Math.random() * videoNames.length)];
         
         console.log(`Random selection: ${randomName}`);
         
-        // Stop all videos first
-        stopAllVideos();
+        // Get the video we want to use
+        const selectedVideo = headProVideos[randomName];
         
-        // Show and set the selected video
-        currentVideo = headProVideos[randomName];
-        if (currentVideo) {
-            currentVideo.style.display = 'block';
-            currentVideo.currentTime = 0;
+        if (selectedVideo) {
+            // FIRST: Prepare and show the selected video immediately
+            selectedVideo.style.display = 'block';
+            selectedVideo.currentTime = 0;
+            
+            // Load if needed (but don't wait for it)
+            if (selectedVideo.readyState < 2) {
+                console.log('Video not loaded, calling load()');
+                selectedVideo.load();
+            }
+            
+            // THEN: Hide all the OTHER videos (seamless transition)
+            Object.values(headProVideos).forEach(video => {
+                if (video && video !== selectedVideo) {
+                    video.pause();
+                    video.currentTime = 0;
+                    video.style.display = 'none';
+                }
+            });
+            
             console.log(`Successfully set ${randomName} video to display: block`);
+            console.log(`Video readyState: ${selectedVideo.readyState}`);
         }
         
+        // Update the current video reference
+        currentVideo = selectedVideo;
         return currentVideo;
     }
 
-    // Simplified startLoadingVideo function
     function startLoadingVideo() {
+        console.log('=== startLoadingVideo DEBUG ===');
+        console.log('switchingToAbout:', switchingToAbout);
+        console.log('currentVideoMode:', currentVideoMode);
+        console.log('resetCalled:', resetCalled);
+        
         // Don't start if we're in about mode or already loading
         if (switchingToAbout || currentVideoMode === 'loading' || currentVideoMode === 'about') {
-            console.log('Skipping loading video - wrong mode:', currentVideoMode);
+            console.log('❌ Skipping loading video - wrong mode:', currentVideoMode);
             return;
         }
         
-        console.log('Starting loading video');
+        console.log('✅ Starting loading video');
         currentVideoMode = 'loading';
+        
+        // Check video states
+        console.log('Video states:');
+        Object.entries(headProVideos).forEach(([name, video]) => {
+            if (video) {
+                console.log(`  ${name}:`, {
+                    display: video.style.display,
+                    paused: video.paused,
+                    currentTime: video.currentTime,
+                    readyState: video.readyState
+                });
+            }
+        });
         
         // Select a random video
         const videoToPlay = selectRandomVideo();
+        console.log('Selected video:', videoToPlay);
         
-        if (videoToPlay) {
-            videoToPlay.currentTime = 0;
-            videoToPlay.play().catch(e => {
-                console.error("Loading video play failed:", e);
-            });
+        if (videoToPlay && currentVideoMode === 'loading') {
+            setTimeout(() => {
+                if (currentVideoMode === 'loading' && !resetCalled) {
+                    console.log('Attempting to play loading video');
+                    
+                    const playPromise = videoToPlay.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('✅ Loading video started successfully');
+                        }).catch(e => {
+                            console.error("❌ Loading video play failed:", e);
+                        });
+                    }
+                } else {
+                    console.log('❌ Mode changed during timeout, not playing');
+                    console.log('currentVideoMode:', currentVideoMode, 'resetCalled:', resetCalled);
+                }
+            }, 100);
         }
+        console.log('=== END DEBUG ===');
     }
 
     // Simplified stopLoadingVideo function
@@ -248,6 +280,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showAnswerView(question, answer) {
+
+        // Stop loading video
+        stopLoadingVideo();
         
         // Reset any inline opacity styles that might have been set
         const userQuestion = document.getElementById('user-question');
@@ -283,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
         answerView.classList.remove('active');
         
         // Clear inputs
-        mainInput.value = ''
+        mainInput.value = '';
         
         // Reset button states explicitly
         resetSendButtons();
@@ -294,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Helper function to ensure send buttons are in their correct state
     function resetSendButtons() {
-    if (mainSendBtn) {
+        if (mainSendBtn) {
             mainSendBtn.innerHTML = SEND_SVG;
             mainSendBtn.classList.remove('loading');
             mainSendBtn.disabled = false;
@@ -336,86 +371,50 @@ document.addEventListener('DOMContentLoaded', function() {
     async function sendMessage(message, isInitial = false) {
         if (!message.trim()) return;
 
-        // Reset the flag at the start of new messages
-        resetCalled = false;
+        // Start loading video
+        startLoadingVideo();
 
-        // Rate limiting check
-        if (isRateLimited()) {
-            console.log('Message rate limited');
-            const rateLimitMessage = "Easy there, tiger. Give me a moment to catch up before firing off another question.";
-            showAnswerView(message, rateLimitMessage);
-            
-            if (isInitial) {
-                document.querySelector('.chat-content').classList.add('conversation-started');
-                document.body.classList.add('pre-zoom');
-                void document.body.offsetHeight;
-                setTimeout(() => {
-                    document.body.classList.remove('pre-zoom');
-                    document.body.classList.add('zooming');
-                }, 20);
-                setTimeout(() => {
-                    document.body.classList.remove('zooming');
-                    document.body.classList.add('zoomed');
-                }, 3000);
-            }
-            
-            mainInput.disabled = false;
-            mainInput.style.opacity = '';
-            mainInput.style.pointerEvents = '';
-            mainInput.value = '';
-            if (textareaAutoResize) textareaAutoResize();
-            resetSendButtons();
-            
+        // Prevent double submission
+        if (isSubmitting) {
+            console.log('Already submitting, ignoring duplicate request');
             return;
         }
+        
+        // Rate limiting check
+        if (!isInitial && Date.now() - lastMessageTime < 3000) {
+            return;
+        }
+        lastMessageTime = Date.now();
 
-        // Update rate limiting counters
-        lastApiCall = Date.now();
-        apiCallCount++;
-        console.log('API call made, count:', apiCallCount);
+        // Set submitting flag
+        isSubmitting = true;
 
-        document.body.classList.add('loading')
+        // Start loading state - this will hide welcome and show thinking
+        document.body.classList.add('loading');
         
         // Disable input during loading
         mainInput.disabled = true;
         mainInput.style.opacity = '0.5';
         mainInput.style.pointerEvents = 'none';
         
-        // Get the button
+        // Set button to loading state
         const targetBtn = mainSendBtn;
-        
-        // Set to loading state
         targetBtn.innerHTML = LOADING_ICON;
         targetBtn.classList.add('loading');
         targetBtn.disabled = true;
-        targetBtn.style.pointerEvents = 'none';
-        targetBtn.style.cursor = 'default';
-
-        // Show thinking message when starting to load (only for initial)
-        if (isInitial && thinkingMessage) {
-            thinkingMessage.classList.add('show');
-        }
-
-        // START the loading video
-        startLoadingVideo();
         
-        // Begin cinematic zoom when sending first message
+        // Begin zoom animation for initial messages
         if (isInitial) {
             document.body.classList.add('pre-zoom');
-            void document.body.offsetHeight;
             setTimeout(() => {
                 document.body.classList.remove('pre-zoom');
                 document.body.classList.add('zooming');
             }, 20);
         }
         
-        // Cancel any previous request
-        if (currentAbortController) {
-            currentAbortController.abort();
-        }
-        currentAbortController = new AbortController();
-        
+        // API call logic stays the same...
         try {
+            const abortController = new AbortController();
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -423,102 +422,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 signal: currentAbortController.signal
             });
             
-            // CHECK: If reset was called while we were waiting, abandon everything
-            if (resetCalled) {
-                console.log('Reset was called during API request, abandoning response');
-                return;
-            }
-            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
             
-            // CHECK AGAIN: If reset was called while parsing response, abandon
-            if (resetCalled) {
-                console.log('Reset was called during response processing, abandoning');
-                return;
-            }
-            
-            console.log(JSON.stringify(data.response));
-            
-            // Save messages
+            // Save messages and show answer
             saveMessages(message, data.response);
-            
-            // Show answer view
             showAnswerView(message, data.response);
-
+            
+            // Mark conversation as started (this hides welcome content permanently)
             if (isInitial) {
                 document.querySelector('.chat-content').classList.add('conversation-started');
             }
-                        
-            // After zoom animation completes, switch to the static zoomed class
+            
+            // Continue zoom animation
             if (isInitial) {
                 setTimeout(() => {
                     document.body.classList.remove('zooming');
                     document.body.classList.add('zoomed');
                 }, 3000);
             }
-            
         } catch (error) {
             if (error.name === 'AbortError' || resetCalled) {
                 console.log('Request was cancelled or reset was called');
-                return; // Don't show error message if cancelled
+                return;
             }
             
             console.error('Error sending message:', error);
-            
-            showAnswerView(
-                message, 
-                "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment."
-            );
+            showAnswerView(message, "The Head Pro seems to have wandered off to the 19th hole. Try again in a moment.");
             
             if (isInitial) {
                 setTimeout(() => {
                     document.body.classList.remove('zooming');
                     document.body.classList.add('zoomed');
-                }, 5000);
-            }
-
+                }, 3000);
+            }            
         } finally {
-            // ONLY reset UI if reset wasn't called
+            // Always clear the submitting flag
+            isSubmitting = false;
+
+            // Clean up loading state
             if (!resetCalled) {
                 setTimeout(() => {
+                    document.body.classList.remove('loading');
                     
-                    // Re-enable message input
+                    // Re-enable input
                     mainInput.disabled = false;
                     mainInput.style.opacity = '';
                     mainInput.style.pointerEvents = '';
                     
-                    // Hide thinking message
-                    if (thinkingMessage) {
-                        thinkingMessage.classList.remove('show');
-                    }
-                    
-                    // Restore the original SVG content
+                    // Reset button
                     targetBtn.innerHTML = SEND_SVG;
                     targetBtn.classList.remove('loading');
                     targetBtn.disabled = false;
-                    targetBtn.style.pointerEvents = '';
-                    targetBtn.style.cursor = '';
-
-                    // Stop the loading video
-                    stopLoadingVideo();
                     
-                    // Clear the input field
+                    // Clear input
                     mainInput.value = '';
                     if (textareaAutoResize) {
                         textareaAutoResize();
                     }
-
                 }, 300);
             }
         }
     }
-
-    // Add abort controller for canceling in-flight requests
-    let currentAbortController = null;
 
     function stopSubtitleTracking() {
         if (subtitleInterval) {
@@ -527,12 +495,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         currentSubtitleIndex = -1;
         
-        const subtitleElement = document.getElementById('thinking-message');
-        if (subtitleElement) {
-            subtitleElement.classList.remove('show', 'subtitle-mode');
-            subtitleElement.textContent = '';
-            subtitleElement.style.opacity = '';
-            subtitleElement.style.display = '';
+        if (subtitleContainer) {  // ← Changed from subtitleElement
+            subtitleContainer.classList.remove('show');  // ← Changed
+            subtitleText.textContent = '';  // ← Changed
+            subtitleText.style.opacity = '';  // ← Changed
         }
     }
 
@@ -562,11 +528,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (textareaAutoResize) textareaAutoResize();
             resetSendButtons();
 
-            // Reset rate limiting on conversation reset
-            apiCallCount = 0;
-            rateLimitWindowStart = Date.now();
-            lastApiCall = 0;
-
             // IMMEDIATELY stop all videos and reset mode
             stopAllVideos();
             currentVideoMode = 'idle';
@@ -587,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset thinking message COMPLETELY
             if (thinkingMessage) {
-                thinkingMessage.classList.remove('show', 'subtitle-mode');
+                thinkingMessage.classList.remove('show');
                 thinkingMessage.textContent = 'Checking my notes';
                 thinkingMessage.style.opacity = '';
             }
@@ -639,24 +600,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentVideo.currentTime = 0;
                 }
             }
-
-            // Welcome message setup
-            const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
-            const welcomePrompt = document.querySelector('.welcome-prompt');
-
-            welcomeTaglines.forEach(tagline => {
-                if (tagline) {
-                    tagline.style.display = '';
-                    tagline.style.opacity = '0';
-                    tagline.style.transition = 'opacity 0.6s ease-out';
-                }
-            });
-
-            if (welcomePrompt) {
-                welcomePrompt.style.display = '';
-                welcomePrompt.style.opacity = '0';
-                welcomePrompt.style.transition = 'opacity 0.6s ease-out';
-            }
             
             // Wait for suction animation to complete (shorter if no suction)
             await new Promise(resolve => setTimeout(resolve, wasInAnswerView ? 800 : 400));
@@ -681,6 +624,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (chatContent) {
                     chatContent.classList.remove('conversation-started');
                 }
+
+                if (welcomeContent) {
+                    welcomeContent.style.opacity = '';
+                }
                     
                 // Show initial view
                 showInitialView();
@@ -688,37 +635,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Ensure we're in idle mode
                 currentVideoMode = 'idle';
 
-                // Fade in welcome elements
+                // Clear the reset flag
                 setTimeout(() => {
-                    welcomeTaglines.forEach(tagline => {
-                        if (tagline) {
-                            tagline.style.opacity = '1';
-                        }
-                    });
-                }, 300);
-
-                setTimeout(() => {
-                    if (welcomePrompt) {
-                        welcomePrompt.style.opacity = '1';
-                    }
-                }, 300);
-
-                // Clean up transition styles and reset flag
-                setTimeout(() => {
-                    welcomeTaglines.forEach(tagline => {
-                        if (tagline) {
-                            tagline.style.transition = '';
-                            tagline.style.opacity = '';
-                        }
-                    });
-                    if (welcomePrompt) {
-                        welcomePrompt.style.transition = '';
-                        welcomePrompt.style.opacity = '';
-                    }
-                    
-                    // Clear the reset flag after everything is complete
                     resetCalled = false;
-                }, 1200);
+                }, 500);
 
             }, 1200);
             
@@ -730,6 +650,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Update the about link event listener
     // Update the about link event listener
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -753,11 +674,14 @@ document.addEventListener('DOMContentLoaded', function() {
         resetSendButtons();
 
         // Disable logo for 3 seconds to prevent race conditions
-        headProLogo.style.pointerEvents = 'none';
-        setTimeout(() => {
-            headProLogo.style.pointerEvents = '';
-            headProLogo.style.opacity = '';
-        }, 3000);
+        const headProLogo = document.querySelector('.head-pro-logo');
+        if (headProLogo) {
+            headProLogo.style.pointerEvents = 'none';
+            setTimeout(() => {
+                headProLogo.style.pointerEvents = '';
+                headProLogo.style.opacity = '';
+            }, 3000);
+        }
         
         // Check if we're already in about mode (video playing)
         if (aboutVideo && !aboutVideo.paused && aboutVideo.currentTime > 0) {
@@ -768,24 +692,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // IMMEDIATELY clear any existing thinking message content to prevent flash
             const thinkingMessage = document.getElementById('thinking-message');
             if (thinkingMessage) {
-                thinkingMessage.classList.remove('show', 'subtitle-mode');
-                thinkingMessage.textContent = ''; // Clear content immediately
+                thinkingMessage.classList.remove('show');
                 thinkingMessage.style.opacity = '0'; // Hide it
             }
             
             // If we're in a conversation, transition directly to about video
             if (answerView.classList.contains('active')) {
-                // FIRST: Hide welcome elements immediately to prevent flashing
-                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
-                const welcomePrompt = document.querySelector('.welcome-prompt');
                 
-                // Hide welcome elements before any view switching
-                welcomeTaglines.forEach(tagline => {
-                    if (tagline) tagline.style.display = 'none';
-                });
-                if (welcomePrompt) welcomePrompt.style.display = 'none';
-                
-                // Then fade out the conversation content
+                // fade out the conversation content
                 const userQuestion = document.getElementById('user-question');
                 const headProAnswer = document.getElementById('head-pro-answer');
                 const controls = document.querySelector('#answer-view .controls');
@@ -800,12 +714,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Switch to initial view (but stay zoomed)
                     initialView.classList.add('active');
                     answerView.classList.remove('active');
-                    
-                    // Remove conversation-started class
-                    const chatContent = document.querySelector('.chat-content');
-                    if (chatContent) {
-                        chatContent.classList.remove('conversation-started');
-                    }
                     
                     // Reset video container visibility with fade-in
                     const headProImgContainer = document.querySelector('.head-pro-img-container');
@@ -831,15 +739,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                 }, 300);
             } else {
-                // Starting from initial view - also hide welcome elements first
-                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
-                const welcomePrompt = document.querySelector('.welcome-prompt');
-                
-                // Hide welcome elements immediately
-                welcomeTaglines.forEach(tagline => {
-                    if (tagline) tagline.style.display = 'none';
-                });
-                if (welcomePrompt) welcomePrompt.style.display = 'none';
+                // Starting from initial view - need to hide welcome content first
+                if (welcomeContent) {
+                    welcomeContent.style.opacity = '0';
+                }
                 
                 // Stop any current video operations
                 Object.values(headProVideos).forEach(video => {
@@ -855,7 +758,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-
 
     // Add mute button event listener
     document.addEventListener('click', (e) => {
@@ -1029,8 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear thinking message first
         const thinkingMessage = document.getElementById('thinking-message');
         if (thinkingMessage) {
-            thinkingMessage.classList.remove('show', 'subtitle-mode');
-            thinkingMessage.textContent = '';
+            thinkingMessage.classList.remove('show');
             thinkingMessage.style.opacity = '0';
         }
         
@@ -1086,11 +987,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 setupAboutVideoHandlers();
                 
                 // Show subtitle area
-                const subtitleElement = document.getElementById('thinking-message');
-                if (subtitleElement) {
-                    subtitleElement.classList.add('show', 'subtitle-mode');
-                    subtitleElement.style.opacity = '1';
-                    subtitleElement.textContent = '';
+                if (subtitleContainer) {  // ← Changed from subtitleElement/thinkingMessage
+                    subtitleContainer.classList.add('show');  // ← Changed
+                    subtitleText.textContent = '';  // ← Changed
                 }
                 
                 // Start playing
@@ -1148,9 +1047,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const currentTime = aboutVideo.currentTime;
-        const subtitleElement = document.getElementById('thinking-message');
         
-        if (!subtitleElement) return;
+        if (!subtitleText) return;  // ← Changed from subtitleElement
         
         // Find the current subtitle
         let newSubtitleIndex = -1;
@@ -1168,13 +1066,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (newSubtitleIndex >= 0) {
                 // Add a subtle fade effect for subtitle changes
-                subtitleElement.style.opacity = '0';
+                subtitleText.style.opacity = '0';  // ← Changed
                 setTimeout(() => {
-                    subtitleElement.textContent = aboutSubtitles[newSubtitleIndex].text;
-                    subtitleElement.style.opacity = '1';
+                    subtitleText.textContent = aboutSubtitles[newSubtitleIndex].text;  // ← Changed
+                    subtitleText.style.opacity = '1';  // ← Changed
                 }, 150);
             } else {
-                subtitleElement.textContent = '';
+                subtitleText.textContent = '';  // ← Changed
             }
         }
     }
@@ -1261,8 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const thinkingMessage = document.getElementById('thinking-message');
         if (thinkingMessage) {
             // Remove all about-related classes and content
-            thinkingMessage.classList.remove('show', 'subtitle-mode');
-            thinkingMessage.textContent = 'Checking my notes'; // Reset to default thinking text
+            thinkingMessage.classList.remove('show');
             thinkingMessage.style.opacity = ''; // Clear any inline opacity
             thinkingMessage.style.display = ''; // Clear any inline display
             
@@ -1306,6 +1203,10 @@ document.addEventListener('DOMContentLoaded', function() {
         headProLogo.addEventListener('click', (e) => {
             e.preventDefault();
 
+            console.log('=== LOGO CLICK DEBUG ===');
+            console.log('currentVideoMode before reset:', currentVideoMode);
+            console.log('aboutVideo display:', aboutVideo?.style.display);
+
             // Disable logo for 1 second
             headProLogo.style.pointerEvents = 'none';
             headProLogo.style.opacity = '0.5';
@@ -1314,139 +1215,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 headProLogo.style.opacity = '';
             }, 1000);
             
-            // If we're in About video mode, just clean that up and return to initial view
-            if (currentVideoMode === 'about' || (aboutVideo && aboutVideo.style.display !== 'none')) {
-                // Stop the about video immediately
-                if (aboutVideo) {
-                    aboutVideo.pause();
-                    aboutVideo.style.display = 'none';
-                }
+            // ALWAYS do full reset when coming from about mode or conversation
+            if (currentVideoMode === 'about' || 
+                (aboutVideo && aboutVideo.style.display !== 'none') ||
+                answerView.classList.contains('active') || 
+                document.body.classList.contains('loading')) {
                 
-                // Nuclear option: immediately clear everything about thinking message
-                const thinkingMessage = document.getElementById('thinking-message');
-                if (thinkingMessage) {
-                    thinkingMessage.style.display = 'none';
-                    thinkingMessage.className = 'thinking-message'; // Reset to base class only
-                    thinkingMessage.textContent = ''; // Clear text immediately
-                    thinkingMessage.style.opacity = '0';
-                }
-                
-                // Stop subtitle interval
-                if (subtitleInterval) {
-                    clearInterval(subtitleInterval);
-                    subtitleInterval = null;
-                }
-                currentSubtitleIndex = -1;
-                
-                // Reset thinking message to normal state after everything settles
-                setTimeout(() => {
-                    if (thinkingMessage) {
-                        thinkingMessage.textContent = 'Checking my notes';
-                        thinkingMessage.style.cssText = ''; // This should clear display: none
-                        thinkingMessage.style.display = ''; // But let's be explicit about it
-                    }
-                }, 200);
-                
-                // Hide video controls
-                const videoControls = document.getElementById('video-controls-overlay');
-                if (videoControls) {
-                    videoControls.style.display = 'none';
-                }
-                
-                // Reset video mode
-                currentVideoMode = 'idle';
-                
-                // Simple unzoom if needed
-                if (document.body.classList.contains('zoomed') || document.body.classList.contains('zooming')) {
-                    document.body.classList.remove('zoomed', 'zooming');
-                    document.body.classList.add('unzooming');
-                    setTimeout(() => {
-                        document.body.classList.remove('unzooming');
-                    }, 1000);
-                }
-                
-                // Reset to default video (whiskey)
-                Object.values(headProVideos).forEach(video => {
-                    if (video) video.style.display = 'none';
-                });
-                currentVideo = headProVideos.whiskey;
-                if (currentVideo) {
-                    currentVideo.style.display = 'block';
-                    currentVideo.currentTime = 0;
-                }
-                
-                // FIXED: Set up welcome text with proper fade-in (same as resetConversation)
-                const welcomeTaglines = document.querySelectorAll('.welcome-tagline');
-                const welcomePrompt = document.querySelector('.welcome-prompt');
-                
-                // Prepare welcome elements with fade-in
-                welcomeTaglines.forEach(tagline => {
-                    if (tagline) {
-                        tagline.style.display = ''; // Reset display
-                        tagline.style.opacity = '0'; // Start invisible
-                        tagline.style.transition = 'opacity 0.6s ease-out'; // Add smooth transition
-                    }
-                });
-                
-                if (welcomePrompt) {
-                    welcomePrompt.style.display = ''; // Reset display
-                    welcomePrompt.style.opacity = '0'; // Start invisible
-                    welcomePrompt.style.transition = 'opacity 0.6s ease-out'; // Add smooth transition
-                }
-                
-                // Fade in welcome elements with timing similar to resetConversation
-                setTimeout(() => {
-                    welcomeTaglines.forEach(tagline => {
-                        if (tagline) {
-                            tagline.style.opacity = '1';
-                        }
-                    });
-                }, 400); // Start fading during unzoom
-                
-                setTimeout(() => {
-                    if (welcomePrompt) {
-                        welcomePrompt.style.opacity = '1';
-                    }
-                }, 400); // Fade in prompt later
-                
-                // Clean up transition styles
-                setTimeout(() => {
-                    welcomeTaglines.forEach(tagline => {
-                        if (tagline) {
-                            tagline.style.transition = '';
-                            tagline.style.opacity = '';
-                        }
-                    });
-                    if (welcomePrompt) {
-                        welcomePrompt.style.transition = '';
-                        welcomePrompt.style.opacity = '';
-                    }
-                }, 1800);
-                
-                return; // Don't do anything else
-            }
-            
-            // If we're in a conversation, do the full reset
-            if (answerView.classList.contains('active') || document.body.classList.contains('loading')) {
+                console.log('Doing full reset');
                 resetConversation();
             }
             
-            // Otherwise, do nothing (don't interrupt users on fresh initial screen)
+            // Don't do anything if we're on fresh initial screen
+            console.log('=== END LOGO CLICK DEBUG ===');
         });
         
         // Make it look clickable
         headProLogo.style.cursor = 'pointer';
     }
 
-    mainSendBtn.addEventListener('click', () => {
+    mainSendBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent any default behavior
         const isInitial = initialView.classList.contains('active');
         sendMessage(mainInput.value, isInitial);
     });
 
-    mainInput.addEventListener('keypress', (e) => {
+    mainInput.addEventListener('keydown', (e) => { // Use keydown instead of keypress
         if (e.key === 'Enter') {
-            const isInitial = initialView.classList.contains('active');
-            sendMessage(mainInput.value, isInitial);
+            if (e.shiftKey) {
+                // Allow new line on Shift+Enter
+                return; // Let the default behavior happen
+            } else {
+                // Submit on Enter
+                e.preventDefault(); // Prevent default Enter behavior
+                const isInitial = initialView.classList.contains('active');
+                sendMessage(mainInput.value, isInitial);
+            }
         }
     });
 

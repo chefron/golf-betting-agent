@@ -23,41 +23,53 @@
             <div class="chat-content">
                 <!-- Initial state - just shows input -->
                 <div id="initial-view" class="view-state active">
-                    <div class="welcome-message">
-                        <div class="head-pro-img-container">
-                            <div class="head-pro-img-wrapper">
-                                <!-- All three videos, but only one visible at a time -->
-                                <video class="head-pro-video" id="whiskey-video" muted preload="auto" playsinline>
-                                    <source src="{{ url_for('static', filename='videos/whiskey.mp4') }}" type="video/mp4">
-                                </video>
-                                <video class="head-pro-video" id="cigar-video" muted preload="auto" playsinline style="display: none;">
-                                    <source src="{{ url_for('static', filename='videos/cigar.mp4') }}" type="video/mp4">
-                                </video>
-                                <video class="head-pro-video" id="notebook-video" muted preload="auto" playsinline style="display: none;">
-                                    <source src="{{ url_for('static', filename='videos/notebook.mp4') }}" type="video/mp4">
-                                </video>
-                                <video class="head-pro-video" id="about-video" muted preload="auto" playsinline style="display: none;">
-                                    <source src="{{ url_for('static', filename='videos/about.mp4') }}" type="video/mp4">
-                                </video>
-                            </div>
+                    <!-- Move video container OUTSIDE of welcome-content -->
+                    <div class="head-pro-img-container">
+                        <div class="head-pro-img-wrapper">
+                            <!-- All three videos, but only one visible at a time -->
+                            <video class="head-pro-video" id="whiskey-video" muted preload="auto" playsinline>
+                                <source src="{{ url_for('static', filename='videos/whiskey.mp4') }}" type="video/mp4">
+                            </video>
+                            <video class="head-pro-video" id="cigar-video" muted preload="auto" playsinline style="display: none;">
+                                <source src="{{ url_for('static', filename='videos/cigar.mp4') }}" type="video/mp4">
+                            </video>
+                            <video class="head-pro-video" id="notebook-video" muted preload="auto" playsinline style="display: none;">
+                                <source src="{{ url_for('static', filename='videos/notebook.mp4') }}" type="video/mp4">
+                            </video>
+                            <video class="head-pro-video" id="about-video" muted preload="auto" playsinline style="display: none;">
+                                <source src="{{ url_for('static', filename='videos/about.mp4') }}" type="video/mp4">
+                            </video>
                         </div>
-                        <div class="video-controls-overlay" id="video-controls-overlay" style="display: none;">
-                            <button class="mute-toggle-btn" id="about-mute-btn" title="Unmute video">
-                                🔇
-                            </button>
-                        </div>
-                        <div class="welcome-tagline welcome-intro">I'm The Head Pro.</div>
-                        <div class="welcome-tagline welcome-description">I track pro golfers' mental states to find betting edges that strokes-gained models miss.</div>
-                        <p class="thinking-message" id="thinking-message">Checking my notes</p>
                     </div>
                     
-                    <p class="welcome-prompt">Ask me about a guy's headspace or betting plays for this week.</p>
+                    <!-- Video controls also moved outside -->
+                    <div class="video-controls-overlay" id="video-controls-overlay" style="display: none;">
+                        <button class="mute-toggle-btn" id="about-mute-btn" title="Unmute video">
+                            🔇
+                        </button>
+                    </div>
                     
-                   
-        
+                    <!-- Welcome content that gets hidden during conversation -->
+                    <div class="welcome-content">
+                        <div class="welcome-message">
+                            <!-- Video container removed from here -->
+                            <!-- Video controls removed from here -->
+                            <div class="welcome-tagline welcome-intro">I'm The Head Pro.</div>
+                            <div class="welcome-tagline welcome-description">I track pro golfers' mental states to find betting edges that strokes-gained models miss.</div>
+                        </div>
+                        <p class="welcome-prompt">Ask me about a guy's headspace or betting plays for this week.</p>
+                    </div>
+                                        
+                    <!-- Separate loading message that shows independently -->
+                    <div class="loading-overlay">
+                        <p class="thinking-message">Checking my notes</p>
+                    </div>
                 </div>
-                
-                
+
+                <div class="subtitle-container" id="subtitle-container">
+                    <p class="subtitle-text" id="subtitle-text"></p>
+                </div>       
+                     
                 <!-- Answer view with input and send icon -->
                 <div id="answer-view" class="view-state">
                     <div id="user-question" class="user-question"></div>
