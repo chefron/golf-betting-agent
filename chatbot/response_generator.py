@@ -50,21 +50,23 @@ class ResponseGenerator:
 'betting_current': """
 1. In the data section below, you'll find betting recommendations for the {tournament_name}—organized by player, with mental scores, justifications, markets, odds by sportsbook, and adjusted EV. Use ONLY WHAT'S RELEVANT to craft a succinct response.  Just answer the damn question and ONLY the damn question. If someone asks who you like, just tell them you who you like—NOT who you don't like.
 2. Only recommend bets where players have mental scores over +0.25 AND positive EV (6%+ for placements, 10%+ for winners). Exercise caution with longshot winners—they're typically worth only a sprinkle. If no good opportunities exist, say so—don't force recommendations.
-3. For matchup/3-ball queries: the model doesn't have projections for these formats yet. For FRL bets: you don't track this because mental form isn't predictive for single rounds—it manifests over multiple rounds.
+3. For matchup/3-ball queries: the model doesn't have projections for these formats yet, but it will in the future. For first round leader (FRL), miss cut (mc), and make cut bets: you don't track these because mental form isn't predictive for one or two rounds—it manifests over an entire tournament.
 4. When discussing mental form, use the provided scores (-1 to +1) and justifications but add colorful elaboration where appropriate. Don't fabricate data—stick to the data provided below.
 5. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
 6. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
 7. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
 
 'dfs_current': """
-1. In the data section below, you'll find DFS recommendations and fades for the {tournament_name}. Recs are players with strong mental form (+0.35 or better). Fades are guys with poor form (-0.25 or worse)—auto-crossoffs no matter the salary or ownership. Use ONLY WHAT'S RELEVANT to craft a succint response.  Just answer the damn question and ONLY the damn question. If someone asks who you like, just tell them you who you like—NOT who you don't like.
-2. For RECOMMENDATIONS: Consider players at different salary tiers: high ($9,000+), mid ($7,500-$8,900), and value (below $7,500) on DraftKings. Most DFS lineups need a mix of these tiers to fit under the $50K salary cap ($60K for FanDuel). Lineups are composed of six players.
-3. For FADES: These are players with mental scores of -0.25 or lower that you should avoid in DFS lineups, even if they have appealing salaries or low ownership. Poor mental form often leads to missed cuts or poor finishes that kill DFS lineups.
-4. For tournaments (GPPs), suggest lower-owned players (under 12%) with upside. For cash games (50/50s, double-ups), you can recommend more widely-owned players with consistent performance.
-5. When discussing mental form, use the provided scores (-1 to +1) and justifications but add colorful elaboration where appropriate. Don't fabricate data—stick to the data provided below.
-6. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
-7. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
-8. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
+1. In the data section below, you'll find three types of DFS information for the {tournament_name}:
+   - OPTIMAL DFS LINEUPS: Pre-computed 6-player lineups that maximize average mental form scores while staying under the $50K salary cap
+   - DFS PLAYER RECOMMENDATIONS: Individual players with strong mental form (≥0.35) and salaries ≥$6K
+   - DFS FADES: Players with poor mental form (≤-0.25) to avoid regardless of salary
+2. When users ask for lineup help, present one of the pre-computed OPTIMAL DFS LINEUPS rather than trying to build your own.
+3. Use ONLY WHAT'S RELEVANT to craft a succint response.  Just answer the damn question and ONLY the damn question. If someone asks who you like for DFS, just tell them you who you like—NOT who you don't like.
+4. When discussing mental form, use the provided scores (-1 to +1) and justifications but add colorful elaboration where appropriate. Don't fabricate data—stick to the data provided below.
+5. Only discuss players who appear in the context below. Use FULL NAMES (first and last) on first mention unless they're universally known by another name. Remember, the user can't see the data you're seeing, so clarity is crucial.
+6. Today's date is {current_date}. Keep your years straight: 2024 was last year, 2025 is now, 2026 is next year.
+7. NEVER FABRICATE DATA. This destroys credibility instantly. If relevant data isn't provided below, say "I don't have data on that" rather than guessing.""",
 
 'mental_rankings': """
 1. In the data section below, you'll find players with the highest and lowest mental form scores (-1 to +1) across all tracked tours, plus whether they're in the field for this week's PGA event. Use only what's relevant to craft a succint response.  Just answer the damn question and ONLY the damn question. If someone asks who you like, just tell them you who you like—NOT who you don't like.
@@ -112,7 +114,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
         }
     
     def generate_response(self, query: str, retrieved_data: Dict[str, Any], 
-                         conversation_history: List[Dict[str, Any]] = None) -> str:
+                         conversation_history: List[Dict[str, Any]] = None) -> str: # type: ignore
         """Generate the Head Pro's response based on retrieved data."""
         logger.info(f"Generating response for query: {query}")
 
@@ -125,8 +127,8 @@ Explain these limitations concisely but colorfully in your response. Be apologet
         context = self._format_data_as_context(retrieved_data)
         
         # Format conversation history
-        conv_history = self._format_conversation_history(conversation_history)
-        
+        conv_history = self._format_conversation_history(conversation_history if conversation_history is not None else [])
+
         # Create the prompt
         prompt = self._create_prompt(query, context, conv_history, query_type, tournament_name, course_name)
         
@@ -143,7 +145,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
             )
             
             # Extract the response
-            return response.content[0].text
+            return response.content[0].text # type: ignore
             
         except Exception as e:
             logger.error(f"Error generating response: {e}")
@@ -151,7 +153,7 @@ Explain these limitations concisely but colorfully in your response. Be apologet
     
     def _create_prompt(self, query: str, context: str, conv_history: str, query_type: str, tournament_name: str, course_name: str) -> str:
         """Create the prompt for generating a response with new structure."""
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_date = datetime.now().strftime("%A, %B %d, %Y")
         
         # Get complete instructions for this query type
         instructions = self.instruction_templates.get(query_type, self.instruction_templates['other_question'])
@@ -178,6 +180,11 @@ You're currently chatting with a user on the Head Pro website on {current_date}.
 {query}
 </QUERY>
 
+<CONVERSATION HISTORY>
+Here's your conversation up to this point:
+{conv_history}
+</CONVERSATION HISTORY>
+
 <INSTRUCTIONS>
 {instructions}
 </INSTRUCTIONS>
@@ -185,11 +192,6 @@ You're currently chatting with a user on the Head Pro website on {current_date}.
 <DATA>
 {context}
 </DATA>{faqs_section}
-
-<CONVERSATION HISTORY>
-Here's your conversation up to this point:
-{conv_history}
-</CONVERSATION HISTORY>
 
 Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing their query. Don't use tags or titles -- keep it conversational. Be concise. Use short paragraphs for easy readability.
 </CURRENT TASK>
@@ -367,9 +369,41 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 if i < len(data['betting_fades']):
                     context_parts.append("")
 
-        # Add DFS recommendations
+        # Add optimal DFS lineups (NEW SECTION - goes first)
+        if data.get('optimal_dfs_lineups'):
+            context_parts.append(f"\nOPTIMAL DFS LINEUPS for {tournament_name} (ranked by average mental form score):")
+            
+            for lineup in data['optimal_dfs_lineups']:
+                context_parts.append(f"\n  Lineup #{lineup['lineup_rank']} - Avg Mental Score: {lineup['avg_mental_score']:.3f}")
+                context_parts.append(f"    Total Salary: ${lineup['total_salary']:,} (${lineup['salary_remaining']} remaining)")
+                context_parts.append("    Players:")
+                
+                # Sort players by salary for display (get salary from dfs_recommendations data)
+                players_with_salary = []
+                for player in lineup['players']:
+                    # Find this player's salary in the recommendations data
+                    player_salary = None
+                    for rec_player in data.get('dfs_recommendations', []):
+                        if rec_player['player_id'] == player['id']:
+                            player_salary = rec_player['dk_salary']
+                            break
+                    
+                    players_with_salary.append({
+                        'name': player['name'],
+                        'salary': player_salary or 0
+                    })
+                
+                # Sort by salary (highest first) and display
+                players_with_salary.sort(key=lambda x: x['salary'], reverse=True)
+                for player in players_with_salary:
+                    if player['salary'] > 0:
+                        context_parts.append(f"      • {player['name']}: ${player['salary']:,}")
+                    else:
+                        context_parts.append(f"      • {player['name']}: Salary unavailable")
+
+        # Add DFS recommendations (UPDATED - now with salary minimum)
         if data.get('dfs_recommendations'):
-            context_parts.append(f"\nDFS RECOMMENDATIONS for {tournament_name}:")
+            context_parts.append(f"\nDFS PLAYER RECOMMENDATIONS for {tournament_name} (mental score ≥ 0.35, salary ≥ $6,000):")
             
             for i, player in enumerate(data['dfs_recommendations']):
                 context_parts.append(f"\n {player['player_name']}:")
@@ -377,9 +411,9 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 # Add salary information
                 salary_parts = []
                 if player.get('dk_salary'):
-                    salary_parts.append(f"${player['dk_salary']} (DraftKings)")
+                    salary_parts.append(f"${player['dk_salary']:,} (DraftKings)")
                 if player.get('fd_salary'):
-                    salary_parts.append(f"${player['fd_salary']} (FanDuel)")
+                    salary_parts.append(f"${player['fd_salary']:,} (FanDuel)")
                     
                 if salary_parts:
                     context_parts.append(f"    Salary: {', '.join(salary_parts)}")
@@ -407,7 +441,7 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                         
                         context_parts.append(f"      • {date} | {tour} | {event_name}: {finish}")
         
-        # Add DFS fades - NEW SECTION
+        # Add DFS fades (UNCHANGED)
         if data.get('dfs_fades'):
             context_parts.append(f"\nDFS FADES for {tournament_name} (only relevant if the user asks for players to avoid):")
             
@@ -417,9 +451,9 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 # Add salary information
                 salary_parts = []
                 if player.get('dk_salary'):
-                    salary_parts.append(f"${player['dk_salary']} (DraftKings)")
+                    salary_parts.append(f"${player['dk_salary']:,} (DraftKings)")
                 if player.get('fd_salary'):
-                    salary_parts.append(f"${player['fd_salary']} (FanDuel)")
+                    salary_parts.append(f"${player['fd_salary']:,} (FanDuel)")
                     
                 if salary_parts:
                     context_parts.append(f"    Salary: {', '.join(salary_parts)}")
@@ -545,7 +579,7 @@ Now please respond to the user as THE HEAD PRO, bluntly and concisely addressing
                 
         return "\n".join(context_parts)
     
-    def _format_conversation_history(self, history: List[Dict[str, Any]] = None) -> str:
+    def _format_conversation_history(self, history: List[Dict[str, Any]]) -> str:
         """Format conversation history for inclusion in the prompt."""
         if not history:
             return "No previous conversation."

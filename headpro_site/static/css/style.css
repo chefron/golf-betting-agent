@@ -666,7 +666,7 @@ body.unzooming #cinematic-overlay {
 
 .head-pro-img-container {
     position: fixed;
-    top: 60%;
+    top: 59%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 10;
@@ -692,8 +692,8 @@ body.unzooming #cinematic-overlay {
 }
 
 .head-pro-img-wrapper {
-    width: 38.5vh;
-    height: 38.5vh;
+    width: 40vh;
+    height: 40vh;
     overflow: hidden;
     border-radius: 50%;
     transition: width 2s cubic-bezier(0.1, 0.7, 0.6, 1), height 2s cubic-bezier(0.1, 0.7, 0.6, 1);

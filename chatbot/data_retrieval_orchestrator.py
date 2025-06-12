@@ -285,14 +285,72 @@ class DataRetrievalOrchestrator:
             data['betting_fades'].append(fade_entry)
 
     def _retrieve_dfs_recommendations(self, conn: sqlite3.Connection, data: Dict[str, Any]) -> None:
-        """Retrieve DFS recommendations and fades for the current tournament."""
+        """Retrieve comprehensive DFS data: optimal lineups, player recommendations, and fades."""
         cursor = conn.cursor()
         
-        # Initialize both recommendations and fades
+        # Initialize all DFS data structures
+        data['optimal_dfs_lineups'] = []
         data['dfs_recommendations'] = []
         data['dfs_fades'] = []
         
-        # Get DFS RECOMMENDATIONS: players in current tournament with good mental form, ordered by DK salary
+        # 1. OPTIMAL LINEUPS: Get pre-computed optimal lineups
+        cursor.execute('''
+        SELECT ol.lineup_rank, ol.total_salary, ol.avg_mental_score, ol.salary_remaining,
+            p1.name as player1_name, p2.name as player2_name, p3.name as player3_name,
+            p4.name as player4_name, p5.name as player5_name, p6.name as player6_name,
+            p1.id as player1_id, p2.id as player2_id, p3.id as player3_id,
+            p4.id as player4_id, p5.id as player5_id, p6.id as player6_id
+        FROM optimal_lineups ol
+        JOIN players p1 ON ol.player_1_id = p1.id
+        JOIN players p2 ON ol.player_2_id = p2.id
+        JOIN players p3 ON ol.player_3_id = p3.id
+        JOIN players p4 ON ol.player_4_id = p4.id
+        JOIN players p5 ON ol.player_5_id = p5.id
+        JOIN players p6 ON ol.player_6_id = p6.id
+        WHERE ol.event_name = ?
+        ORDER BY ol.lineup_rank
+        ''', (self.current_tournament,))
+        
+        for lineup in cursor.fetchall():
+            lineup_dict = dict(lineup)
+            
+            # Format player names and create lineup structure
+            lineup_data = {
+                'lineup_rank': lineup_dict['lineup_rank'],
+                'total_salary': lineup_dict['total_salary'],
+                'avg_mental_score': lineup_dict['avg_mental_score'],
+                'salary_remaining': lineup_dict['salary_remaining'],
+                'players': [
+                    {
+                        'name': self._format_player_name(lineup_dict['player1_name']),
+                        'id': lineup_dict['player1_id']
+                    },
+                    {
+                        'name': self._format_player_name(lineup_dict['player2_name']),
+                        'id': lineup_dict['player2_id']
+                    },
+                    {
+                        'name': self._format_player_name(lineup_dict['player3_name']),
+                        'id': lineup_dict['player3_id']
+                    },
+                    {
+                        'name': self._format_player_name(lineup_dict['player4_name']),
+                        'id': lineup_dict['player4_id']
+                    },
+                    {
+                        'name': self._format_player_name(lineup_dict['player5_name']),
+                        'id': lineup_dict['player5_id']
+                    },
+                    {
+                        'name': self._format_player_name(lineup_dict['player6_name']),
+                        'id': lineup_dict['player6_id']
+                    }
+                ]
+            }
+            
+            data['optimal_dfs_lineups'].append(lineup_data)
+        
+        # 2. DFS RECOMMENDATIONS: Players with good mental form, salary over $6K
         cursor.execute('''
         SELECT 
             p.id, p.name, 
@@ -311,8 +369,9 @@ class DataRetrievalOrchestrator:
             FROM dfs_projections
             WHERE event_name = ? AND site = 'fanduel' AND slate = 'main'
         ) fd ON p.id = fd.player_id
-        WHERE m.score >= 0.25
+        WHERE m.score >= 0.35
         AND dk.salary IS NOT NULL
+        AND dk.salary >= 6000
         ORDER BY dk.salary DESC
         ''', (self.current_tournament, self.current_tournament))
         
@@ -338,7 +397,7 @@ class DataRetrievalOrchestrator:
             
             data['dfs_recommendations'].append(player_data)
         
-        # Get DFS FADES: players with poor mental form (regardless of salary)
+        # 3. DFS FADES: Players with poor mental form (no salary minimum)
         cursor.execute('''
         SELECT 
             p.id, p.name, 
