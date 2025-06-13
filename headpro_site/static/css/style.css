@@ -692,8 +692,8 @@ body.unzooming #cinematic-overlay {
 }
 
 .head-pro-img-wrapper {
-    width: 40vh;
-    height: 40vh;
+    width: 41vh;
+    height: 41vh;
     overflow: hidden;
     border-radius: 50%;
     transition: width 2s cubic-bezier(0.1, 0.7, 0.6, 1), height 2s cubic-bezier(0.1, 0.7, 0.6, 1);
@@ -823,6 +823,7 @@ body.loading .loading-overlay {
 .welcome-tagline.welcome-description {
     font-weight: 300;
     margin-bottom: 0;
+    max-width: 550px;
 }
 
 .welcome-prompt {
@@ -830,6 +831,7 @@ body.loading .loading-overlay {
     /* Add these properties: */
     margin-top: auto; /* This pushes it to the bottom */
     text-align: center;
+    max-width: 550px;
    
 }
 
@@ -1569,11 +1571,6 @@ body.loading .loading-overlay {
     }
 
 
-    /* Main chat area */
-
-    .welcome-message {
-        
-    }
  
 
 

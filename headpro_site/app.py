@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 import sys
 import sqlite3
@@ -353,12 +353,27 @@ def scorecard_data():
         return jsonify(default_data)
 
 @app.route('/favicon.ico')
+@app.route('/favicon.png')
 def favicon():
-    """Serve a simple favicon to avoid 404 errors"""
-    # Return a simple response to avoid 404 errors
-    # You can create an actual favicon.ico file later if needed
-    from flask import Response
-    return Response(status=204)  # No content response
+    """Serve the favicon from the root directory"""
+    # Check which file exists
+    import os
+    
+    # Try .ico first, then .png
+    for filename, mimetype in [
+        ('favicon.ico', 'image/vnd.microsoft.icon'),
+        ('favicon.png', 'image/png')
+    ]:
+        if os.path.exists(os.path.join(app.root_path, filename)):
+            return send_from_directory(
+                app.root_path, 
+                filename, 
+                mimetype=mimetype
+            )
+    
+    # If no favicon found, return 404
+    from flask import abort
+    abort(404)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
