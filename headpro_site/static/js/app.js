@@ -521,9 +521,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Set the reset flag IMMEDIATELY
             resetCalled = true;
 
-            // IMMEDIATELY re-enable about link (in case it was disabled)
-            aboutLink.style.pointerEvents = '';
-            aboutLink.style.opacity = '';
+            // IMMEDIATELY disable about link to prevent race conditions
+            aboutLink.style.pointerEvents = 'none';
+            aboutLink.style.opacity = '0.5';
             
             // Cancel any ongoing API request
             if (currentAbortController) {
@@ -639,15 +639,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     chatContent.classList.remove('conversation-started');
                 }
 
-                if (welcomeContent) {
-                    welcomeContent.style.opacity = '';
+                // Only restore welcome content if we're not switching to about mode
+                if (currentVideoMode !== 'about' && !switchingToAbout) {
+                    if (welcomeContent) {
+                        welcomeContent.style.opacity = '';
+                        welcomeContent.style.display = '';
+                    }
                 }
-                    
+                                
                 // Show initial view
                 showInitialView();
                 
                 // Ensure we're in idle mode
                 currentVideoMode = 'idle';
+
+                // Re-enable about link
+                aboutLink.style.pointerEvents = '';
+                aboutLink.style.opacity = '';
 
                 // Clear the reset flag
                 setTimeout(() => {
@@ -661,6 +669,9 @@ document.addEventListener('DOMContentLoaded', function() {
             headProAnswer.textContent = "Couldn't reset the conversation. The Head Pro might be having technical difficulties.";
             resetCalled = false; // Clear flag on error
             currentVideoMode = 'idle';
+            // Re-enable about link on error too
+            aboutLink.style.pointerEvents = '';
+            aboutLink.style.opacity = '';
         }
     }
     
@@ -784,7 +795,7 @@ document.addEventListener('DOMContentLoaded', function() {
     resetSendButtons();
     
     // Initialize
-    loadLastMessage();
+    showInitialView();
     
     // If no saved message, focus on main input
     if (initialView.classList.contains('active')) {

@@ -1533,7 +1533,7 @@ body.loading .loading-overlay {
 @media (min-width: 480px) and (max-width: 1200px) {
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
-        transform: scale(1.1);
+        transform: scale(1.25);
     }
    
 
@@ -1542,7 +1542,6 @@ body.loading .loading-overlay {
     }
 
     .chat-container {
-        transform: translateY(0);
         height: 55vh;
         width: min(75vmin, 85vw);
     }
