@@ -184,6 +184,7 @@ body.unzooming #cinematic-overlay {
 .chat-container {
     /* Width: stays reasonable on all screens */
     width: min(96vmin, 95vw);
+    max-width: 1000px;
     
     /* Height: much taller on mobile, shorter on desktop */
     height: clamp(60vh, 48vh + 8vw, 85vh);
@@ -246,6 +247,7 @@ body.unzooming #cinematic-overlay {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    align-items: center;
     height: 100%;
     width: 100%;
 }
@@ -253,7 +255,7 @@ body.unzooming #cinematic-overlay {
 /* Loading overlay - hidden by default */
 .loading-overlay {
     position: absolute;
-    top: 8vh;
+    top: 6vh;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
@@ -1527,8 +1529,8 @@ body.loading .loading-overlay {
 /* ===== RESPONSIVE MEDIA QUERIES ===== */
 
 
-/* Tablets */
-@media (min-width: 768px) and (max-width: 1200px) {
+/* Tablets and large phones */
+@media (min-width: 480px) and (max-width: 1200px) {
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
         transform: scale(1.1);
@@ -1536,13 +1538,45 @@ body.loading .loading-overlay {
    
 
     .thinking-message {
-        font-size: 1.3em;
+        font-size: 1.1em;
     }
 
     .chat-container {
         transform: translateY(0);
         height: 55vh;
+        width: min(75vmin, 85vw);
     }
+
+    .welcome-content {
+        font-size: 1em;
+    }
+
+    .welcome-message {
+        margin-top: 0;
+    }
+
+    .head-pro-img-container {
+        position: fixed;
+        top: 55%;
+        left: 50%;
+    }
+
+    .head-pro-img-wrapper {
+        width: 45vh;
+        height: 45vh;
+    }
+
+    #initial-view {
+       padding: 0;
+    }
+
+    .head-pro-answer {
+        font-size: .9em;
+
+    }
+
+     
+
 
 
 }
@@ -1551,8 +1585,10 @@ body.loading .loading-overlay {
 
 
 
+
+
 /* Mobile  */
-@media (min-width: 0px) and (max-width: 768px) {
+@media (min-width: 0px) and (max-width: 480px) {
 
 
     .head-pro-answer {
@@ -1638,10 +1674,7 @@ body.loading .loading-overlay {
     }
 
 
-    .welcome-message h2 {
-        font-size: 1.3rem;
-    }
-    
+
     /* General modal */
     .modal-content {
         width: 95%;
