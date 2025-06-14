@@ -569,8 +569,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Start unzooming with a brief delay (shorter if no suction needed)
             setTimeout(() => {
+                document.body.classList.remove('zooming');
                 document.body.classList.add('unzooming');
-            }, wasInAnswerView ? 300 : 100);
+            }, wasInAnswerView ? 100 : 50);
             
             // Create new abort controller for reset API call
             currentAbortController = new AbortController();
@@ -639,12 +640,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     chatContent.classList.remove('conversation-started');
                 }
 
-                // Only restore welcome content if we're not switching to about mode
-                if (currentVideoMode !== 'about' && !switchingToAbout) {
-                    if (welcomeContent) {
-                        welcomeContent.style.opacity = '';
-                        welcomeContent.style.display = '';
-                    }
+                if (welcomeContent) {
+                    welcomeContent.style.opacity = '';
+                    welcomeContent.style.display = '';
                 }
                                 
                 // Show initial view
@@ -660,9 +658,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Clear the reset flag
                 setTimeout(() => {
                     resetCalled = false;
-                }, 500);
+                }, 100);
 
-            }, 1200);
+            }, 700);
             
         } catch (error) {
             console.error('Error resetting conversation:', error);
@@ -675,7 +673,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Update the about link event listener
     // Update the about link event listener
     aboutLink.addEventListener('click', (e) => {
         e.preventDefault();

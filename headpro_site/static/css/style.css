@@ -34,7 +34,7 @@ body {
     background-color: var(--dark-green);
     z-index: -2; /* Behind everything including cinematic overlay */
     transform-origin: center center;
-    transition: transform 2s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: transform 1s cubic-bezier(0.1, 0.7, 0.6, 1);
 }
 
 /* Zoom states - now using transform instead of background-size */
@@ -47,9 +47,9 @@ body.zoomed .background-zoom {
 
 
 body.unzooming .background-zoom {
-    transform: scale(1);
-    transition: transform 0.8s ease-out;
-    will-change: transform;
+    transform: scale(1) !important;
+    transition: transform 0.6s ease-out !important;
+    will-change: transform !important;
 }
 
 /* No transition during pre-zoom setup */
@@ -71,7 +71,7 @@ body.pre-zoom .background-zoom {
 
 body.zooming #cinematic-overlay {
     background-color: rgba(0, 0, 0, 0.4);
-    transition: background-color 2s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: background-color 1s cubic-bezier(0.1, 0.7, 0.6, 1);
 }
 
 body.zoomed #cinematic-overlay {
@@ -79,9 +79,9 @@ body.zoomed #cinematic-overlay {
 }
 
 body.unzooming #cinematic-overlay {
-    background-color: rgba(0, 0, 0, 0);
-    transition: background-color 0.8s ease-out;
-    will-change: background-color;
+    background-color: rgba(0, 0, 0, 0) !important;
+    transition: background-color 0.6s ease-out !important;
+    will-change: background-color !important;
 }
 
 /* Navigation */
@@ -698,7 +698,7 @@ body.unzooming #cinematic-overlay {
     height: 41vh;
     overflow: hidden;
     border-radius: 50%;
-    transition: width 2s cubic-bezier(0.1, 0.7, 0.6, 1), height 2s cubic-bezier(0.1, 0.7, 0.6, 1);
+    transition: width 1s cubic-bezier(0.1, 0.7, 0.6, 1), height 1s cubic-bezier(0.1, 0.7, 0.6, 1); /* Changed from 2s to 1s */
     /* Add these to ensure consistent positioning */
     display: block;
     margin: 0; /* Remove any default margins */
@@ -732,15 +732,14 @@ body.zooming .head-pro-img-wrapper,
 body.zoomed .head-pro-img-wrapper {
     width: 57vh;
     height: 57vh;
-    transform: translateZ(0); /* Prevents blurring */
-    overflow: hidden;
+    transition: width 1s cubic-bezier(0.1, 0.7, 0.6, 1), height 1s cubic-bezier(0.1, 0.7, 0.6, 1); /* Shortened from 2s */
 }
 
 /* Add smooth unzoom transition */
 body.unzooming .head-pro-img-wrapper {
-    width: 37vh;
-    height: 37vh;
-    transition: width 0.7s ease-out, height 0.7s ease-out;
+    width: 41vh;
+    height: 41vh;
+    transition: width 0.6s ease-out, height 0.6s ease-out;
     transform: translateZ(0); /* Prevents blurring during animation */
     will-change: width, height;
 }
@@ -1531,9 +1530,12 @@ body.loading .loading-overlay {
 
 /* Tablets and large phones */
 @media (min-width: 480px) and (max-width: 1200px) {
+
+
+    /* Zoom states - now using transform instead of background-size */
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
-        transform: scale(1.25);
+        transform: scale(1.15);
     }
    
 
@@ -1550,19 +1552,24 @@ body.loading .loading-overlay {
         font-size: 1em;
     }
 
-    .welcome-message {
-        margin-top: 0;
-    }
+
 
     .head-pro-img-container {
         position: fixed;
-        top: 55%;
+        top: 58%;
         left: 50%;
     }
 
     .head-pro-img-wrapper {
         width: 45vh;
         height: 45vh;
+    }
+
+    body.unzooming .head-pro-img-wrapper {
+        width: 45vh;
+        height: 45vh;
+        transition: width 0.6s ease-out, height 0.6s ease-out;
+        will-change: width, height;
     }
 
     #initial-view {
@@ -1603,6 +1610,10 @@ body.loading .loading-overlay {
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
         transform: scale(1.1);
+    }
+
+    .subtitle-text {
+        font-size: .9em;
     }
 
 
