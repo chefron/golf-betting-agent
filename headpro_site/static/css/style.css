@@ -191,8 +191,7 @@ body.unzooming #cinematic-overlay {
     
     /* Remove fixed aspect ratio completely */
     
-    
-
+   
     
     position: relative;
     margin: 0 auto;
@@ -200,7 +199,7 @@ body.unzooming #cinematic-overlay {
     font-optical-sizing: auto;
     line-height: 1.6;
     transform: translateY(-4vh);
-    overflow: hidden;
+    
 }
 
 .chat-content {
@@ -249,7 +248,8 @@ body.unzooming #cinematic-overlay {
     justify-content: space-between;
     align-items: center;
     height: 100%;
-    width: 100%;
+    width: 98%;
+    max-width: 400px;
 }
 
 /* Loading overlay - hidden by default */
@@ -270,6 +270,7 @@ body.unzooming #cinematic-overlay {
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
+   
 }
 
 /* Answer view input area */
@@ -359,7 +360,7 @@ body.unzooming #cinematic-overlay {
 }
 
 .bottom-input-area .input-container {
-    max-width: 600px;
+    max-width: 650px;
     min-height: 3.2em;
     margin: 0 auto;
     position: relative;
@@ -589,6 +590,7 @@ body.unzooming #cinematic-overlay {
 #answer-view {
     justify-content: space-between;
     z-index: 2;
+    align-items: center;
 }
 
 
@@ -1531,26 +1533,37 @@ body.loading .loading-overlay {
 /* Tablets and large phones */
 @media (min-width: 480px) and (max-width: 1200px) {
 
+  
+
 
     /* Zoom states - now using transform instead of background-size */
     body.zooming .background-zoom,
     body.zoomed .background-zoom {
-        transform: scale(1.15);
+        transform: scale(1.2);
     }
-   
 
     .thinking-message {
-        font-size: 1.1em;
+        font-size: 1em;
+        transform: translateY(-1em)
     }
 
     .chat-container {
-        height: 55vh;
-        width: min(75vmin, 85vw);
+        height: calc(100vh - min(45vh, 0.6 * 100vmax));
+        transform: translateY(-3vh);
+        
+
+
+       
     }
 
-    .welcome-content {
+     .welcome-content {
         font-size: 1em;
-    }
+        max-width: 500px;
+    
+     
+     }
+
+
 
 
 
@@ -1568,17 +1581,24 @@ body.loading .loading-overlay {
     body.unzooming .head-pro-img-wrapper {
         width: 45vh;
         height: 45vh;
-        transition: width 0.6s ease-out, height 0.6s ease-out;
-        will-change: width, height;
     }
 
     #initial-view {
        padding: 0;
     }
 
+    .welcome-prompt {
+        transform: translateY(1em);
+    }
+
     .head-pro-answer {
         font-size: .9em;
+        max-width: 90vw;
 
+    }
+
+    .bottom-input-area {
+        padding-bottom: 6em;
     }
 
      
@@ -1588,7 +1608,40 @@ body.loading .loading-overlay {
 }
 
 
+@media (min-width: 480px) and (max-width: 1200px) and (min-aspect-ratio: 1/1) {
+    /* Landscape tablets, wide un-maximized desktop windows */
 
+    .head-pro-img-wrapper {
+        width: 40vh;
+        height: 40vh;
+    }
+
+    body.unzooming .head-pro-img-wrapper {
+        width: 40vh;
+        height: 40vh;
+    }
+
+    .bottom-input-area {
+        padding-bottom: 4em;
+    }
+
+    body.zooming .background-zoom,
+    body.zoomed .background-zoom {
+        transform: scale(1.4);
+    }
+
+    .welcome-content {
+        font-size: clamp(.75em, 1.2vw, .75em);
+        max-width: 300px;
+    }
+
+    .welcome-message {
+        transform: translateY(-1em);
+    }
+
+  
+
+}
 
 
 
